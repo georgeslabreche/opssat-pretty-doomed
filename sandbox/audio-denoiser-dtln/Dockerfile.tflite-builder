@@ -1,0 +1,69 @@
+FROM debian:bookworm-slim
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    python3 \
+    python3-numpy \
+    openjdk-17-jdk \
+    bash \
+    zip \
+    file \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bazel manually - detect and validate architecture
+RUN ARCH=$(uname -m) && \
+    echo "Detected host architecture: $ARCH" && \
+    case "$ARCH" in \
+        "x86_64") \
+            BAZEL_ARCH="x86_64" \
+            ;; \
+        "aarch64") \
+            BAZEL_ARCH="arm64" \
+            ;; \
+        *) \
+            echo "ERROR: Unsupported host architecture: $ARCH" && \
+            echo "Bazel is only available for x86_64 and aarch64 hosts" && \
+            echo "Supported host architectures: x86_64, aarch64" && \
+            echo "Cross-compilation targets: elinux_armhf, android_arm64, etc." && \
+            exit 1 \
+            ;; \
+    esac && \
+    echo "Downloading Bazel for host architecture: ${BAZEL_ARCH}" && \
+    wget -O bazel https://github.com/bazelbuild/bazel/releases/download/6.4.0/bazel-6.4.0-linux-${BAZEL_ARCH} \
+    && chmod +x bazel \
+    && ls -la bazel \
+    && file bazel \
+    && mv bazel /usr/local/bin/ \
+    && which bazel \
+    && /usr/local/bin/bazel version
+
+# Clone TensorFlow and build TensorFlow Lite C API
+# For cross-compilation options, see: https://ai.google.dev/edge/litert/build/arm
+WORKDIR /workspace
+RUN git clone --depth 1 --branch v2.18.1 https://github.com/tensorflow/tensorflow.git
+
+WORKDIR /workspace/tensorflow
+# Build target passed as build arg (defaults to native)
+ARG BUILD_CONFIG=native
+RUN echo "Building with config: $BUILD_CONFIG" && \
+    echo "Container architecture: $(uname -m)" && \
+    echo "Available memory: $(free -h)" && \
+    which bazel && \
+    bazel version && \
+    if [ "$BUILD_CONFIG" = "native" ]; then \
+        bazel build -c opt --define=tflite_with_xnnpack=false --local_ram_resources=20480 --jobs=2 //tensorflow/lite/c:libtensorflowlite_c.so; \
+    else \
+        bazel build --config=$BUILD_CONFIG -c opt --define=tflite_with_xnnpack=false --local_ram_resources=20480 --jobs=2 //tensorflow/lite/c:libtensorflowlite_c.so; \
+    fi
+
+# Create output directory and copy files
+RUN mkdir -p /output/lib /output/include \
+    && cp bazel-bin/tensorflow/lite/c/libtensorflowlite_c.so /output/lib/ \
+    && cp -r tensorflow/ /output/include/
+
+# Default command copies files to mounted volume with proper permissions
+CMD ["sh", "-c", "cp -r /output/* /host/ && chmod -R 755 /host/"]
