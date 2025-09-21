@@ -1,0 +1,10 @@
+services:
+  dtln-denoiser:
+    build: .
+    volumes:
+      - .:/workspace
+      - ../../samples:/workspace/samples
+      - ./output:/workspace/output
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
