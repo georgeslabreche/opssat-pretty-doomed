@@ -2,13 +2,13 @@
 set -e
 
 # Batch validation script for NOIZEUS corpus
-# Processes all noisy samples through spectral subtraction
+# Processes all noisy samples through adaptive filtering
 
 VALIDATION_DIR="samples/validation/noizeus"
-OUTPUT_DIR="output/validation/noizeus/spectral_subtraction"
-BINARY="./build/spectral_subtraction"
+OUTPUT_DIR="output/validation/noizeus/adaptive"
+BINARY="./build/adaptive_filtering"
 
-echo "=== Batch Validation - Spectral Subtraction ==="
+echo "=== Batch Validation - Adaptive Filtering ==="
 echo ""
 
 # Check if NOIZEUS corpus exists
