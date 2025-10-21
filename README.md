@@ -10,22 +10,38 @@ This project aims to implement voice telecommand capability for the ESA PRETTY s
 
 1. **Radio amateur** sends voice telecommand via SDR
 2. **GNU Radio** captures and processes the voice signal
-3. **DTLN neural network** denoises the audio file
+3. **Audio denoising** removes radio interference and background noise
 4. **Speech recognition** detects the specific voice command
 5. **Execute command** (e.g., play DOOM demo file)
 6. **Downlink** all audio and command artifacts
 
 ## Current Status
 
-✅ **DTLN Implementation Complete** - TensorFlow Lite C API with streaming processing
-📊 **Results**: Limited effectiveness on radio interference
-🎯 **Next**: Fine-tune models with OPS-SAT voice data for radio-specific denoising
+**Audio Denoising Experiments**:
+- ✅ **DTLN (Neural Network)** - TensorFlow Lite C API implementation complete
+  - Good for acoustic noise, limited for radio interference
+- ✅ **Spectral Subtraction (Classical)** - C implementation complete
+  - Works for stationary acoustic noise, fails for radio interference
+
+**Findings**: Both deep learning and classical methods struggle with non-stationary radio interference patterns unique to OPS-SAT samples.
+
+🎯 **Next**: Explore radio-specific interference cancellation or hybrid approaches
 
 ## Experiments
 
-- [`sandbox/audio-denoiser-dtln/`](./sandbox/audio-denoiser-dtln/) - DTLN denoising with TensorFlow Lite C API
-  - ✅ **Working implementation** matching official reference
-  - 📈 **Results & next steps** detailed in [experiment README](./sandbox/audio-denoiser-dtln/README.md)
+### Neural Network Denoising
+[`sandbox/audio-denoiser-dtln/`](./sandbox/audio-denoiser-dtln/) - DTLN with TensorFlow Lite C API
+- ✅ Implementation complete, matches official reference
+- ✅ Excellent for acoustic noise
+- ❌ Limited effectiveness on radio interference
+- 📈 [Full results & analysis](./sandbox/audio-denoiser-dtln/README.md)
+
+### Classical Signal Processing
+[`sandbox/audio-denoiser-classical/`](./sandbox/audio-denoiser-classical/) - Spectral subtraction, Wiener filtering, adaptive methods
+- ✅ Spectral subtraction implemented
+- ❌ Ineffective for radio interference (non-stationary noise)
+- 🔜 Wiener filtering and adaptive methods planned
+- 📈 [Full results & comparison](./sandbox/audio-denoiser-classical/README.md)
 
 ## Documentation
 
@@ -33,12 +49,20 @@ This project aims to implement voice telecommand capability for the ESA PRETTY s
 
 ## Quick Start
 
+DTLN neural network denoising:
 ```bash
-# Audio denoising experiment
 cd sandbox/audio-denoiser-dtln
 ./build-tflite.sh
 docker-compose up -d
 docker-compose exec dtln-denoiser make
+```
+
+Classical spectral subtraction:
+```bash
+cd sandbox/audio-denoiser-classical
+docker-compose build && docker-compose up -d
+docker-compose exec spectral-denoiser sh
+make test
 ```
 
 ## Mission
