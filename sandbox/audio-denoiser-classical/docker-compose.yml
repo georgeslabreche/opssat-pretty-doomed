@@ -1,0 +1,12 @@
+services:
+  spectral-denoiser:
+    build: .
+    container_name: spectral-denoiser
+    volumes:
+      - ./src:/app/src
+      - ./Makefile:/app/Makefile
+      - ./batch_validate_spectral_subtraction.sh:/app/batch_validate_spectral_subtraction.sh
+      - ./output:/app/output
+      - ../../samples:/app/samples
+    working_dir: /app
+    tty: true
