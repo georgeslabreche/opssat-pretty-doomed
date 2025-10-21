@@ -9,10 +9,11 @@ COMMON_OBJS = $(BUILDDIR)/common/audio_io.o
 # Targets
 TARGET_SPECTRAL = $(BUILDDIR)/spectral_subtraction
 TARGET_ADAPTIVE = $(BUILDDIR)/adaptive_filtering
+TARGET_WIENER = $(BUILDDIR)/wiener_filtering
 
-.PHONY: all clean test test-spectral test-adaptive
+.PHONY: all clean test test-spectral test-adaptive test-wiener
 
-all: $(TARGET_SPECTRAL) $(TARGET_ADAPTIVE)
+all: $(TARGET_SPECTRAL) $(TARGET_ADAPTIVE) $(TARGET_WIENER)
 
 # Spectral subtraction
 $(TARGET_SPECTRAL): $(BUILDDIR)/spectral_subtraction.o $(COMMON_OBJS)
@@ -20,6 +21,10 @@ $(TARGET_SPECTRAL): $(BUILDDIR)/spectral_subtraction.o $(COMMON_OBJS)
 
 # Adaptive filtering
 $(TARGET_ADAPTIVE): $(BUILDDIR)/adaptive_filtering.o $(COMMON_OBJS)
+	$(CC) $^ -o $@ $(LIBS)
+
+# Wiener filtering
+$(TARGET_WIENER): $(BUILDDIR)/wiener_filtering.o $(COMMON_OBJS)
 	$(CC) $^ -o $@ $(LIBS)
 
 # Object files
@@ -36,10 +41,13 @@ clean:
 	rm -rf $(BUILDDIR)
 
 # Test targets
-test: test-spectral test-adaptive
+test: test-spectral test-adaptive test-wiener
 
 test-spectral: $(TARGET_SPECTRAL)
 	./$(TARGET_SPECTRAL) samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav output/opssat_sample_denoised_spectral_subtraction.wav
 
 test-adaptive: $(TARGET_ADAPTIVE)
 	./$(TARGET_ADAPTIVE) samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav output/opssat_sample_denoised_adaptive.wav
+
+test-wiener: $(TARGET_WIENER)
+	./$(TARGET_WIENER) samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav output/opssat_sample_denoised_wiener.wav
