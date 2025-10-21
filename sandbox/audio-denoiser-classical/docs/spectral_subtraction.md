@@ -1,5 +1,8 @@
 # Spectral Subtraction
 
+## Status
+✅ **Implemented** | ❌ **Not effective for OPS-SAT radio samples**
+
 ## Overview
 
 Spectral subtraction estimates the noise spectrum from silent periods and subtracts it from the noisy signal in the frequency domain. It's fast and simple, but may introduce musical noise artifacts.
