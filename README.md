@@ -24,8 +24,10 @@ This project aims to implement voice telecommand capability for the ESA PRETTY s
   - Works for stationary acoustic noise, fails for radio interference
 - ✅ **Adaptive Filtering (Classical)** - NLMS frequency-domain implementation complete
   - Works for stationary acoustic noise, fails for radio interference
+- ✅ **Wiener Filtering (Classical)** - MMSE optimal gain implementation complete
+  - Works for stationary acoustic noise, fails for radio interference
 
-**Findings**: Deep learning and classical methods (spectral subtraction, adaptive filtering) all struggle with non-stationary radio interference patterns unique to OPS-SAT samples.
+**Findings**: Deep learning and all classical methods (spectral subtraction, adaptive filtering, Wiener filtering) struggle with non-stationary radio interference patterns unique to OPS-SAT samples.
 
 🎯 **Next**: Explore radio-specific interference cancellation or hybrid approaches
 
@@ -42,8 +44,8 @@ This project aims to implement voice telecommand capability for the ESA PRETTY s
 [`sandbox/audio-denoiser-classical/`](./sandbox/audio-denoiser-classical/) - Spectral subtraction, adaptive filtering, Wiener filtering
 - ✅ Spectral subtraction implemented
 - ✅ Adaptive filtering (NLMS) implemented
-- ❌ Both ineffective for radio interference (non-stationary noise)
-- 🔜 Wiener filtering planned
+- ✅ Wiener filtering (MMSE) implemented
+- ❌ All three methods ineffective for radio interference (non-stationary noise)
 - 📈 [Full results & comparison](./sandbox/audio-denoiser-classical/README.md)
 
 ## Documentation

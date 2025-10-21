@@ -7,6 +7,7 @@ services:
       - ./Makefile:/app/Makefile
       - ./batch_validate_spectral_subtraction.sh:/app/batch_validate_spectral_subtraction.sh
       - ./batch_validate_adaptive.sh:/app/batch_validate_adaptive.sh
+      - ./batch_validate_wiener.sh:/app/batch_validate_wiener.sh
       - ./output:/app/output
       - ../../samples:/app/samples
     working_dir: /app
