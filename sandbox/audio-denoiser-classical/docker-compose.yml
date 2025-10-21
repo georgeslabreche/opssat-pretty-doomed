@@ -1,11 +1,12 @@
 services:
-  spectral-denoiser:
+  classical-denoiser:
     build: .
-    container_name: spectral-denoiser
+    container_name: classical-denoiser
     volumes:
       - ./src:/app/src
       - ./Makefile:/app/Makefile
       - ./batch_validate_spectral_subtraction.sh:/app/batch_validate_spectral_subtraction.sh
+      - ./batch_validate_adaptive.sh:/app/batch_validate_adaptive.sh
       - ./output:/app/output
       - ../../samples:/app/samples
     working_dir: /app

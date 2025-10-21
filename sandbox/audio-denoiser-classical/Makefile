@@ -4,19 +4,25 @@ LIBS = -lsndfile -lfftw3f -lm
 
 SRCDIR = src
 BUILDDIR = build
-TARGET = $(BUILDDIR)/spectral_subtraction
+COMMON_OBJS = $(BUILDDIR)/common/audio_io.o
 
-# Source files
-SOURCES = $(SRCDIR)/spectral_subtraction.c $(SRCDIR)/common/audio_io.c
-OBJECTS = $(SOURCES:$(SRCDIR)/%.c=$(BUILDDIR)/%.o)
+# Targets
+TARGET_SPECTRAL = $(BUILDDIR)/spectral_subtraction
+TARGET_ADAPTIVE = $(BUILDDIR)/adaptive_filtering
 
-.PHONY: all clean test
+.PHONY: all clean test test-spectral test-adaptive
 
-all: $(TARGET)
+all: $(TARGET_SPECTRAL) $(TARGET_ADAPTIVE)
 
-$(TARGET): $(OBJECTS) | $(BUILDDIR)
-	$(CC) $(OBJECTS) -o $@ $(LIBS)
+# Spectral subtraction
+$(TARGET_SPECTRAL): $(BUILDDIR)/spectral_subtraction.o $(COMMON_OBJS)
+	$(CC) $^ -o $@ $(LIBS)
 
+# Adaptive filtering
+$(TARGET_ADAPTIVE): $(BUILDDIR)/adaptive_filtering.o $(COMMON_OBJS)
+	$(CC) $^ -o $@ $(LIBS)
+
+# Object files
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c | $(BUILDDIR) $(BUILDDIR)/common
 	$(CC) $(CFLAGS) -I$(SRCDIR) -c $< -o $@
 
@@ -29,7 +35,11 @@ $(BUILDDIR)/common:
 clean:
 	rm -rf $(BUILDDIR)
 
-test: $(TARGET)
-	./$(TARGET) samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav output/opssat_sample_denoised_spectral_subtraction.wav
+# Test targets
+test: test-spectral test-adaptive
 
-.PHONY: all clean test
+test-spectral: $(TARGET_SPECTRAL)
+	./$(TARGET_SPECTRAL) samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav output/opssat_sample_denoised_spectral_subtraction.wav
+
+test-adaptive: $(TARGET_ADAPTIVE)
+	./$(TARGET_ADAPTIVE) samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav output/opssat_sample_denoised_adaptive.wav
