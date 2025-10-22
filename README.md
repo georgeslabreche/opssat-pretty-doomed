@@ -27,9 +27,13 @@ This project aims to implement voice telecommand capability for the ESA PRETTY s
 - ✅ **Wiener Filtering (Classical)** - MMSE optimal gain implementation complete
   - Works for stationary acoustic noise, fails for radio interference
 
-**Findings**: Deep learning and all classical methods (spectral subtraction, adaptive filtering, Wiener filtering) struggle with non-stationary radio interference patterns unique to OPS-SAT samples.
+- ✅ **Adaptive Line Enhancement (Radio-Specific)** - Leaky NLMS with delayed self-reference
+  - Implementation complete, validated on NOIZEUS corpus (480 files)
+  - Not effective for OPS-SAT radio interference
 
-🎯 **Next**: Explore radio-specific interference cancellation or hybrid approaches
+**Findings**: Deep learning, classical methods (spectral subtraction, adaptive filtering, Wiener filtering), and radio-specific ALE all struggle with the complex non-stationary radio interference patterns in OPS-SAT samples.
+
+🎯 **Next**: Explore robust ASR (Whisper/Wav2Vec2) or hybrid approaches
 
 ## Experiments
 
@@ -48,6 +52,15 @@ This project aims to implement voice telecommand capability for the ESA PRETTY s
 - ❌ All three methods ineffective for radio interference (non-stationary noise)
 - 📈 [Full results & comparison](./sandbox/audio-denoiser-classical/README.md)
 
+### Radio-Specific Interference Cancellation
+[`sandbox/audio-denoiser-ale/`](./sandbox/audio-denoiser-ale/) - Adaptive Line Enhancement (ALE)
+- ✅ Implementation complete (Leaky NLMS, DELAY=400, FILTER_LENGTH=64)
+- ✅ Validated on NOIZEUS corpus (480 files across 4 noise types × 4 SNR levels)
+- ❌ Not effective for OPS-SAT radio interference
+- Uses delayed self-reference to suppress quasi-periodic interference
+- Designed for radio carriers/harmonics, but OPS-SAT interference is too complex
+- 📈 [Full documentation](./sandbox/audio-denoiser-ale/README.md)
+
 ## Documentation
 
 📋 [**Full Proposal**](./docs/PROPOSAL.md) - Detailed project description, proof of concept, and next steps
@@ -62,12 +75,19 @@ docker-compose up -d
 docker-compose exec dtln-denoiser make
 ```
 
-Classical methods (spectral subtraction & adaptive filtering):
+Classical methods (spectral subtraction, adaptive filtering, Wiener filtering):
 ```bash
 cd sandbox/audio-denoiser-classical
 docker-compose build && docker-compose up -d
 docker-compose exec classical-denoiser sh
 make test
+```
+
+ALE radio interference cancellation:
+```bash
+cd sandbox/audio-denoiser-ale
+docker-compose build && docker-compose up -d
+docker-compose exec ale-denoiser make test
 ```
 
 ## Mission
