@@ -8,7 +8,7 @@ Evaluation of classical signal processing methods for denoising OPS-SAT radio am
 |--------|--------|---------------|--------------|
 | **Spectral Subtraction** | ✅ Implemented | [docs/spectral_subtraction.md](docs/spectral_subtraction.md) | `batch_validate_spectral_subtraction.sh` |
 | **Adaptive Filtering** | ✅ Implemented | [docs/adaptive_filtering.md](docs/adaptive_filtering.md) | `batch_validate_adaptive.sh` |
-| **Wiener Filtering** | 🔜 Planned | [docs/wiener_filtering.md](docs/wiener_filtering.md) | `batch_validate_wiener.sh` |
+| **Wiener Filtering** | ✅ Implemented | [docs/wiener_filtering.md](docs/wiener_filtering.md) | `batch_validate_wiener.sh` |
 
 ## Results Summary
 
@@ -43,6 +43,21 @@ Evaluation of classical signal processing methods for denoising OPS-SAT radio am
 
 **Conclusion**: Like spectral subtraction, adaptive filtering assumes stationary noise and fails for dynamic radio interference patterns.
 
+### Wiener Filtering (MMSE)
+
+**Status**: ❌ **Not effective for OPS-SAT radio samples**
+
+- **Original**: [`samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav`](../../samples/opssat1/SDRSharp_20240110_180622Z_73841Hz_AF.wav)
+- **Denoised**: [`output/opssat_sample_denoised_wiener.wav`](output/opssat_sample_denoised_wiener.wav)
+
+**Findings**:
+- Optimal MMSE gain computation
+- Fixed noise estimate from initial frames
+- ✅ Works for stationary acoustic noise
+- ❌ Fails for OPS-SAT radio interference
+
+**Conclusion**: All three classical methods (spectral subtraction, adaptive filtering, Wiener filtering) assume stationary noise and fail for non-stationary radio interference patterns.
+
 ## Project Structure
 
 ```
@@ -55,6 +70,7 @@ audio-denoiser-classical/
 ├── src/                        # Source code
 │   ├── spectral_subtraction.c
 │   ├── adaptive_filtering.c
+│   ├── wiener_filtering.c
 │   └── common/                 # Shared utilities
 │       ├── audio_io.c
 │       └── audio_io.h
