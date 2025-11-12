@@ -1,0 +1,35 @@
+From the denoised file SDRSharp_20240110_180622Z_73841Hz_AF_DENOISED.wav I could hear:
+...
+0:04 : Sierra papa four
+...
+0:14-0:17 : This is delta delta seven mike ...
+...
+(total file: 25s)
+
+Whisper (https://github.com/ggml-org/whisper.cpp)
+Command: ./build/bin/whisper-cli -f samples/xxx.wav
+
+Noised:
+"You can look at this here on the last floor" - ???wrong
+"This is Delta Delta seven" - correct, but incomplete
+
+Denoised:
+"This is Delta 7 bike" - almost correct
+"Sir, of course, now, we eliminate this" - ???wrong
+
+
+VOSK (https://github.com/alphacep/vosk-api; https://alphacephei.com/vosk/install)
+git clone https://github.com/alphacep/vosk-api
+cd vosk-api/python/example
+python3 ./test_simple.py test.wav
+
+python3 test_ffmpeg.py test.wav
+ffmpeg -i stereo_den.wav -map_channel 0.0.0 left_den.wav -map_channel 0.0.1 right_den.wav
+python3 ./test_ffmpeg.py SDRSharp_20240110_180622Z_73841Hz_AF_DENOISED.wav
+
+For simple, for ffmpeg:
+Noised: nothing
+Denoised: all wrong
+
+
+
