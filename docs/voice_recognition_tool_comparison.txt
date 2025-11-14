@@ -6,9 +6,10 @@ From the denoised file SDRSharp_20240110_180622Z_73841Hz_AF_DENOISED.wav I could
 ...
 (total file: 25s)
 
-Whisper (https://github.com/ggml-org/whisper.cpp)
+***** Whisper ***** (https://github.com/ggml-org/whisper.cpp)
 Command: ./build/bin/whisper-cli -f samples/xxx.wav
 
+*** For base model (142 MiB) 
 Noised:
 "You can look at this here on the last floor" - ???wrong
 "This is Delta Delta seven" - correct, but incomplete
@@ -18,7 +19,41 @@ Denoised:
 "Sir, of course, now, we eliminate this" - ???wrong
 
 
-VOSK (https://github.com/alphacep/vosk-api; https://alphacephei.com/vosk/install)
+*** For tiny model (75 MiB)
+Usage: ./build/bin/whisper-cli -m /home/jedi/repo/tiny/whisper.cpp/models/ggml-tiny.bin -f samples/xxx.wav
+Noised:
+[00:00:00.000 --> 00:00:10.000]   [BLANK_AUDIO]
+[00:00:30.000 --> 00:00:31.000]   [BANG]
+(nothing)
+
+Denoised:
+[00:00:00.000 --> 00:00:27.000]   You can hear us. Sheerapapa for people, people, so-called, it's just Delta, Delta, 7, Mike. You have the news, or is it just that? Yeah, sure course now. I think the name is just, yeah.
+(Wow, it invented a lot, but got many things right as well - even almost got "Sierra-Papa-Four")
+
+
+*** For small model (466 MiB)
+./build/bin/whisper-cli -m /home/jedi/repo/tiny/whisper.cpp/models/ggml-small.en.bin -f samples/xxx.wav
+Processing takes 3-5min on an old laptop with 3.7GiB RAM and Ubuntu 18.04.
+
+Noised:
+[00:00:00.000 --> 00:00:02.580]   (wind blowing)
+[00:00:02.580 --> 00:00:07.640]   (muffled speaking)
+[00:00:07.640 --> 00:00:11.000]   (wind blowing)
+[00:00:11.000 --> 00:00:13.920]   (muffled speaking)
+[00:00:13.920 --> 00:00:18.160]   (wind blowing)
+[00:00:18.160 --> 00:00:21.080]   (muffled speaking)
+[00:00:21.080 --> 00:00:29.000]   (muffled speaking)
+(nothing)
+
+Denoised:
+[00:00:00.000 --> 00:00:18.000]   This is Delta. Delta-7, Mike. Do you have money? Sorry, you just said that.
+[00:00:18.000 --> 00:00:26.000]   Sir, cars now. Do you eliminate this?
+[00:00:26.000 --> 00:00:36.000]   [BLANK_AUDIO]
+(something right)
+
+
+
+***** VOSK ***** (https://github.com/alphacep/vosk-api; https://alphacephei.com/vosk/install)
 git clone https://github.com/alphacep/vosk-api
 cd vosk-api/python/example
 python3 ./test_simple.py test.wav
