@@ -24,8 +24,6 @@
 #include "doomtype.h"
 
 
-void M_AllocateRandom (void);
-void M_FreeRandom (void);
 
 // Returns a number from 0 to 255,
 // from a lookup table.
@@ -37,6 +35,5 @@ int P_Random (void);
 // Fix randoms for demos.
 void M_ClearRandom (void);
 
-int TotalRngCalls (void);
 
 #endif
