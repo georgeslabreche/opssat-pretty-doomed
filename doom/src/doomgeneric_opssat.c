@@ -96,16 +96,12 @@ void DG_SetWindowTitle(const char * title)
 
 int main(int argc, char **argv)
 {
-    M_AllocateRandom();
-    
     doomgeneric_Create(argc, argv);
 
     while (1)
     {
         doomgeneric_Tick();
     }
-
-    M_FreeRandom();
 
     return 0;
 }
