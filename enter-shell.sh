@@ -1,0 +1,1 @@
+sudo chroot exp_env /bin/sh
