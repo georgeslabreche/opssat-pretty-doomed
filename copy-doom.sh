@@ -1,0 +1,1 @@
+rsync -a --delete ./doom/ ./exp_env/home/exp/doom/
