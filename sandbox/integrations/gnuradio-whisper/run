@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# GNU Radio + Whisper Transcription Pipeline for OPS-SAT SEPP
+#
+# Usage: ./run <input.wav> [output.txt]
+#
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PIPELINE="$SCRIPT_DIR/gnuradio_pipeline"
+LIBS_DIR="$SCRIPT_DIR/libs"
+MODEL="$SCRIPT_DIR/models/ggml-tiny.bin"
+
+# Set library path for deployment
+export LD_LIBRARY_PATH="$LIBS_DIR:$LD_LIBRARY_PATH"
+
+# Check arguments
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <input.wav> [output.txt]"
+    echo ""
+    echo "Arguments:"
+    echo "  input.wav   - Input WAV audio file"
+    echo "  output.txt  - Output transcription file (default: transcription.txt)"
+    exit 1
+fi
+
+INPUT_FILE="$1"
+OUTPUT_FILE="${2:-transcription.txt}"
+
+# Check if input file exists
+if [ ! -f "$INPUT_FILE" ]; then
+    echo "Error: Input file not found: $INPUT_FILE"
+    exit 1
+fi
+
+# Check if model exists
+if [ ! -f "$MODEL" ]; then
+    echo "Error: Model not found: $MODEL"
+    exit 1
+fi
+
+# Run pipeline
+exec "$PIPELINE" -i "$INPUT_FILE" -o "$OUTPUT_FILE" -m "$MODEL" -n 0.5

@@ -1,0 +1,7 @@
+services:
+  gnuradio-builder:
+    build: .
+    container_name: gnuradio-libs-builder
+    volumes:
+      - ./output:/export
+    working_dir: /build
