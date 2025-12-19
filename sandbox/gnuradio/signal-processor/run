@@ -1,0 +1,70 @@
+#!/bin/sh
+
+# GNU Radio Signal Processor - OPS-SAT SEPP Entrypoint
+# This script is the entry point for the SEPP experiment
+#
+# Pipeline: Lowpass -> Bandpass -> Power Squelch
+# Optimized for voice audio (300-3400 Hz)
+#
+# Directory structure:
+#   io/input/   - Input WAV files
+#   io/output/  - Output WAV files (for downlink)
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Set up library path to find bundled shared libraries
+export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
+
+# I/O directories
+INPUT_DIR="${SCRIPT_DIR}/io/input"
+OUTPUT_DIR="${SCRIPT_DIR}/io/output"
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Log file
+LOG_FILE="${OUTPUT_DIR}/signal_processor.log"
+
+# Log start
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting GNU Radio Signal Processor" >> "$LOG_FILE"
+echo "Pipeline: Lowpass -> Bandpass -> Power Squelch" >> "$LOG_FILE"
+echo "Input directory: $INPUT_DIR" >> "$LOG_FILE"
+echo "Output directory: $OUTPUT_DIR" >> "$LOG_FILE"
+
+# Process all WAV files in input directory
+PROCESSED=0
+for INPUT_FILE in "$INPUT_DIR"/*.wav; do
+    if [ -f "$INPUT_FILE" ]; then
+        FILENAME=$(basename "$INPUT_FILE")
+        OUTPUT_FILE="${OUTPUT_DIR}/processed_${FILENAME}"
+
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Processing: $FILENAME" >> "$LOG_FILE"
+
+        "${SCRIPT_DIR}/signal_processor" \
+            --input "$INPUT_FILE" \
+            --output "$OUTPUT_FILE" \
+            >> "$LOG_FILE" 2>&1
+
+        STATUS=$?
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Completed $FILENAME with status: $STATUS" >> "$LOG_FILE"
+
+        PROCESSED=$((PROCESSED + 1))
+    fi
+done
+
+# Log completion
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files" >> "$LOG_FILE"
+
+# Create summary file
+{
+    echo "GNU Radio Signal Processor Results"
+    echo "==================================="
+    echo "Pipeline: Lowpass (3400 Hz) -> Bandpass (300-3400 Hz) -> Power Squelch (-40 dB)"
+    echo "Files processed: $PROCESSED"
+    echo ""
+    echo "Output files:"
+    ls -la "$OUTPUT_DIR"/*.wav 2>/dev/null || echo "  (none)"
+} > "${OUTPUT_DIR}/summary.txt"
+
+exit 0

@@ -1,0 +1,14 @@
+services:
+  signal-processor:
+    build: .
+    container_name: gnuradio-signal-processor
+    volumes:
+      - ./src:/app/src
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./package:/app/package
+      - ./run:/app/run
+      - ./io:/app/io
+      - ../../../samples:/app/samples
+    working_dir: /app
+    tty: true

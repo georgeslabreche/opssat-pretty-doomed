@@ -1,0 +1,14 @@
+services:
+  gnuradio-whisper:
+    build: .
+    container_name: gnuradio-whisper
+    volumes:
+      - ./src:/app/src
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./output:/app/output
+      - ./models:/app/models
+      - ./libs:/app/libs
+      - ../../../../samples:/app/samples
+    working_dir: /app
+    tty: true
