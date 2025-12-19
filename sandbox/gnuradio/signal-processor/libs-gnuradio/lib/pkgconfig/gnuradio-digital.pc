@@ -1,0 +1,11 @@
+prefix=/opt/gnuradio
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: gnuradio-digital
+Description: GNU Radio blocks for digital communications
+Requires: gnuradio-runtime
+Version: 3.10.11
+Libs: -L${libdir} -lgnuradio-digital
+Cflags: -I${includedir}
