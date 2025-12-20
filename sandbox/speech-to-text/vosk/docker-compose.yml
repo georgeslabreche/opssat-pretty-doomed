@@ -1,0 +1,7 @@
+services:
+  vosk:
+    build: .
+    volumes:
+      - .:/app
+      - ../../../samples:/samples:ro
+    working_dir: /app

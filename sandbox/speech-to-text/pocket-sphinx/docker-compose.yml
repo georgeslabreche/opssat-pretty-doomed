@@ -1,0 +1,8 @@
+services:
+  pocketsphinx:
+    build: .
+    platform: linux/amd64
+    volumes:
+      - .:/app
+      - ../../../samples:/samples:ro
+    working_dir: /app
