@@ -7,8 +7,9 @@
 # Optimized for voice audio (300-3400 Hz)
 #
 # Directory structure:
-#   io/input/   - Input WAV files
-#   io/output/  - Output WAV files (for downlink)
+#   input/          - Input WAV files (packaged)
+#   io/input/       - Input WAV files (development)
+#   toGround/       - Output artifacts for downlink
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -16,28 +17,46 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Set up library path to find bundled shared libraries
 export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
 
-# I/O directories
-INPUT_DIR="${SCRIPT_DIR}/io/input"
-OUTPUT_DIR="${SCRIPT_DIR}/io/output"
+# I/O directories - check for packaged structure first, then dev structure
+if [ -d "${SCRIPT_DIR}/input" ]; then
+    INPUT_DIR="${SCRIPT_DIR}/input"
+else
+    INPUT_DIR="${SCRIPT_DIR}/io/input"
+fi
+TOGROUND_DIR="${SCRIPT_DIR}/toGround"
 
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
+# Create toGround directory if it doesn't exist
+mkdir -p "$TOGROUND_DIR"
+
+# Auto-increment run ID based on existing runs
+LAST_RUN=$(ls -d "$TOGROUND_DIR"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{6\}$')
+if [ -z "$LAST_RUN" ]; then
+    RUNID=1
+else
+    RUNID=$((10#$LAST_RUN + 1))
+fi
+
+RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
+
+# Create run directory
+mkdir -p "$RUN_DIR"
 
 # Log file
-LOG_FILE="${OUTPUT_DIR}/signal_processor.log"
+LOG_FILE="${RUN_DIR}/signal_processor.log"
 
 # Log start
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting GNU Radio Signal Processor" >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting GNU Radio Signal Processor" > "$LOG_FILE"
+echo "Run ID: $RUNID" >> "$LOG_FILE"
 echo "Pipeline: Lowpass -> Bandpass -> Power Squelch" >> "$LOG_FILE"
 echo "Input directory: $INPUT_DIR" >> "$LOG_FILE"
-echo "Output directory: $OUTPUT_DIR" >> "$LOG_FILE"
+echo "Output directory: $RUN_DIR" >> "$LOG_FILE"
 
 # Process all WAV files in input directory
 PROCESSED=0
 for INPUT_FILE in "$INPUT_DIR"/*.wav; do
     if [ -f "$INPUT_FILE" ]; then
         FILENAME=$(basename "$INPUT_FILE")
-        OUTPUT_FILE="${OUTPUT_DIR}/processed_${FILENAME}"
+        OUTPUT_FILE="${RUN_DIR}/processed_${FILENAME}"
 
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Processing: $FILENAME" >> "$LOG_FILE"
 
@@ -60,11 +79,12 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files" >> "$LOG_FILE"
 {
     echo "GNU Radio Signal Processor Results"
     echo "==================================="
+    echo "Run ID: $RUNID"
     echo "Pipeline: Lowpass (3400 Hz) -> Bandpass (300-3400 Hz) -> Power Squelch (-40 dB)"
     echo "Files processed: $PROCESSED"
     echo ""
     echo "Output files:"
-    ls -la "$OUTPUT_DIR"/*.wav 2>/dev/null || echo "  (none)"
-} > "${OUTPUT_DIR}/summary.txt"
+    ls -la "$RUN_DIR"/*.wav 2>/dev/null || echo "  (none)"
+} > "${RUN_DIR}/summary.txt"
 
 exit 0

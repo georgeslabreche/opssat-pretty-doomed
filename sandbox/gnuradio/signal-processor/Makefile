@@ -62,14 +62,14 @@ test: run-clean run-noisy run-very-noisy
 # Run inside container: make package-prepare
 # Run outside container: make package-samples && make package-tar
 package-prepare: $(TARGET)
-	mkdir -p package/signal-processor/libs
-	mkdir -p package/signal-processor/io/output
-	cp $(TARGET) package/signal-processor/
-	cp run package/signal-processor/
-	chmod +x package/signal-processor/run
-	# Copy GNU Radio + VOLK libs for bundled deployment
-	cp -P $(GNURADIO_PREFIX)/lib/*.so* package/signal-processor/libs/
-	@echo "Package prepared in package/signal-processor/"
+	mkdir -p package/exp4023-signal-processor-v1/libs
+	mkdir -p package/exp4023-signal-processor-v1/input
+	cp $(TARGET) package/exp4023-signal-processor-v1/
+	cp run package/exp4023-signal-processor-v1/
+	chmod +x package/exp4023-signal-processor-v1/run
+	# Copy GNU Radio + VOLK libs (not available on SEPP)
+	cp -P $(GNURADIO_PREFIX)/lib/*.so* package/exp4023-signal-processor-v1/libs/
+	@echo "Package prepared in package/exp4023-signal-processor-v1/"
 	@echo "Run 'make package-samples' then 'make package-tar' outside the container"
 
 # Run OUTSIDE the container to copy sample files
@@ -78,6 +78,6 @@ package-samples:
 
 # Run OUTSIDE the container (BusyBox tar doesn't support --owner)
 package-tar:
-	cd package && tar --owner=exp --group=exp -czvf signal-processor.tar.gz signal-processor/
-	@echo "Package created: package/signal-processor.tar.gz"
-	@ls -lh package/signal-processor.tar.gz
+	cd package && tar --owner=exp --group=exp -czvf exp4023-signal-processor-v1.tar.gz exp4023-signal-processor-v1/
+	@echo "Package created: package/exp4023-signal-processor-v1.tar.gz"
+	@ls -lh package/exp4023-signal-processor-v1.tar.gz

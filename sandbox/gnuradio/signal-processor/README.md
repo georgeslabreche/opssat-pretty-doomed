@@ -55,7 +55,7 @@ There are two ways to run the signal processor:
 
 ### Option 1: Make Targets (Development)
 
-Run individual samples or all at once. No logging, just processes the files.
+Quick single-file tests during development. Outputs to `io/output/`.
 
 ```bash
 # Process individual samples
@@ -67,24 +67,31 @@ docker-compose run --rm signal-processor make run-very-noisy
 docker-compose run --rm signal-processor make test
 ```
 
+**Output:** `io/output/processed_*.wav`
+
 ### Option 2: Run Script (SEPP Deployment)
 
-The `run` script is the SEPP entrypoint. It processes all WAV files in `io/input/` and creates logs.
+The `run` script is the SEPP entrypoint. It processes all WAV files in `io/input/` and saves artifacts to `toGround/` for downlink. Each run auto-increments a run ID.
 
 ```bash
-# Copy samples to io/input
-mkdir -p io/input
-cp ../../../samples/georges/*.wav io/input/
-
 # Run the SEPP entrypoint script
 docker-compose run --rm signal-processor sh -c "cp build/signal_processor . && ./run"
 ```
 
-**Output files:** `io/output/processed_*.wav`
+**Output structure:**
+```
+toGround/
+├── run-000001/
+│   ├── processed_*.wav         # Filtered audio files
+│   ├── signal_processor.log    # Detailed processing log
+│   └── summary.txt             # Results summary
+├── run-000002/
+│   └── ...
+└── run-000003/
+    └── ...
+```
 
-**Logs (run script only):**
-- `io/output/signal_processor.log` - detailed processing log
-- `io/output/summary.txt` - summary of results
+Each invocation of `./run` creates a new `run-NNNNNN/` directory with incrementing ID.
 
 ## Usage
 
@@ -114,24 +121,22 @@ make package-samples
 make package-tar
 ```
 
-The `setup-samples.sh` script copies the georges voice samples to `package/signal-processor/io/input/`.
+The `setup-samples.sh` script copies the georges voice samples to `package/exp4023-signal-processor-v1/input/`.
 
-This creates `package/signal-processor.tar.gz` containing:
+This creates `package/exp4023-signal-processor-v1.tar.gz` containing:
 
 ```
-signal-processor/
+exp4023-signal-processor-v1/
 ├── signal_processor        # ARM32 binary
 ├── run                     # SEPP entrypoint script
 ├── libs/                   # GNU Radio + VOLK libraries
 │   ├── libgnuradio-*.so*
 │   └── libvolk*.so*
-└── io/
-    ├── input/              # Input WAV files
-    │   └── georges_*.wav
-    └── output/             # Output directory (for downlink)
+└── input/                  # Input WAV files
+    └── georges_*.wav
 ```
 
-The `run` script processes all WAV files in `io/input/` and writes processed outputs to `io/output/`.
+The `run` script processes all WAV files in `input/` and writes outputs to `toGround/run-NNNNNN/` for downlink.
 
 All files are owned by `exp:exp` as required by SEPP.
 
