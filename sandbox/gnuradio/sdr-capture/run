@@ -1,0 +1,98 @@
+#!/bin/sh
+
+# SDR Capture Loop - OPS-SAT SEPP Entrypoint
+#
+# Continuous RF capture loop for live reception.
+# Captures FM-demodulated audio from AD9361 SDR.
+#
+# Usage: ./run [--duration N] [--once]
+#   --duration N  Capture duration per run in seconds (default: 10)
+#   --once        Single capture, then exit (default: loop forever)
+#
+# Directory structure:
+#   toGround/       - Output artifacts for downlink
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Set up library path to find bundled shared libraries
+export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
+
+# Parse arguments
+DURATION=10
+LOOP=1
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --duration)
+            DURATION="$2"
+            shift 2
+            ;;
+        --once)
+            LOOP=0
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+TOGROUND_DIR="${SCRIPT_DIR}/toGround"
+
+# Create toGround directory if it doesn't exist
+mkdir -p "$TOGROUND_DIR"
+
+# Main capture loop
+while true; do
+    # Auto-increment run ID
+    LAST_RUN=$(ls -d "$TOGROUND_DIR"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{6\}$')
+    if [ -z "$LAST_RUN" ]; then
+        RUNID=1
+    else
+        RUNID=$((10#$LAST_RUN + 1))
+    fi
+
+    RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
+    mkdir -p "$RUN_DIR"
+
+    LOG_FILE="${RUN_DIR}/capture.log"
+    OUTPUT_FILE="${RUN_DIR}/capture.wav"
+
+    # Log start
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting RF Capture" > "$LOG_FILE"
+    echo "Run ID: $RUNID" >> "$LOG_FILE"
+    echo "Duration: $DURATION seconds" >> "$LOG_FILE"
+    echo "Output: $OUTPUT_FILE" >> "$LOG_FILE"
+
+    echo "Run $RUNID: Capturing $DURATION seconds..."
+
+    # Run capture
+    "${SCRIPT_DIR}/capture_loop" \
+        --output "$OUTPUT_FILE" \
+        --duration "$DURATION" \
+        >> "$LOG_FILE" 2>&1
+
+    STATUS=$?
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Capture completed with status: $STATUS" >> "$LOG_FILE"
+
+    # Create summary
+    {
+        echo "SDR Capture Results"
+        echo "==================="
+        echo "Run ID: $RUNID"
+        echo "Duration: $DURATION seconds"
+        echo "Frequency: 1.2 GHz"
+        echo "Status: $STATUS"
+        echo ""
+        echo "Output file:"
+        ls -la "$OUTPUT_FILE" 2>/dev/null || echo "  (none)"
+    } > "${RUN_DIR}/summary.txt"
+
+    # Exit if single run mode
+    if [ "$LOOP" -eq 0 ]; then
+        echo "Single capture complete."
+        exit $STATUS
+    fi
+
+    echo "Run $RUNID complete. Starting next capture..."
+done
