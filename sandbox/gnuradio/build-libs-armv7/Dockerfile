@@ -50,6 +50,19 @@ RUN git clone --depth 1 --branch ${LIBIIO_VERSION} \
     cp /build/libiio/iio.h /usr/include/ && \
     ln -sf /usr/lib/libiio.so.0 /usr/lib/libiio.so
 
+# Build libad9361-iio (required for fmcomms2 blocks in gr-iio)
+ARG LIBAD9361_VERSION=v0.3
+RUN git clone --depth 1 --branch ${LIBAD9361_VERSION} \
+    https://github.com/analogdevicesinc/libad9361-iio.git /build/libad9361-iio
+
+WORKDIR /build/libad9361-iio/build
+RUN cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DLIBIIO_INCLUDEDIR=/usr/include \
+    -DLIBIIO_LIBRARIES=/usr/lib/libiio.so && \
+    make -j$(nproc) && \
+    make install
+
 # Clone GNU Radio source
 ARG GNURADIO_VERSION=v3.10.11.0
 RUN git clone --depth 1 --branch ${GNURADIO_VERSION} \
@@ -89,13 +102,16 @@ RUN make -j$(nproc)
 
 RUN make install
 
-# Create output directory with GNU Radio and VOLK libraries
+# Create output directory with GNU Radio, VOLK, and libad9361 libraries
 RUN mkdir -p /output/lib /output/include && \
     cp -r /opt/gnuradio/lib/* /output/lib/ && \
     cp -r /opt/gnuradio/include/* /output/include/ && \
     # Include VOLK library (required runtime dependency)
     cp -P /usr/lib/libvolk*.so* /output/lib/ && \
-    cp -r /usr/include/volk /output/include/
+    cp -r /usr/include/volk /output/include/ && \
+    # Include libad9361 (required for fmcomms2 blocks)
+    cp -P /usr/lib/libad9361*.so* /output/lib/ && \
+    cp /usr/include/ad9361.h /output/include/
 
 # Default command - list what was built
 CMD ["sh", "-c", "echo '=== GNU Radio Libraries ===' && ls -la /output/lib/ && echo '=== Size ===' && du -sh /output/"]

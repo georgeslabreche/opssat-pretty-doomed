@@ -1,0 +1,6 @@
+build/
+io/
+package/
+toGround/
+libs-gnuradio/
+*.o

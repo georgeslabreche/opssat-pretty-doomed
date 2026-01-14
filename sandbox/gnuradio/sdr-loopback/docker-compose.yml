@@ -1,0 +1,15 @@
+services:
+  sdr-loopback:
+    build: .
+    container_name: gnuradio-sdr-loopback
+    volumes:
+      - ./src:/app/src
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./package:/app/package
+      - ./run:/app/run
+      - ./io:/app/io
+      - ./toGround:/app/toGround
+      - ../../../samples:/app/samples
+    working_dir: /app
+    tty: true
