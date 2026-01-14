@@ -1,0 +1,13 @@
+services:
+  sdr-capture:
+    build: .
+    container_name: gnuradio-sdr-capture
+    volumes:
+      - ./src:/app/src
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./package:/app/package
+      - ./run:/app/run
+      - ./toGround:/app/toGround
+    working_dir: /app
+    tty: true
