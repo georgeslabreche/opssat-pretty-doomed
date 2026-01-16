@@ -71,6 +71,6 @@ package-prepare: $(TARGET)
 
 # Run OUTSIDE the container
 package-tar:
-	cd package && tar --owner=exp --group=exp -czvf exp4023-sdr-capture-v1.tar.gz exp4023-sdr-capture-v1/
+	tar --owner=exp --group=exp -czvf package/exp4023-sdr-capture-v1.tar.gz -C package/exp4023-sdr-capture-v1 .
 	@echo "Package created: package/exp4023-sdr-capture-v1.tar.gz"
 	@ls -lh package/exp4023-sdr-capture-v1.tar.gz
