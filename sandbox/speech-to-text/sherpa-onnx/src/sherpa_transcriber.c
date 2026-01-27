@@ -1,7 +1,7 @@
 /**
  * Sherpa-ONNX Speech-to-Text Transcriber
  *
- * Usage: sherpa_transcriber -i input.wav -o output.txt -m model_dir
+ * Usage: sherpa_transcriber -i input.wav -o output.txt -m model_dir [-d method] [-w hotwords.txt] [-s score]
  */
 
 #include <stdio.h>
@@ -17,26 +17,40 @@ typedef struct {
     char *input_file;
     char *output_file;
     char *model_dir;
+    char *decoding_method;   // greedy_search or modified_beam_search
+    char *hotwords_file;     // path to hotwords file
+    float hotwords_score;    // bonus score for hotwords (default 1.5)
+    char *bpe_vocab;         // path to bpe.vocab file (required for hotwords)
     int verbose;
 } Config;
 
 void print_usage(const char *prog) {
-    fprintf(stderr, "Usage: %s -i input.wav -o output.txt -m model_dir [-v]\n", prog);
+    fprintf(stderr, "Usage: %s -i input.wav -o output.txt -m model_dir [options]\n", prog);
     fprintf(stderr, "  -i  Input WAV file\n");
     fprintf(stderr, "  -o  Output text file\n");
     fprintf(stderr, "  -m  Sherpa-ONNX model directory\n");
+    fprintf(stderr, "  -d  Decoding method: greedy_search (default) or modified_beam_search\n");
+    fprintf(stderr, "  -b  BPE vocab file (required for hotwords with BPE models)\n");
+    fprintf(stderr, "  -w  Hotwords file (one word per line)\n");
+    fprintf(stderr, "  -s  Hotwords score bonus (default: 1.5)\n");
     fprintf(stderr, "  -v  Verbose output\n");
 }
 
 int parse_args(int argc, char **argv, Config *cfg) {
     int opt;
     memset(cfg, 0, sizeof(Config));
+    cfg->decoding_method = "greedy_search";
+    cfg->hotwords_score = 1.5f;
 
-    while ((opt = getopt(argc, argv, "i:o:m:v")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:m:d:b:w:s:v")) != -1) {
         switch (opt) {
             case 'i': cfg->input_file = optarg; break;
             case 'o': cfg->output_file = optarg; break;
             case 'm': cfg->model_dir = optarg; break;
+            case 'd': cfg->decoding_method = optarg; break;
+            case 'b': cfg->bpe_vocab = optarg; break;
+            case 'w': cfg->hotwords_file = optarg; break;
+            case 's': cfg->hotwords_score = atof(optarg); break;
             case 'v': cfg->verbose = 1; break;
             default:
                 print_usage(argv[0]);
@@ -170,7 +184,28 @@ int main(int argc, char **argv) {
     config.model_config.tokens = tokens_path;
     config.model_config.num_threads = 1;
     config.model_config.debug = cfg.verbose ? 1 : 0;
-    config.decoding_method = "greedy_search";
+    config.decoding_method = cfg.decoding_method;
+
+    // Configure BPE vocab if provided (required for hotwords with BPE models)
+    if (cfg.bpe_vocab) {
+        config.model_config.bpe_vocab = cfg.bpe_vocab;
+        if (cfg.verbose) {
+            printf("BPE vocab: %s\n", cfg.bpe_vocab);
+        }
+    }
+
+    // Configure hotwords if provided
+    if (cfg.hotwords_file) {
+        config.hotwords_file = cfg.hotwords_file;
+        config.hotwords_score = cfg.hotwords_score;
+        if (cfg.verbose) {
+            printf("Hotwords file: %s (score: %.2f)\n", cfg.hotwords_file, cfg.hotwords_score);
+        }
+    }
+
+    if (cfg.verbose) {
+        printf("Decoding method: %s\n", cfg.decoding_method);
+    }
 
     // Create recognizer
     SherpaOnnxOfflineRecognizer *recognizer = SherpaOnnxCreateOfflineRecognizer(&config);

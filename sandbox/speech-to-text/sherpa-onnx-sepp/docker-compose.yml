@@ -1,0 +1,16 @@
+services:
+  sherpa-onnx:
+    build: .
+    container_name: sherpa-onnx-sepp
+    volumes:
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./package:/app/package
+      - ./run:/app/run
+      - ./toGround:/app/toGround
+      - sherpa-onnx-src:/opt/sherpa-onnx
+    working_dir: /app
+    tty: true
+
+volumes:
+  sherpa-onnx-src:

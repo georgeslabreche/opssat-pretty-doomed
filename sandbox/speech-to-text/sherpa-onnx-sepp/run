@@ -1,0 +1,162 @@
+#!/bin/sh
+
+# Sherpa-ONNX Speech-to-Text - OPS-SAT SEPP Entrypoint
+#
+# This script transcribes WAV audio files to text using Sherpa-ONNX
+# with the zipformer-small model (int8 quantized, ~28 MB)
+#
+# Directory structure:
+#   input/          - Input WAV files
+#   model/          - Sherpa-ONNX model files
+#   toGround/       - Output artifacts for downlink
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Directories
+INPUT_DIR="${SCRIPT_DIR}/input"
+MODEL_DIR="${SCRIPT_DIR}/model"
+TOGROUND_DIR="${SCRIPT_DIR}/toGround"
+
+# Model files (int8 quantized for smaller size)
+ENCODER="${MODEL_DIR}/encoder-epoch-99-avg-1.int8.onnx"
+DECODER="${MODEL_DIR}/decoder-epoch-99-avg-1.onnx"
+JOINER="${MODEL_DIR}/joiner-epoch-99-avg-1.int8.onnx"
+TOKENS="${MODEL_DIR}/tokens.txt"
+
+# Hotwords disabled - testing showed they degrade accuracy with BPE models
+# Use intent matching on transcription output instead
+# HOTWORDS_FILE="${SCRIPT_DIR}/hotwords.txt"
+# HOTWORDS_SCORE=1.5
+
+# Create toGround directory if it doesn't exist
+mkdir -p "$TOGROUND_DIR"
+
+# Auto-increment run ID based on existing runs
+LAST_RUN=$(ls -d "$TOGROUND_DIR"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{6\}$')
+if [ -z "$LAST_RUN" ]; then
+    RUNID=1
+else
+    RUNID=$((10#$LAST_RUN + 1))
+fi
+
+RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
+
+# Create run directory
+mkdir -p "$RUN_DIR"
+
+# Log file
+LOG_FILE="${RUN_DIR}/sherpa_onnx.log"
+
+# Logging function
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Log start
+log "=========================================="
+log "Starting Sherpa-ONNX Speech-to-Text"
+log "=========================================="
+log "Run ID: $RUNID"
+log "Model: zipformer-small-en (int8 quantized)"
+log "Input directory: $INPUT_DIR"
+log "Output directory: $RUN_DIR"
+log "Encoder: $ENCODER"
+log "Decoder: $DECODER"
+log "Joiner: $JOINER"
+log "Tokens: $TOKENS"
+log "Decoding method: modified_beam_search"
+log "------------------------------------------"
+
+# Check for input files
+INPUT_COUNT=$(ls -1 "$INPUT_DIR"/*.wav 2>/dev/null | wc -l)
+log "Found $INPUT_COUNT WAV file(s) in input directory"
+
+# Process all WAV files in input directory
+PROCESSED=0
+FAILED=0
+for INPUT_FILE in "$INPUT_DIR"/*.wav; do
+    if [ -f "$INPUT_FILE" ]; then
+        FILENAME=$(basename "$INPUT_FILE" .wav)
+        OUTPUT_FILE="${RUN_DIR}/${FILENAME}.txt"
+
+        log "Processing file $((PROCESSED + 1))/$INPUT_COUNT: $(basename "$INPUT_FILE")"
+        log "  Input: $INPUT_FILE"
+        log "  Output: $OUTPUT_FILE"
+
+        # Run transcription using sherpa-onnx-offline
+        START_TIME=$(date +%s)
+        log "  Running sherpa-onnx-offline..."
+
+        # Capture both stdout and stderr, sherpa-onnx outputs to stderr
+        RESULT=$("${SCRIPT_DIR}/sherpa-onnx-offline" \
+            --tokens="$TOKENS" \
+            --encoder="$ENCODER" \
+            --decoder="$DECODER" \
+            --joiner="$JOINER" \
+            --num-threads=1 \
+            --decoding-method=modified_beam_search \
+            "$INPUT_FILE" 2>&1)
+
+        STATUS=$?
+        END_TIME=$(date +%s)
+        ELAPSED=$((END_TIME - START_TIME))
+
+        # Log the full output
+        echo "$RESULT" >> "$LOG_FILE"
+
+        if [ $STATUS -eq 0 ]; then
+            # Extract and save JSON output (last line containing the JSON)
+            JSON_FILE="${RUN_DIR}/${FILENAME}.json"
+            echo "$RESULT" | grep '^{' > "$JSON_FILE"
+
+            # Extract transcription text from JSON output
+            # Output format: {"lang": "", ..., "text": "TRANSCRIBED TEXT", ...}
+            TEXT=$(echo "$RESULT" | grep -o '"text": "[^"]*"' | sed 's/"text": "//;s/"$//')
+            echo "$TEXT" > "$OUTPUT_FILE"
+            log "  Transcription completed successfully in ${ELAPSED}s"
+            log "  JSON saved: $JSON_FILE"
+            log "  Text saved: $OUTPUT_FILE"
+            log "  Result: $TEXT"
+            PROCESSED=$((PROCESSED + 1))
+        else
+            log "  ERROR: Transcription failed with status $STATUS"
+            FAILED=$((FAILED + 1))
+        fi
+        log "------------------------------------------"
+    fi
+done
+
+# Log completion
+log "=========================================="
+log "Processing complete"
+log "  Files processed: $PROCESSED"
+log "  Files failed: $FAILED"
+log "=========================================="
+
+# Create summary file
+log "Creating summary file..."
+{
+    echo "Sherpa-ONNX Speech-to-Text Results"
+    echo "==================================="
+    echo "Run ID: $RUNID"
+    echo "Model: zipformer-small-en (int8 quantized, ~28 MB)"
+    echo "Files processed: $PROCESSED"
+    echo "Files failed: $FAILED"
+    echo ""
+    echo "Transcriptions:"
+    echo "---------------"
+    for TXT_FILE in "$RUN_DIR"/*.txt; do
+        if [ -f "$TXT_FILE" ] && [ "$(basename "$TXT_FILE")" != "summary.txt" ]; then
+            FNAME=$(basename "$TXT_FILE")
+            echo ""
+            echo "[$FNAME]"
+            cat "$TXT_FILE"
+        fi
+    done
+} > "${RUN_DIR}/summary.txt"
+
+log "Summary file created: ${RUN_DIR}/summary.txt"
+log "Exiting with status 0"
+
+exit 0
