@@ -1,0 +1,11 @@
+P R E T T Y :4.0
+P L A Y :3.0
+D O O M :3.0
+
+P R E T T Y P L A Y D O O M :5.0
+
+O P S S A T :3.5
+U P S E T :3.2
+
+O P S S A T P L A Y D O O M :5.0
+U P S E T P L A Y D O O M :4.7
