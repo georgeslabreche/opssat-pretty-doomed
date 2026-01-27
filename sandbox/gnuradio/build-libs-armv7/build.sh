@@ -41,7 +41,7 @@ mkdir -p package/gnuradio-libs-armv7
 cp -r output/lib package/gnuradio-libs-armv7/
 cp -r output/include package/gnuradio-libs-armv7/
 cd package
-tar --owner=exp --group=exp -czvf gnuradio-libs-armv7.tar.gz gnuradio-libs-armv7/
+COPYFILE_DISABLE=1 tar --owner=exp --group=exp -czvf gnuradio-libs-armv7.tar.gz gnuradio-libs-armv7/
 cd ..
 
 echo "=== Done ==="

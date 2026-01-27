@@ -1,6 +1,10 @@
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
 
+# Package version (change this for new releases)
+PACKAGE_VERSION = v1
+PACKAGE_NAME = exp4023-gnuradio-whisper-$(PACKAGE_VERSION)
+
 # GNU Radio flags
 GNURADIO_CFLAGS = $(shell pkg-config --cflags gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft 2>/dev/null)
 GNURADIO_LIBS = $(shell pkg-config --libs gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft 2>/dev/null) -lfmt
@@ -153,11 +157,11 @@ copy-libs: $(PIPELINE)
 
 # Create deployment package for SEPP
 package: $(PIPELINE) copy-libs download-model
-	mkdir -p package/gnuradio-whisper/libs
-	mkdir -p package/gnuradio-whisper/models
-	cp $(PIPELINE) package/gnuradio-whisper/
-	cp run package/gnuradio-whisper/
-	cp -r libs/* package/gnuradio-whisper/libs/ 2>/dev/null || true
-	cp $(LOCAL_MODEL) package/gnuradio-whisper/models/
-	cd package && tar --owner=exp --group=exp -czvf gnuradio-whisper.tar.gz gnuradio-whisper/
-	@echo "Package created: package/gnuradio-whisper.tar.gz"
+	mkdir -p package/$(PACKAGE_NAME)/libs
+	mkdir -p package/$(PACKAGE_NAME)/models
+	cp $(PIPELINE) package/$(PACKAGE_NAME)/
+	cp run package/$(PACKAGE_NAME)/
+	cp -r libs/* package/$(PACKAGE_NAME)/libs/ 2>/dev/null || true
+	cp $(LOCAL_MODEL) package/$(PACKAGE_NAME)/models/
+	COPYFILE_DISABLE=1 tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME).tar.gz -C package/$(PACKAGE_NAME) .
+	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"

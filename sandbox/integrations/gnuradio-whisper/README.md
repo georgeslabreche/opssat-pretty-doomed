@@ -7,7 +7,7 @@ Single binary pipeline using GNU Radio for signal processing and Whisper for spe
 ```
 ┌─────────────┐     ┌────────────────────────────────────────────────────┐     ┌──────┐
 │  Audio File │ ──▶ │              gnuradio_pipeline                     │ ──▶ │ Text │
-│    (WAV)    │     │  Lowpass → Bandpass → Noise Red. → Whisper        │     │      │
+│    (WAV)    │     │  Lowpass → Bandpass → Noise Red. → Whisper         │     │      │
 └─────────────┘     └────────────────────────────────────────────────────┘     └──────┘
 ```
 
@@ -110,11 +110,12 @@ ffmpeg -i input.mp3 \
 docker-compose run gnuradio-whisper make package
 ```
 
+Creates `package/exp4023-gnuradio-whisper-v1.tar.gz`.
+
 On the SEPP:
 
 ```bash
-tar -xzf gnuradio-whisper.tar.gz
-cd gnuradio-whisper
+tar -xzf exp4023-gnuradio-whisper-v1.tar.gz
 ./run input.wav output.txt
 ```
 
@@ -137,11 +138,11 @@ gnuradio-whisper/
 
 ## Model Selection
 
-| Model | Size | Speed | Quality |
-|-------|------|-------|---------|
-| tiny | 75 MB | Fastest | Basic |
-| base | 142 MB | Fast | Good |
-| small | 466 MB | Medium | Better |
+| Model | Size   | Speed   | Quality |
+|-------|--------|---------|---------|
+| tiny  | 75 MB  | Fastest | Basic   |
+| base  | 142 MB | Fast    | Good    |
+| small | 466 MB | Medium  | Better  |
 
 ### Download Models
 
