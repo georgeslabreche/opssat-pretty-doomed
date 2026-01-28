@@ -68,6 +68,7 @@ test: run-clean run-noisy run-very-noisy
 package-prepare: $(TARGET)
 	mkdir -p package/$(PACKAGE_NAME)/libs
 	mkdir -p package/$(PACKAGE_NAME)/input
+	mkdir -p package/$(PACKAGE_NAME)/toGround
 	cp $(TARGET) package/$(PACKAGE_NAME)/
 	cp run package/$(PACKAGE_NAME)/
 	chmod +x package/$(PACKAGE_NAME)/run
@@ -103,6 +104,6 @@ package-samples:
 
 # Run OUTSIDE the container (BusyBox tar doesn't support --owner)
 package-tar:
-	tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME).tar.gz -C package/$(PACKAGE_NAME) .
+	COPYFILE_DISABLE=1 tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME).tar.gz -C package/$(PACKAGE_NAME) .
 	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"
 	@ls -lh package/$(PACKAGE_NAME).tar.gz

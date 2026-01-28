@@ -80,6 +80,6 @@ package-samples:
 
 # Run OUTSIDE the container
 package-tar:
-	tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME).tar.gz -C package/$(PACKAGE_NAME) .
+	COPYFILE_DISABLE=1 tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME).tar.gz -C package/$(PACKAGE_NAME) .
 	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"
 	@ls -lh package/$(PACKAGE_NAME).tar.gz
