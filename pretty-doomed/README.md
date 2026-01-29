@@ -295,13 +295,17 @@ pretty-doomed/
 
 ## Models
 
-Uses sherpa-onnx zipformer-small-en (int8 quantized, ~27 MB). Supports `greedy_search` and `modified_beam_search` decoding methods.
+Uses [sherpa-onnx-zipformer-small-en-2023-06-26](https://huggingface.co/csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26) (int8 quantized, ~27 MB). Supports `greedy_search` and `modified_beam_search` decoding methods.
 
-Model files are stored in `model/` and their paths are configured in `config.cfg`. The `.onnx` files are gitignored due to their size. To set up model files, copy them from the sandbox:
+The `.onnx` files are gitignored due to size. Download and copy the required files:
 
 ```bash
-cp sandbox/speech-to-text/sherpa-onnx/models/sherpa-onnx-zipformer-small-en-2023-06-26/{encoder-epoch-99-avg-1.int8.onnx,decoder-epoch-99-avg-1.onnx,joiner-epoch-99-avg-1.int8.onnx,tokens.txt} model/
+git lfs install
+git clone https://huggingface.co/csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26 /tmp/sherpa-model
+cp /tmp/sherpa-model/{encoder-epoch-99-avg-1.int8.onnx,decoder-epoch-99-avg-1.onnx,joiner-epoch-99-avg-1.int8.onnx,tokens.txt} model/
 ```
+
+Model paths are configured in `config.cfg`.
 
 ## References
 
