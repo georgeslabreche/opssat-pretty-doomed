@@ -1,0 +1,20 @@
+services:
+  pretty-doomed-sepp:
+    build:
+      context: .
+      dockerfile: Dockerfile.sepp
+    container_name: pretty-doomed-sepp
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./package:/app/package
+      - ./run:/app/run
+      - ./config.cfg:/app/config.cfg
+      - ./variants.cfg:/app/variants.cfg
+      - ./model:/app/model
+      - ../doom/src:/app/doom-src
+      - ../doom/demos:/app/demos
+    working_dir: /app
+    tty: true

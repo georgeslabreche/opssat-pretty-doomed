@@ -18,11 +18,10 @@
 static int ticks = 0;
 static int frames = 0;
 static int runid = 0;
-//static int killcount = 0;
+static char framedir[512] = "";
 
 void DG_Init()
 {
-    int result;
     int p;
     p = M_CheckParmWithArgs("-runid", 1);
     if (p)
@@ -30,30 +29,31 @@ void DG_Init()
         runid = atoi(myargv[p + 1]);
     }
 
-    char* toGroundDir = (char*)malloc(9 * sizeof(char));
-    sprintf(toGroundDir, "toGround");
-    result = mkdir(toGroundDir, 0755);
-    free(toGroundDir);
-
-    char* dirname = (char*)malloc(20 * sizeof(char));
-    sprintf(dirname, "toGround/run-%06d", runid);
-    result = mkdir(dirname, 0755);
-    free(dirname);
-
-    if (result == -1 && errno != EEXIST)
+    p = M_CheckParmWithArgs("-framedir", 1);
+    if (p)
     {
-        printf("Error creating directory (%d): %s\n", errno, dirname);
-        exit(1);
+        snprintf(framedir, sizeof(framedir), "%s", myargv[p + 1]);
+        mkdir(framedir, 0755);
+    }
+    else
+    {
+        // Legacy behavior: create toGround/run-NNNNNN relative to CWD
+        mkdir("toGround", 0755);
+        snprintf(framedir, sizeof(framedir), "toGround/run-%06d", runid);
+        int result = mkdir(framedir, 0755);
+        if (result == -1 && errno != EEXIST)
+        {
+            printf("Error creating directory (%d): %s\n", errno, framedir);
+            exit(1);
+        }
     }
 }
 
 void WriteFrameToDisk(int id, int frameid)
 {
-    char* filename = (char*)malloc(37 * sizeof(char));
-    sprintf(filename, "toGround/run-%06d/frame-%06d.jpg", id, frameid);
-
+    char filename[600];
+    snprintf(filename, sizeof(filename), "%s/frame-%06d.jpg", framedir, frameid);
     stbi_write_jpg(filename, DOOMGENERIC_RESX, DOOMGENERIC_RESY, 4, DG_ScreenBuffer, 100);
-    free(filename);
 }
 
 int DG_ShouldDrawFrame()

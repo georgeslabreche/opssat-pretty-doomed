@@ -1,0 +1,98 @@
+# PRETTY DOOMed build environment for OPS-SAT SEPP (ARM32)
+#
+# Multi-stage: builds GNU Radio from source (cached), then sets up build env.
+#
+# PREREQUISITES:
+#   1. Setup QEMU emulation:
+#      docker run --rm --privileged tonistiigi/binfmt --install arm
+#
+#   2. Import exp_env:
+#      docker import --platform linux/arm/v7 resources/exp_env.tar.gz exp_env:latest
+
+# ============================================================
+# Stage 1: Build GNU Radio from source
+# ============================================================
+FROM exp_env:latest AS gnuradio-builder
+
+RUN apk update && apk add --no-cache \
+    build-base \
+    cmake \
+    git \
+    pkgconfig \
+    python3 \
+    python3-dev \
+    py3-pip \
+    py3-numpy \
+    py3-pybind11-dev \
+    boost-dev \
+    fftw-dev \
+    gmp-dev \
+    spdlog-dev \
+    fmt-dev \
+    libsndfile-dev \
+    libvolk-dev
+
+ARG GNURADIO_VERSION=v3.10.11.0
+RUN git clone --depth 1 --branch ${GNURADIO_VERSION} \
+    https://github.com/gnuradio/gnuradio.git /build/gnuradio
+
+WORKDIR /build/gnuradio/build
+
+RUN cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/gnuradio \
+    -DENABLE_DEFAULT=OFF \
+    -DENABLE_GNURADIO_RUNTIME=ON \
+    -DENABLE_GR_BLOCKS=ON \
+    -DENABLE_GR_FFT=ON \
+    -DENABLE_GR_FILTER=ON \
+    -DENABLE_PYTHON=OFF \
+    -DENABLE_TESTING=OFF \
+    -DENABLE_DOXYGEN=OFF \
+    -DENABLE_SPHINX=OFF \
+    -DENABLE_MANPAGES=OFF
+
+RUN make -j$(nproc)
+RUN make install
+
+# ============================================================
+# Stage 2: Build environment
+# ============================================================
+FROM exp_env:latest
+
+RUN apk update && apk add --no-cache \
+    build-base \
+    cmake \
+    git \
+    pkgconf \
+    boost-dev \
+    fftw-dev \
+    spdlog-dev \
+    fmt-dev \
+    libsndfile-dev \
+    gmp-dev \
+    libvolk-dev
+
+# glibc compatibility stubs for musl
+# The pre-built onnxruntime library requires glibc symbols not in musl
+RUN printf '%s\n' \
+    '#include <sys/stat.h>' \
+    'char __libc_single_threaded = 0;' \
+    'int backtrace(void **buffer, int size) { (void)buffer; (void)size; return 0; }' \
+    'char **backtrace_symbols(void *const *buffer, int size) { (void)buffer; (void)size; return (char **)0; }' \
+    'void backtrace_symbols_fd(void *const *buffer, int size, int fd) { (void)buffer; (void)size; (void)fd; }' \
+    'int stat64(const char *path, struct stat *buf) { return stat(path, buf); }' \
+    'int fstat64(int fd, struct stat *buf) { return fstat(fd, buf); }' \
+    'int lstat64(const char *path, struct stat *buf) { return lstat(path, buf); }' \
+    > /tmp/glibc_compat.c && \
+    gcc -c /tmp/glibc_compat.c -o /usr/lib/glibc_compat.o && \
+    rm /tmp/glibc_compat.c
+
+# Copy GNU Radio from stage 1
+COPY --from=gnuradio-builder /opt/gnuradio /opt/gnuradio
+ENV LD_LIBRARY_PATH="/opt/gnuradio/lib:${LD_LIBRARY_PATH}"
+ENV PKG_CONFIG_PATH="/opt/gnuradio/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
+WORKDIR /app
+
+CMD ["/bin/sh"]

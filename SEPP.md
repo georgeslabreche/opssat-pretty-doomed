@@ -9,7 +9,7 @@ This document describes how to build and package applications for deployment to 
 | OS | Alpine Linux 3.21.3 |
 | Architecture | **32-bit ARM (armv7l)** |
 | C Library | musl |
-| Base Environment | `resources/internal/exp_env.tar.gz` |
+| Base Environment | `resources/exp_env.tar.gz` |
 
 **Important:** The SEPP uses 32-bit ARM, not ARM64. This is critical for cross-compilation.
 
@@ -35,7 +35,7 @@ This registers QEMU handlers for ARM32 binaries.
 The `exp_env.tar.gz` file contains the exact Alpine Linux filesystem used on SEPP. Import it as a Docker image:
 
 ```bash
-docker import --platform linux/arm/v7 resources/internal/exp_env.tar.gz exp_env:latest
+docker import --platform linux/arm/v7 resources/exp_env.tar.gz exp_env:latest
 ```
 
 Verify it works:
@@ -187,4 +187,4 @@ Then set `LD_LIBRARY_PATH` in your `run` script to find them.
 ## References
 
 - `resources/internal/OPS-SAT PRETTY Software Development Guide.pdf` - Official guide
-- `resources/internal/exp_env.tar.gz` - SEPP base environment
+- `resources/exp_env.tar.gz` - SEPP base environment

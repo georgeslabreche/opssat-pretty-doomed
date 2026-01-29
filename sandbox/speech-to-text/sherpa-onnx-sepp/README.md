@@ -18,7 +18,7 @@ Speech-to-text transcription using Sherpa-ONNX with the zipformer-small model, b
 
 2. Import exp_env (from repository root):
    ```bash
-   docker import --platform linux/arm/v7 resources/internal/exp_env.tar.gz exp_env:latest
+   docker import --platform linux/arm/v7 resources/exp_env.tar.gz exp_env:latest
    ```
 
 3. Download the small model (if not already present):

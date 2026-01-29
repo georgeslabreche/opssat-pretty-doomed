@@ -1,0 +1,57 @@
+#!/bin/sh
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
+
+# Locate binaries: check SEPP layout first, then Docker dev layout
+if [ -x "${SCRIPT_DIR}/pretty_doomed" ]; then
+    PRETTY_DOOMED="${SCRIPT_DIR}/pretty_doomed"
+elif [ -x "${SCRIPT_DIR}/build/pretty_doomed" ]; then
+    PRETTY_DOOMED="${SCRIPT_DIR}/build/pretty_doomed"
+else
+    echo "Error: pretty_doomed binary not found" >&2
+    exit 1
+fi
+
+if [ -x "${SCRIPT_DIR}/opssat-doom" ]; then
+    DOOM_BINARY="${SCRIPT_DIR}/opssat-doom"
+elif [ -x "${SCRIPT_DIR}/doom-src/bin/opssat-doom" ]; then
+    DOOM_BINARY="${SCRIPT_DIR}/doom-src/bin/opssat-doom"
+else
+    echo "Error: opssat-doom binary not found" >&2
+    exit 1
+fi
+
+# Input: file or directory (default: input/sample.wav)
+INPUT="${1:-${SCRIPT_DIR}/input/sample.wav}"
+
+# Collect WAV files to process
+if [ -d "$INPUT" ]; then
+    WAV_FILES=$(find "$INPUT" -maxdepth 1 -name '*.wav' | sort)
+    if [ -z "$WAV_FILES" ]; then
+        echo "Error: no .wav files found in $INPUT" >&2
+        exit 1
+    fi
+else
+    WAV_FILES="$INPUT"
+fi
+
+TOGROUND="${SCRIPT_DIR}/toGround"
+mkdir -p "$TOGROUND"
+
+for WAV_FILE in $WAV_FILES; do
+    LAST=$(ls -d "$TOGROUND"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{5\}$')
+    RUNID=$((${LAST:-0} + 1))
+    RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+    mkdir -p "$RUN_DIR"
+
+    echo "Run $(printf '%05d' "$RUNID"): $(basename "$WAV_FILE")"
+
+    ${PRETTY_DOOMED} \
+        -i "$WAV_FILE" \
+        -c "${SCRIPT_DIR}/config.cfg" \
+        -f "${SCRIPT_DIR}/variants.cfg" \
+        -o "$RUN_DIR" \
+        -d "${SCRIPT_DIR}/demos" \
+        -e "${DOOM_BINARY}" \
+        > "$RUN_DIR/pretty_doomed.log" 2>&1
+done

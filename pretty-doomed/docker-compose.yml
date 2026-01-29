@@ -1,0 +1,20 @@
+services:
+  pretty-doomed:
+    build: .
+    container_name: pretty-doomed
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./model:/app/model
+      - ./input:/app/input
+      - ./config.cfg:/app/config.cfg
+      - ./variants.cfg:/app/variants.cfg
+      - ./output:/app/output
+      - ./run:/app/run
+      - ./toGround:/app/toGround
+      - ../doom/src:/app/doom-src
+      - ../doom/demos:/app/demos
+    working_dir: /app
+    tty: true
