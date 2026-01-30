@@ -68,10 +68,10 @@ lowpass_transition=500
 bandpass_transition=100
 
 # Speech-to-Text
-model_encoder=model/encoder-epoch-99-avg-1.int8.onnx
-model_decoder=model/decoder-epoch-99-avg-1.onnx
-model_joiner=model/joiner-epoch-99-avg-1.int8.onnx
-model_tokens=model/tokens.txt
+model_encoder=models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx
+model_decoder=models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx
+model_joiner=models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx
+model_tokens=models/sherpa-onnx/small/tokens.txt
 decoding_method=modified_beam_search
 num_threads=1
 
@@ -152,9 +152,9 @@ Each pipeline run produces:
 
 ```
 toGround/run-000001/
-├── pretty_doomed.log       # Full pipeline log
+├── pretty-doomed.log       # Full pipeline log
 ├── capture.cf32            # Raw I/Q samples from SDR capture
-├── denoised.wav            # Filtered audio
+├── processed.wav           # Filtered audio
 ├── transcription.txt       # Transcription text
 ├── scores.txt              # Detection counts
 ├── summary.txt             # Human-readable summary
@@ -172,12 +172,14 @@ Target: Alpine Linux 3.21.3, ARM32 (armv7l), musl libc.
 ```
 exp4023-pretty-DOOMed-v1/
 ├── run                     # Entrypoint
-├── pretty_doomed           # Pipeline binary
+├── pretty-doomed           # Pipeline binary
 ├── opssat-doom             # DOOM binary
 ├── config.cfg
 ├── variants.cfg
 ├── libs/                   # GNU Radio shared libraries
-├── model/                  # sherpa-onnx model (~27 MB)
+├── models/                 # Speech-to-text models
+│   └── sherpa-onnx/
+│       └── small/          # sherpa-onnx model (~27 MB)
 ├── demos/                  # doom.wad + demo files
 ├── input/                  # Sample WAV
 └── toGround/

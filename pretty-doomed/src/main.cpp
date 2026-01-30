@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
                                cfg.bandpass_transition);
 
     // Write denoised audio
-    std::string denoised_path = args.output_dir + "/denoised.wav";
+    std::string denoised_path = args.output_dir + "/processed.wav";
     write_wav(denoised_path, filtered, sample_rate);
     log("  Denoised audio: " + denoised_path);
 

@@ -32,7 +32,7 @@ docker-compose -f docker-compose.sepp.yml build
 # Step 4: Build DOOM + prepare package (inside ARM32 container)
 echo "=== Building DOOM (static, ARM32) ==="
 mkdir -p package
-docker-compose -f docker-compose.sepp.yml run --rm doom-sepp sh -c "make clean && make package-prepare"
+docker-compose -f docker-compose.sepp.yml run --rm doom-sepp sh -c "make clean && make BUILDDIR=build/sepp package-prepare"
 
 # Step 5: Create tarball (outside container)
 echo "=== Creating tarball ==="

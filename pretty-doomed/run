@@ -2,20 +2,28 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
 
+# glibc compat: onnxruntime needs ld-linux-armhf.so.3 and glibc symbols on musl
+if [ ! -e /lib/ld-linux-armhf.so.3 ] && [ -e /lib/ld-musl-armhf.so.1 ]; then
+    ln -sf /lib/ld-musl-armhf.so.1 /lib/ld-linux-armhf.so.3 2>/dev/null || true
+fi
+if [ -f "${SCRIPT_DIR}/libs/libglibc_compat.so" ]; then
+    export LD_PRELOAD="${SCRIPT_DIR}/libs/libglibc_compat.so${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+
 # Locate binaries: check SEPP layout first, then Docker dev layout
-if [ -x "${SCRIPT_DIR}/pretty_doomed" ]; then
-    PRETTY_DOOMED="${SCRIPT_DIR}/pretty_doomed"
-elif [ -x "${SCRIPT_DIR}/build/pretty_doomed" ]; then
-    PRETTY_DOOMED="${SCRIPT_DIR}/build/pretty_doomed"
+if [ -x "${SCRIPT_DIR}/pretty-doomed" ]; then
+    PRETTY_DOOMED="${SCRIPT_DIR}/pretty-doomed"
+elif [ -x "${SCRIPT_DIR}/build/local/pretty-doomed" ]; then
+    PRETTY_DOOMED="${SCRIPT_DIR}/build/local/pretty-doomed"
 else
-    echo "Error: pretty_doomed binary not found" >&2
+    echo "Error: pretty-doomed binary not found" >&2
     exit 1
 fi
 
 if [ -x "${SCRIPT_DIR}/opssat-doom" ]; then
     DOOM_BINARY="${SCRIPT_DIR}/opssat-doom"
-elif [ -x "${SCRIPT_DIR}/doom-src/bin/opssat-doom" ]; then
-    DOOM_BINARY="${SCRIPT_DIR}/doom-src/bin/opssat-doom"
+elif [ -x "${SCRIPT_DIR}/doom-build/local/opssat-doom" ]; then
+    DOOM_BINARY="${SCRIPT_DIR}/doom-build/local/opssat-doom"
 else
     echo "Error: opssat-doom binary not found" >&2
     exit 1
@@ -40,7 +48,8 @@ mkdir -p "$TOGROUND"
 
 for WAV_FILE in $WAV_FILES; do
     LAST=$(ls -d "$TOGROUND"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{5\}$')
-    RUNID=$((${LAST:-0} + 1))
+    LAST_STRIPPED=$(echo "${LAST:-0}" | sed 's/^0*//' )
+    RUNID=$((${LAST_STRIPPED:-0} + 1))
     RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
     mkdir -p "$RUN_DIR"
 
@@ -53,5 +62,5 @@ for WAV_FILE in $WAV_FILES; do
         -o "$RUN_DIR" \
         -d "${SCRIPT_DIR}/demos" \
         -e "${DOOM_BINARY}" \
-        > "$RUN_DIR/pretty_doomed.log" 2>&1
+        > "$RUN_DIR/pretty-doomed.log" 2>&1
 done

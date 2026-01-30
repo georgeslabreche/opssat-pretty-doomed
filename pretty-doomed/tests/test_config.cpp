@@ -12,10 +12,10 @@ TEST_CASE("load_config parses key=value pairs") {
         "bandpass_transition=150\n"
         "\n"
         "# Speech-to-Text\n"
-        "model_encoder=model/encoder-epoch-99-avg-1.int8.onnx\n"
-        "model_decoder=model/decoder-epoch-99-avg-1.onnx\n"
-        "model_joiner=model/joiner-epoch-99-avg-1.int8.onnx\n"
-        "model_tokens=model/tokens.txt\n"
+        "model_encoder=models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx\n"
+        "model_decoder=models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx\n"
+        "model_joiner=models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx\n"
+        "model_tokens=models/sherpa-onnx/small/tokens.txt\n"
         "decoding_method=modified_beam_search\n"
         "num_threads=2\n"
         "\n"
@@ -34,10 +34,10 @@ TEST_CASE("load_config parses key=value pairs") {
     CHECK(cfg.bandpass_high == doctest::Approx(3400.0f));
     CHECK(cfg.lowpass_transition == doctest::Approx(600.0f));
     CHECK(cfg.bandpass_transition == doctest::Approx(150.0f));
-    CHECK(cfg.model_encoder == "model/encoder-epoch-99-avg-1.int8.onnx");
-    CHECK(cfg.model_decoder == "model/decoder-epoch-99-avg-1.onnx");
-    CHECK(cfg.model_joiner == "model/joiner-epoch-99-avg-1.int8.onnx");
-    CHECK(cfg.model_tokens == "model/tokens.txt");
+    CHECK(cfg.model_encoder == "models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx");
+    CHECK(cfg.model_decoder == "models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx");
+    CHECK(cfg.model_joiner == "models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx");
+    CHECK(cfg.model_tokens == "models/sherpa-onnx/small/tokens.txt");
     CHECK(cfg.decoding_method == "modified_beam_search");
     CHECK(cfg.num_threads == 2);
     CHECK(cfg.wake_word == "PRETTY");

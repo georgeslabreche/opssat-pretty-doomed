@@ -2,13 +2,16 @@
 build/
 
 # Model files (large binaries, download separately)
-model/*.onnx
+models/**/*.onnx
 
 # OS files
 .DS_Store
 
 # Pre-built ARM32 libs (copied for SEPP builds)
 libs-gnuradio/
+
+# Demo files (copied from doom/demos/ during packaging)
+demos/
 
 # SEPP package output
 package/

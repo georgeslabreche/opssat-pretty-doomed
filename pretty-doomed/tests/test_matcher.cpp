@@ -66,6 +66,15 @@ TEST_CASE("fuzzy_match within edit distance") {
     CHECK(fuzzy_match("DUNE", "DOOM", variants, 3) == MatchType::APPROXIMATE);    // distance 3, within limit
 }
 
+TEST_CASE("fuzzy_match rejects different first letter") {
+    std::vector<std::string> variants;
+
+    // GOOD vs DOOM: distance 2 but first letter differs
+    CHECK(fuzzy_match("GOOD", "DOOM", variants, 2) == MatchType::NONE);
+    // Same first letter still works
+    CHECK(fuzzy_match("DUM", "DOOM", variants, 2) == MatchType::APPROXIMATE);
+}
+
 TEST_CASE("fuzzy_match within edit distance of variant") {
     std::vector<std::string> variants = {"DOM"};
 

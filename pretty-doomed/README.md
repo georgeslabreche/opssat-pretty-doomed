@@ -10,15 +10,9 @@ WAV ──> Lowpass ──> Bandpass ──> Resample ──> STT ──> Match 
 
 All processing in memory. No intermediate files between stages.
 
-## Prerequisites
-
-The DOOM binary must be built before running the pipeline. See the [DOOM README](../doom/README.md) for build instructions.
-
-For local development, the DOOM source is mounted into the container and built with `make doom` (see below).
-
 ## Build
 
-Two build targets: local (x86_64) for development and testing, SEPP (ARM32) for OPS-SAT deployment.
+Two build targets: local (x86_64) for development and testing, SEPP (ARM32) for OPS-SAT deployment. Both build `pretty-doomed` and `opssat-doom` automatically — the DOOM source is mounted into the container via docker-compose.
 
 ### Local Build (x86_64)
 
@@ -26,14 +20,11 @@ Two build targets: local (x86_64) for development and testing, SEPP (ARM32) for 
 # Build Docker image
 docker-compose build
 
-# Build DOOM binary (required first time)
-docker-compose run --rm pretty-doomed make doom
-
-# Build pretty_doomed binary
-docker-compose run --rm pretty-doomed make
+# Build pretty-doomed + opssat-doom
+docker-compose run --rm pretty-doomed make all doom
 ```
 
-This builds the `pretty_doomed` binary using Debian Bookworm x86_64 with GNU Radio and sherpa-onnx.
+This builds both binaries using Debian Bookworm x86_64 with GNU Radio and sherpa-onnx.
 
 ### SEPP Build (ARM32)
 
@@ -52,7 +43,7 @@ This script:
 2. Imports `exp_env.tar.gz` as Docker image
 3. Builds Docker image (GNU Radio from source, cached after first run)
 4. Builds sherpa-onnx C API from source inside the container
-5. Builds `pretty_doomed` and `opssat-doom` (from `../doom/src`)
+5. Builds `pretty-doomed` and `opssat-doom` (from `../doom/src`)
 6. Copies model files, demo files, and bundled shared libraries
 7. Creates `package/exp4023-pretty-DOOMed-v1.tar.gz`
 
@@ -70,9 +61,10 @@ docker-compose -f docker-compose.sepp.yml build
 docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make build-sherpa
 
 # Build binaries + prepare package layout (inside container)
-docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make package-prepare
+docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make BUILDDIR=build/sepp package-prepare
 
-# Copy model + demos + create tarball (outside container)
+# Copy input WAVs + model + demos + create tarball (outside container)
+make package-input
 make package-model
 make package-demos
 make package-tar
@@ -108,13 +100,13 @@ Each run creates a new `toGround/run-XXXXX/` directory (auto-incrementing) conta
 ### Manual execution
 
 ```bash
-docker-compose run --rm pretty-doomed ./build/pretty_doomed \
+docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
     -i input/sample.wav \
     -c config.cfg \
     -f variants.cfg \
     -o output \
     -d demos \
-    -e doom-src/bin/opssat-doom \
+    -e doom-build/local/opssat-doom \
     -v
 ```
 
@@ -149,10 +141,10 @@ bandpass_low=300
 bandpass_high=3400
 
 # Speech-to-Text
-model_encoder=model/encoder-epoch-99-avg-1.int8.onnx
-model_decoder=model/decoder-epoch-99-avg-1.onnx
-model_joiner=model/joiner-epoch-99-avg-1.int8.onnx
-model_tokens=model/tokens.txt
+model_encoder=models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx
+model_decoder=models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx
+model_joiner=models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx
+model_tokens=models/sherpa-onnx/small/tokens.txt
 decoding_method=modified_beam_search
 
 # Detection
@@ -186,8 +178,8 @@ When using the `run` script, each execution creates a numbered directory:
 
 ```
 toGround/run-00001/
-├── pretty_doomed.log      # Pipeline log (timestamped)
-├── denoised.wav           # Filtered audio
+├── pretty-doomed.log      # Pipeline log (timestamped)
+├── processed.wav          # Filtered audio
 ├── transcription.txt      # STT output
 ├── scores.txt             # Detection scores (exact/approximate breakdown)
 ├── summary.txt            # Human-readable summary
@@ -238,12 +230,14 @@ Creates `package/exp4023-pretty-DOOMed-v1.tar.gz` containing:
 ```
 exp4023-pretty-DOOMed-v1/
 ├── run                    # SEPP entrypoint
-├── pretty_doomed          # Pipeline binary (ARM32)
+├── pretty-doomed          # Pipeline binary (ARM32)
 ├── opssat-doom            # DOOM binary (ARM32, static)
 ├── config.cfg
 ├── variants.cfg
 ├── libs/                  # Bundled shared libraries
-├── model/                 # Sherpa-ONNX model (~27 MB)
+├── models/                # Speech-to-text models
+│   └── sherpa-onnx/
+│       └── small/         # Sherpa-ONNX model (~27 MB)
 ├── demos/                 # doom.wad + demo files
 ├── input/                 # Sample WAV
 └── toGround/
@@ -274,11 +268,16 @@ pretty-doomed/
 │   ├── test_config.cpp
 │   ├── test_dsp.cpp
 │   └── test_matcher.cpp
-├── model/                     # Sherpa-ONNX model files (*.onnx gitignored)
-│   ├── encoder-epoch-99-avg-1.int8.onnx
-│   ├── decoder-epoch-99-avg-1.onnx
-│   ├── joiner-epoch-99-avg-1.int8.onnx
-│   └── tokens.txt
+├── build/                     # Build output (gitignored)
+│   ├── local/                 # x86_64 objects + binary
+│   └── sepp/                  # ARM32 objects + binary
+├── models/                    # Speech-to-text models (*.onnx gitignored)
+│   └── sherpa-onnx/
+│       └── small/
+│           ├── encoder-epoch-99-avg-1.int8.onnx
+│           ├── decoder-epoch-99-avg-1.onnx
+│           ├── joiner-epoch-99-avg-1.int8.onnx
+│           └── tokens.txt
 ├── Makefile
 ├── Dockerfile                 # Local x86_64 build (Debian Bookworm)
 ├── Dockerfile.sepp            # ARM32 SEPP build (multi-stage, GNU Radio from source)
@@ -302,14 +301,15 @@ The `.onnx` files are gitignored due to size. Download and copy the required fil
 ```bash
 git lfs install
 git clone https://huggingface.co/csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26 /tmp/sherpa-model
-cp /tmp/sherpa-model/{encoder-epoch-99-avg-1.int8.onnx,decoder-epoch-99-avg-1.onnx,joiner-epoch-99-avg-1.int8.onnx,tokens.txt} model/
+mkdir -p models/sherpa-onnx/small
+cp /tmp/sherpa-model/{encoder-epoch-99-avg-1.int8.onnx,decoder-epoch-99-avg-1.onnx,joiner-epoch-99-avg-1.int8.onnx,tokens.txt} models/sherpa-onnx/small/
 ```
 
 Model paths are configured in `config.cfg`.
 
 ## References
 
-- [DOOM for OPS-SAT](../doom/README.md) — Headless DOOM engine (must be built first)
+- [DOOM for OPS-SAT](../doom/README.md) — Headless DOOM engine (built automatically by `make doom`)
 - [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
 - [GNU Radio](https://wiki.gnuradio.org/)
 - [OPS-SAT](https://opssat.esa.int/)

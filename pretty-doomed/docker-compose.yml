@@ -6,15 +6,15 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./Makefile:/app/Makefile
-      - ./build:/app/build
-      - ./model:/app/model
+      - ./build/local:/app/build/local
+      - ./models:/app/models
       - ./input:/app/input
       - ./config.cfg:/app/config.cfg
       - ./variants.cfg:/app/variants.cfg
-      - ./output:/app/output
       - ./run:/app/run
       - ./toGround:/app/toGround
       - ../doom/src:/app/doom-src
+      - ../doom/build:/app/doom-build
       - ../doom/demos:/app/demos
     working_dir: /app
     tty: true

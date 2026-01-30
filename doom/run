@@ -21,7 +21,7 @@ do
 
     statdump_path="${demo_dir}/stats.txt"
 
-    ./src/bin/opssat-doom -nosound -nomusic -nosfx -runid $doomid -longtics \
+    ./build/local/opssat-doom -nosound -nomusic -nosfx -runid $doomid -longtics \
         -iwad demos/doom.wad \
         -cdemo $demos_folder/$demo \
         -statdump "$statdump_path" \

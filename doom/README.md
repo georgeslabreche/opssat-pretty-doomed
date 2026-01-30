@@ -13,7 +13,7 @@ docker-compose build
 docker-compose run --rm doom make
 ```
 
-Produces a statically linked binary at `src/bin/opssat-doom`.
+Produces a statically linked binary at `build/local/opssat-doom`.
 
 ### SEPP Build (ARM32)
 
@@ -140,6 +140,9 @@ doom/
 ├── src/                       # DOOM source code (C)
 │   ├── Makefile               # Source-level build
 │   └── *.c / *.h
+├── build/                     # Build output (gitignored)
+│   ├── local/                 # x86_64 objects + binary
+│   └── sepp/                  # ARM32 objects + binary
 ├── demos/                     # WAD + demo files
 ├── Makefile                   # Top-level build + packaging
 ├── Dockerfile                 # Local x86_64 build

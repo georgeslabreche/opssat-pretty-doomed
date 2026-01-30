@@ -56,12 +56,15 @@ MatchType fuzzy_match(const std::string& candidate,
         if (candidate == variant) return MatchType::EXACT;
     }
 
-    // Check approximate match against target
-    if (levenshtein(candidate, target) <= max_distance) return MatchType::APPROXIMATE;
+    // Check approximate match (require first letter to match)
+    if (!candidate.empty() && !target.empty() && candidate[0] == target[0]) {
+        if (levenshtein(candidate, target) <= max_distance) return MatchType::APPROXIMATE;
+    }
 
-    // Check approximate match against variants
     for (const auto& variant : variants) {
-        if (levenshtein(candidate, variant) <= max_distance) return MatchType::APPROXIMATE;
+        if (!candidate.empty() && !variant.empty() && candidate[0] == variant[0]) {
+            if (levenshtein(candidate, variant) <= max_distance) return MatchType::APPROXIMATE;
+        }
     }
 
     return MatchType::NONE;

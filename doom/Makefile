@@ -7,12 +7,14 @@ PACKAGE_VERSION ?= v3
 PACKAGE_NAME = exp4023-DOOM-$(PACKAGE_VERSION)
 PACKAGE_DIR = package/$(PACKAGE_NAME)
 
+BUILDDIR ?= build/local
+
 .PHONY: all clean doom package-prepare package-tar
 
 all: doom
 
 doom:
-	$(MAKE) -C src STATIC=YES
+	$(MAKE) -C src STATIC=YES BUILDDIR=../$(BUILDDIR)
 
 clean:
 	$(MAKE) -C src clean
@@ -22,7 +24,7 @@ clean:
 package-prepare: doom
 	mkdir -p $(PACKAGE_DIR)/demos
 	mkdir -p $(PACKAGE_DIR)/toGround
-	cp src/bin/opssat-doom $(PACKAGE_DIR)/
+	cp $(BUILDDIR)/opssat-doom $(PACKAGE_DIR)/
 	cp run $(PACKAGE_DIR)/
 	chmod +x $(PACKAGE_DIR)/run
 	cp demos/doom.wad $(PACKAGE_DIR)/demos/

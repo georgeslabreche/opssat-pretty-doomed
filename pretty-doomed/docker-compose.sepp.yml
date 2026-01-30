@@ -8,13 +8,18 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./Makefile:/app/Makefile
-      - ./build:/app/build
+      - ./build/sepp:/app/build/sepp
       - ./package:/app/package
       - ./run:/app/run
       - ./config.cfg:/app/config.cfg
       - ./variants.cfg:/app/variants.cfg
-      - ./model:/app/model
+      - ./models:/app/models
       - ../doom/src:/app/doom-src
+      - ../doom/build:/app/doom-build
       - ../doom/demos:/app/demos
+      - sherpa-onnx:/opt/sherpa-onnx
     working_dir: /app
     tty: true
+
+volumes:
+  sherpa-onnx:

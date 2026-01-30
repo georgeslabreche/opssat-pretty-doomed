@@ -1,20 +1,39 @@
 # Sherpa-ONNX speech-to-text for OPS-SAT SEPP
 #
-# Build from source for Alpine ARM32 (musl) compatibility
+# Build sherpa-onnx C API as static library, then compile sherpa-stt against it.
+# Static linking is required because the pre-built onnxruntime library targets
+# glibc — shared lib loading would fail on Alpine/musl at runtime.
+# The C API usage matches pretty-doomed's approach for FlatSat validation.
+
+CXX = g++
+CXXFLAGS = -Wall -O3 -std=c++17
 
 # Package version (change this for new releases)
 PACKAGE_VERSION = v1
 PACKAGE_NAME = exp4023-sherpa-onnx-$(PACKAGE_VERSION)
 
 SHERPA_VERSION = 1.12.21
-SHERPA_SRC = /opt/sherpa-onnx
+SHERPA_SRC = /opt/sherpa-onnx-src
 SHERPA_BUILD = $(SHERPA_SRC)/build
 
+SRCDIR = src
 BUILDDIR = build
 
-.PHONY: all clean clone-sherpa patch-sherpa build-sherpa package-prepare package-model package-tar
+TARGET = $(BUILDDIR)/sherpa-stt
 
-all: build-sherpa
+SHERPA_CFLAGS = -I$(SHERPA_SRC) \
+                -I$(SHERPA_BUILD)/_deps/onnxruntime-src/include
+
+PACKAGE_DIR = package/$(PACKAGE_NAME)
+
+.PHONY: all clean clone-sherpa patch-sherpa build-sherpa \
+        package-prepare package-model package-tar
+
+all: build-sherpa $(TARGET)
+
+#############################################
+# Sherpa-ONNX static library build
+#############################################
 
 # Clone sherpa-onnx source
 clone-sherpa:
@@ -39,11 +58,9 @@ patch-sherpa: clone-sherpa
 		fi; \
 	done
 
-# Build sherpa-onnx from source (static linking)
-# Note: We link against libexecinfo for backtrace() and glibc_compat.o for __libc_single_threaded
-#       These are needed because the pre-built onnxruntime library is compiled for glibc
+# Build sherpa-onnx as static library
 build-sherpa: patch-sherpa
-	@if [ ! -f "$(SHERPA_BUILD)/bin/sherpa-onnx-offline" ]; then \
+	@if [ ! -f "$(SHERPA_BUILD)/lib/libsherpa-onnx-c-api.a" ]; then \
 		echo "Building sherpa-onnx (this may take a while with QEMU)..."; \
 		mkdir -p $(SHERPA_BUILD); \
 		cd $(SHERPA_BUILD) && cmake \
@@ -52,48 +69,81 @@ build-sherpa: patch-sherpa
 			-DSHERPA_ONNX_ENABLE_TESTS=OFF \
 			-DSHERPA_ONNX_ENABLE_PYTHON=OFF \
 			-DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF \
-			-DSHERPA_ONNX_ENABLE_BINARY=ON \
+			-DSHERPA_ONNX_ENABLE_BINARY=OFF \
 			-DCMAKE_EXE_LINKER_FLAGS="/usr/lib/glibc_compat.o" \
 			.. && \
-		make -j$$(nproc) sherpa-onnx-offline; \
+		make -j$$(nproc); \
 	else \
-		echo "sherpa-onnx-offline already built"; \
+		echo "sherpa-onnx already built"; \
 	fi
+
+#############################################
+# sherpa-stt binary
+#############################################
+
+# Link statically against sherpa-onnx-c-api and all its dependencies.
+# The pre-built onnxruntime.so requires glibc compat stubs at link time.
+$(TARGET): $(SRCDIR)/sherpa-stt.cpp | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(SHERPA_CFLAGS) $< -o $@ \
+		-L$(SHERPA_BUILD)/lib \
+		-lsherpa-onnx-c-api \
+		-lsherpa-onnx-core \
+		-lkaldi-native-fbank-core \
+		-lkissfft-float \
+		-lkaldi-decoder-core \
+		-lsherpa-onnx-kaldifst-core \
+		-lsherpa-onnx-fst \
+		-lsherpa-onnx-fstfar \
+		-lssentencepiece_core \
+		-lpiper_phonemize \
+		-lespeak-ng \
+		-lucd \
+		-L$(SHERPA_BUILD)/_deps/onnxruntime-src/lib \
+		-lonnxruntime \
+		/usr/lib/glibc_compat.o \
+		-lsndfile -lpthread -lm -lstdc++
+	strip $@
+
+$(BUILDDIR):
 	mkdir -p $(BUILDDIR)
-	cp $(SHERPA_BUILD)/bin/sherpa-onnx-offline $(BUILDDIR)/
-	strip $(BUILDDIR)/sherpa-onnx-offline
 
-clean:
-	rm -rf $(BUILDDIR)
-	rm -rf toGround
+#############################################
+# SEPP Packaging
+#############################################
 
-clean-all: clean
-	rm -rf $(SHERPA_SRC)
-
-# Create deployment package for SEPP
-# Run inside container: make package-prepare
-# Run outside container: make package-model && ./setup-samples.sh && make package-tar
-package-prepare: $(BUILDDIR)/sherpa-onnx-offline
-	mkdir -p package/$(PACKAGE_NAME)/model
-	mkdir -p package/$(PACKAGE_NAME)/input
-	cp $(BUILDDIR)/sherpa-onnx-offline package/$(PACKAGE_NAME)/
-	cp run package/$(PACKAGE_NAME)/
-	chmod +x package/$(PACKAGE_NAME)/run
-	chmod +x package/$(PACKAGE_NAME)/sherpa-onnx-offline
+package-prepare: $(TARGET)
+	mkdir -p $(PACKAGE_DIR)/model
+	mkdir -p $(PACKAGE_DIR)/input
+	mkdir -p $(PACKAGE_DIR)/toGround
+	# Binary
+	cp $(TARGET) $(PACKAGE_DIR)/
+	# Run script
+	cp run $(PACKAGE_DIR)/
+	chmod +x $(PACKAGE_DIR)/run
+	chmod +x $(PACKAGE_DIR)/sherpa-stt
 	@echo ""
-	@echo "Package prepared in package/$(PACKAGE_NAME)/"
+	@echo "Package prepared in $(PACKAGE_DIR)/"
 	@echo "Run outside container:"
 	@echo "  make package-model"
 	@echo "  ./setup-samples.sh"
 	@echo "  make package-tar"
 
-# Run OUTSIDE the container to copy model files (int8 quantized - smaller)
+# Run OUTSIDE the container to copy model files
 package-model:
 	./setup-model.sh
 
 # Run OUTSIDE the container
 package-tar:
-	COPYFILE_DISABLE=1 tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME).tar.gz -C package/$(PACKAGE_NAME) .
+	COPYFILE_DISABLE=1 tar --owner=exp --group=exp \
+		-czvf package/$(PACKAGE_NAME).tar.gz \
+		-C $(PACKAGE_DIR) .
 	@echo ""
 	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"
 	@ls -lh package/$(PACKAGE_NAME).tar.gz
+
+clean:
+	rm -rf $(BUILDDIR)/*
+	rm -rf toGround
+
+clean-all: clean
+	rm -rf package

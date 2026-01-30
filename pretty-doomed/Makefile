@@ -6,7 +6,7 @@
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
 
-PACKAGE_VERSION ?= v3
+PACKAGE_VERSION ?= v1
 PACKAGE_NAME = exp4023-pretty-DOOMed-$(PACKAGE_VERSION)
 
 # External library flags
@@ -20,7 +20,7 @@ SHERPA_LIBS = -L$(SHERPA_DIR)/lib -lsherpa-onnx-c-api
 SNDFILE_LIBS = -lsndfile
 
 SRCDIR = src
-BUILDDIR = build
+BUILDDIR ?= build/local
 TESTDIR = tests
 
 # Pure C++17 sources (no external deps - unit testable)
@@ -31,30 +31,53 @@ OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o
 OBJS_MAIN = $(BUILDDIR)/main.o
 
-TARGET = $(BUILDDIR)/pretty_doomed
+TARGET = $(BUILDDIR)/pretty-doomed
 TEST_TARGET = $(BUILDDIR)/test_runner
 
 # Doom source (mounted via docker-compose)
 DOOM_SRCDIR = doom-src
 
-.PHONY: all clean test test-dsp doom build-sherpa \
-       package-prepare package-model package-demos package-tar
+MODEL_FILES = models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx \
+              models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx \
+              models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx \
+              models/sherpa-onnx/small/tokens.txt
 
-all: $(TARGET)
+.PHONY: all clean test test-dsp doom build-sherpa check-model \
+       package-prepare package-input package-model package-demos package-tar
+
+all: check-model $(TARGET)
+
+check-model:
+	@for f in $(MODEL_FILES); do \
+		if [ ! -f "$$f" ]; then \
+			echo "ERROR: Missing model file: $$f"; \
+			echo ""; \
+			echo "Download with:"; \
+			echo "  git lfs install"; \
+			echo "  git clone https://huggingface.co/csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26 /tmp/sherpa-model"; \
+			echo "  mkdir -p models/sherpa-onnx/small"; \
+			echo "  cp /tmp/sherpa-model/{encoder-epoch-99-avg-1.int8.onnx,decoder-epoch-99-avg-1.onnx,joiner-epoch-99-avg-1.int8.onnx,tokens.txt} models/sherpa-onnx/small/"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "Model files: OK"
 
 #############################################
 # Doom binary
 #############################################
 
+DOOM_BUILDDIR = /app/doom-build/$(notdir $(BUILDDIR))
+
 doom:
-	$(MAKE) -C $(DOOM_SRCDIR) STATIC=YES
+	$(MAKE) -C $(DOOM_SRCDIR) STATIC=YES BUILDDIR=$(DOOM_BUILDDIR)
 
 #############################################
 # Main binary
 #############################################
 
 $(TARGET): $(OBJS_PURE) $(OBJS_EXT) $(OBJS_MAIN) | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(GNURADIO_LIBS) $(SHERPA_LIBS) $(SNDFILE_LIBS) -lpthread -lm
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(GNURADIO_LIBS) $(SHERPA_LIBS) $(SNDFILE_LIBS) -lpthread -lm \
+		-Wl,--allow-shlib-undefined
 
 # Pure C++ objects (no special flags)
 $(BUILDDIR)/config.o: $(SRCDIR)/config.cpp $(SRCDIR)/config.h | $(BUILDDIR)
@@ -118,7 +141,7 @@ SHERPA_VERSION = 1.12.21
 SHERPA_SRC = /opt/sherpa-onnx-src
 
 build-sherpa:
-	@if [ ! -f "$(SHERPA_DIR)/lib/libsherpa-onnx-c-api.a" ]; then \
+	@if [ ! -f "$(SHERPA_DIR)/lib/libsherpa-onnx-c-api.so" ]; then \
 		echo "Cloning sherpa-onnx v$(SHERPA_VERSION)..."; \
 		git clone --depth 1 --branch v$(SHERPA_VERSION) \
 			https://github.com/k2-fsa/sherpa-onnx.git $(SHERPA_SRC); \
@@ -131,7 +154,7 @@ build-sherpa:
 		echo "Building sherpa-onnx (this may take a while under QEMU)..."; \
 		mkdir -p $(SHERPA_SRC)/build && cd $(SHERPA_SRC)/build && cmake \
 			-DCMAKE_BUILD_TYPE=Release \
-			-DBUILD_SHARED_LIBS=OFF \
+			-DBUILD_SHARED_LIBS=ON \
 			-DSHERPA_ONNX_ENABLE_TESTS=OFF \
 			-DSHERPA_ONNX_ENABLE_PYTHON=OFF \
 			-DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF \
@@ -154,13 +177,13 @@ PACKAGE_DIR = package/$(PACKAGE_NAME)
 # Run inside ARM32 container
 package-prepare: $(TARGET) doom
 	mkdir -p $(PACKAGE_DIR)/libs
-	mkdir -p $(PACKAGE_DIR)/model
+	mkdir -p $(PACKAGE_DIR)/models/sherpa-onnx/small
 	mkdir -p $(PACKAGE_DIR)/demos
 	mkdir -p $(PACKAGE_DIR)/input
 	mkdir -p $(PACKAGE_DIR)/toGround
 	# Binaries
-	cp $(TARGET) $(PACKAGE_DIR)/pretty_doomed
-	cp doom-src/bin/opssat-doom $(PACKAGE_DIR)/
+	cp $(TARGET) $(PACKAGE_DIR)/pretty-doomed
+	cp $(DOOM_BUILDDIR)/opssat-doom $(PACKAGE_DIR)/
 	# Config + scripts
 	cp run $(PACKAGE_DIR)/
 	cp config.cfg $(PACKAGE_DIR)/
@@ -189,17 +212,26 @@ package-prepare: $(TARGET) doom
 	cp -P /usr/lib/libopus.so* $(PACKAGE_DIR)/libs/
 	cp -P /usr/lib/libmpg123.so* $(PACKAGE_DIR)/libs/
 	cp -P /usr/lib/libmp3lame.so* $(PACKAGE_DIR)/libs/
+	# Sherpa-ONNX + ONNX Runtime
+	cp -P $(SHERPA_DIR)/lib/*.so* $(PACKAGE_DIR)/libs/
+	# glibc compat shim (needed by libonnxruntime.so on musl)
+	cp /usr/lib/libglibc_compat.so $(PACKAGE_DIR)/libs/
 	@echo "Package prepared in $(PACKAGE_DIR)/"
-	@echo "Run outside container: make package-model && make package-demos && make package-tar"
+	@echo "Run outside container: make package-input && make package-model && make package-demos && make package-tar"
 
 # Run OUTSIDE container
 package-model:
-	cp model/*.onnx $(PACKAGE_DIR)/model/
-	cp model/tokens.txt $(PACKAGE_DIR)/model/
-	@echo "Model files copied to $(PACKAGE_DIR)/model/"
+	cp models/sherpa-onnx/small/*.onnx $(PACKAGE_DIR)/models/sherpa-onnx/small/
+	cp models/sherpa-onnx/small/tokens.txt $(PACKAGE_DIR)/models/sherpa-onnx/small/
+	@echo "Model files copied to $(PACKAGE_DIR)/models/sherpa-onnx/small/"
+
+package-input:
+	cp input/*.wav $(PACKAGE_DIR)/input/
+	@echo "Input WAV files copied to $(PACKAGE_DIR)/input/"
 
 package-demos:
 	cp demos/*.lmp $(PACKAGE_DIR)/demos/
+	cp demos/*.txt $(PACKAGE_DIR)/demos/
 	cp demos/doom.wad $(PACKAGE_DIR)/demos/
 	@echo "Demo files copied to $(PACKAGE_DIR)/demos/"
 
@@ -219,7 +251,7 @@ $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
 clean:
-	rm -rf $(BUILDDIR)
+	rm -rf build/local/* build/sepp/*
 
 clean-all: clean
 	rm -rf package

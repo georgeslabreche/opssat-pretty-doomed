@@ -4,6 +4,7 @@
 # Prerequisites:
 #   - Docker and Docker Compose
 #   - resources/exp_env.tar.gz (one level up)
+#   - Model files in model/ (see README.md)
 #
 # First build takes a long time (GNU Radio + sherpa-onnx compilation under QEMU).
 # Subsequent builds are fast thanks to Docker layer caching.
@@ -14,6 +15,27 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXP_ENV_TAR="$SCRIPT_DIR/../resources/exp_env.tar.gz"
 
 echo "=== PRETTY DOOMed SEPP Build ==="
+
+# Pre-flight: check model files exist before starting long build
+echo "=== Checking prerequisites ==="
+MISSING=""
+for f in models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx models/sherpa-onnx/small/tokens.txt; do
+    if [ ! -f "$SCRIPT_DIR/$f" ]; then
+        MISSING="$MISSING  $f\n"
+    fi
+done
+if [ -n "$MISSING" ]; then
+    echo "ERROR: Missing model files:"
+    printf "$MISSING"
+    echo ""
+    echo "Download them with:"
+    echo "  git lfs install"
+    echo "  git clone https://huggingface.co/csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26 /tmp/sherpa-model"
+    echo "  mkdir -p models/sherpa-onnx/small"
+    echo "  cp /tmp/sherpa-model/{encoder-epoch-99-avg-1.int8.onnx,decoder-epoch-99-avg-1.onnx,joiner-epoch-99-avg-1.int8.onnx,tokens.txt} models/sherpa-onnx/small/"
+    exit 1
+fi
+echo "Model files: OK"
 
 # Step 1: Setup QEMU for ARM32 emulation
 echo "=== Setting up QEMU emulation ==="
@@ -32,7 +54,7 @@ docker import --platform linux/arm/v7 "$EXP_ENV_TAR" exp_env:latest
 echo "=== Building Docker image (GNU Radio from source) ==="
 docker-compose -f docker-compose.sepp.yml build
 
-mkdir -p build package
+mkdir -p build/sepp package
 
 # Step 4: Build sherpa-onnx C API (first time only)
 echo "=== Building sherpa-onnx C API ==="
@@ -40,13 +62,15 @@ docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make build
 
 # Step 5: Build pretty-doomed + doom + prepare package
 echo "=== Building pipeline + packaging ==="
-docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make package-prepare
+docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make BUILDDIR=build/sepp clean
+docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make BUILDDIR=build/sepp package-prepare
 
 # Step 6: Copy model + demos + create tarball (outside container)
 echo "=== Finalizing package ==="
+make package-input
 make package-model
 make package-demos
 make package-tar
 
 echo "=== Done ==="
-ls -lh package/exp4023-pretty-DOOMed-v1.tar.gz
+ls -lh package/exp4023-pretty-DOOMed-*.tar.gz
