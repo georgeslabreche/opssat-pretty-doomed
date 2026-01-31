@@ -47,7 +47,7 @@ main.cpp (orchestrator)
 
 ### Dependency Isolation
 
-Three modules are pure C++17 with zero external dependencies:
+Four modules are pure C++17 with zero external dependencies:
 
 - **config** — string parsing (including model paths)
 - **matcher** — string matching algorithms
@@ -83,6 +83,17 @@ wake_word=PRETTY
 call_signs=NIGHT,LIGHT,HEART,...
 command=DOOM,PLAY DOOM
 fuzzy_max_distance=1
+
+# DOOM Frame Capture
+# Per-demo: integer=snapshot, range=GIF, -1=random, list=cycling
+doom_frames_e1m7-607=8000,7992-8025
+doom_frames_impfight=-1
+doom_frames_m1-fast=400,300,500,100
+doom_frames_m1-normal=-1
+doom_frames_m1-simple=-1
+doom_maxframes_impfight=2030
+doom_maxframes_m1-normal=1785
+doom_maxframes_m1-simple=700
 ```
 
 ### `variants.cfg` — Fuzzy Match Variants

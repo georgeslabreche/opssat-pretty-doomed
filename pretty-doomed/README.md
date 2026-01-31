@@ -26,6 +26,10 @@ docker-compose run --rm pretty-doomed make all doom
 
 This builds both binaries using Debian Bookworm x86_64 with GNU Radio and sherpa-onnx.
 
+### Models
+
+Download models before running — see [`models/README.md`](models/README.md). Model paths are configured in `config.cfg`.
+
 ### SEPP Build (ARM32)
 
 Builds an ARM32 package for OPS-SAT SEPP deployment. The first build compiles GNU Radio and sherpa-onnx from source under QEMU emulation — this is slow but results are cached by Docker for subsequent builds.
@@ -303,21 +307,6 @@ pretty-doomed/
 └── docs/
     └── DESIGN.md
 ```
-
-## Models
-
-Uses [sherpa-onnx-zipformer-small-en-2023-06-26](https://huggingface.co/csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26) (int8 quantized, ~27 MB). Supports `greedy_search` and `modified_beam_search` decoding methods.
-
-The `.onnx` files are gitignored due to size. Download and copy the required files:
-
-```bash
-git lfs install
-git clone https://huggingface.co/csukuangfj/sherpa-onnx-zipformer-small-en-2023-06-26 /tmp/sherpa-model
-mkdir -p models/sherpa-onnx/small
-cp /tmp/sherpa-model/{encoder-epoch-99-avg-1.int8.onnx,decoder-epoch-99-avg-1.onnx,joiner-epoch-99-avg-1.int8.onnx,tokens.txt} models/sherpa-onnx/small/
-```
-
-Model paths are configured in `config.cfg`.
 
 ## References
 
