@@ -1,0 +1,14 @@
+services:
+  doom-sepp:
+    build:
+      context: .
+      dockerfile: Dockerfile.sepp
+    container_name: doom-sepp
+    volumes:
+      - ./src:/app/src
+      - ./demos:/app/demos
+      - ./package:/app/package
+      - ./Makefile:/app/Makefile
+      - ./run:/app/run
+    working_dir: /app
+    tty: true

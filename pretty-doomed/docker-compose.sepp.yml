@@ -1,0 +1,29 @@
+services:
+  pretty-doomed-sepp:
+    build:
+      context: .
+      dockerfile: Dockerfile.sepp
+    container_name: pretty-doomed-sepp
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./Makefile:/app/Makefile
+      - ./build/local:/app/build/local
+      - ./build/sepp:/app/build/sepp
+      - ./package:/app/package
+      - ./run:/app/run
+      - ./config.cfg:/app/config.cfg
+      - ./variants.cfg:/app/variants.cfg
+      - ./ascii.txt:/app/ascii.txt
+      - ./models:/app/models
+      - ./input:/app/input
+      - ./toGround:/app/toGround
+      - ../doom/src:/app/doom-src
+      - ../doom/build:/app/doom-build
+      - ../doom/demos:/app/demos
+      - sherpa-onnx-src:/opt/sherpa-onnx-src
+    working_dir: /app
+    tty: true
+
+volumes:
+  sherpa-onnx-src:

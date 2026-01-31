@@ -26,7 +26,7 @@ docker run --rm --privileged tonistiigi/binfmt --install arm
 ### 2. Import exp_env (one-time)
 
 ```bash
-docker import --platform linux/arm/v7 resources/internal/exp_env.tar.gz exp_env:latest
+docker import --platform linux/arm/v7 resources/exp_env.tar.gz exp_env:latest
 ```
 
 ### 3. Copy GNU Radio Libraries

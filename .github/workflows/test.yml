@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build unit tests
+        working-directory: pretty-doomed
+        run: make build/local/test_runner
+
+      - name: Run unit tests
+        working-directory: pretty-doomed
+        run: ./build/local/test_runner --reporters=junit --out=test-results.xml
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Test Results
+          path: pretty-doomed/test-results.xml
+          reporter: java-junit

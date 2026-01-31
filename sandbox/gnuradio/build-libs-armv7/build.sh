@@ -7,7 +7,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-EXP_ENV_TAR="$SCRIPT_DIR/../../../resources/internal/exp_env.tar.gz"
+EXP_ENV_TAR="$SCRIPT_DIR/../../../resources/exp_env.tar.gz"
 cd "$SCRIPT_DIR"
 
 echo "=== Building GNU Radio libraries for SEPP ==="
