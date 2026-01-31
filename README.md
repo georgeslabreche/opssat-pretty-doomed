@@ -1,130 +1,83 @@
-# PRETTY DOOMED
+# PRETTY DOOMed
 
-First voice command sent to a spacecraft.
+First voice command sent to a spacecraft — playing DOOM from orbit via amateur radio.
 
-## Overview
+## What
 
-This project aims to implement voice telecommand capability for the ESA PRETTY spacecraft, starting with the command *"PRETTY, Play DOOM"* and progressing to more significant telecommands like *"PRETTY, Restart SEPP"* or *"PRETTY, Enter Safe Mode."*
+A radio amateur transmits a voice command to ESA's OPS-SAT PRETTY spacecraft. The onboard pipeline filters the audio signal, transcribes speech, detects the command, and launches a DOOM demo playback. Frame captures, level stats, and transcription are downlinked.
 
-## Pipeline
+```
+Voice (UHF) --> Lowpass --> Bandpass --> Resample --> STT --> Match --> DOOM --> Downlink
+```
 
-1. **Radio amateur** sends voice telecommand via SDR
-2. **GNU Radio** captures and processes the voice signal
-3. **Audio denoising** removes radio interference and background noise
-4. **Speech recognition** detects the specific voice command
-5. **Execute command** (e.g., play DOOM demo file)
-6. **Downlink** all audio and command artifacts
+## Repository
 
-## Current Status
-
-**GNU Radio Signal Processing**:
-- ✅ **Signal Processor** - Lowpass → Bandpass → Power Squelch pipeline
-  - Voice-optimized (300-3400 Hz), ready for SEPP deployment
-- ✅ **GNU Radio Libraries** - Built from source for ARM32 (armv7l)
-  - Includes gr-iio for AD9361/PlutoSDR support
-
-**GNU Radio + Whisper Integration**:
-- ✅ **gnuradio-whisper** - Single binary pipeline
-  - GNU Radio signal processing + Whisper speech-to-text
-  - Tested with clean, noisy, and very noisy voice samples
-
-**Audio Denoising Experiments**:
-- ✅ **DTLN (Neural Network)** - TensorFlow Lite C API implementation complete
-  - Good for acoustic noise, limited for radio interference
-- ✅ **Spectral Subtraction (Classical)** - C implementation complete
-  - Works for stationary acoustic noise, fails for radio interference
-- ✅ **Adaptive Filtering (Classical)** - NLMS frequency-domain implementation complete
-  - Works for stationary acoustic noise, fails for radio interference
-- ✅ **Wiener Filtering (Classical)** - MMSE optimal gain implementation complete
-  - Works for stationary acoustic noise, fails for radio interference
-- ✅ **Adaptive Line Enhancement (Radio-Specific)** - Leaky NLMS with delayed self-reference
-  - Implementation complete, validated on NOIZEUS corpus (480 files)
-  - Not effective for OPS-SAT radio interference
-
-**Findings**: Deep learning, classical methods (spectral subtraction, adaptive filtering, Wiener filtering), and radio-specific ALE all struggle with the complex non-stationary radio interference patterns in OPS-SAT samples.
-
-## Experiments
-
-### GNU Radio Signal Processing
-[`sandbox/gnuradio/`](./sandbox/gnuradio/) - Signal processing for OPS-SAT SEPP
-
-- [`signal-processor/`](./sandbox/gnuradio/signal-processor/) - Voice audio pipeline (Lowpass → Bandpass → Squelch)
-- [`build-libs-armv7/`](./sandbox/gnuradio/build-libs-armv7/) - GNU Radio libraries built for ARM32
-
-### GNU Radio + Whisper Integration
-[`sandbox/integrations/gnuradio-whisper/`](./sandbox/integrations/gnuradio-whisper/) - End-to-end pipeline
-- GNU Radio signal processing + Whisper speech-to-text in a single binary
-- 📈 [Full documentation](./sandbox/integrations/gnuradio-whisper/README.md)
-
-### Neural Network Denoising
-[`sandbox/denoising/audio-denoiser-dtln/`](./sandbox/denoising/audio-denoiser-dtln/) - DTLN with TensorFlow Lite C API
-- ✅ Implementation complete, matches official reference
-- ✅ Excellent for acoustic noise
-- ❌ Limited effectiveness on radio interference
-- 📈 [Full results & analysis](./sandbox/denoising/audio-denoiser-dtln/README.md)
-
-### Classical Signal Processing
-[`sandbox/denoising/audio-denoiser-classical/`](./sandbox/denoising/audio-denoiser-classical/) - Spectral subtraction, adaptive filtering, Wiener filtering
-- ✅ Spectral subtraction implemented
-- ✅ Adaptive filtering (NLMS) implemented
-- ✅ Wiener filtering (MMSE) implemented
-- ❌ All three methods ineffective for radio interference (non-stationary noise)
-- 📈 [Full results & comparison](./sandbox/denoising/audio-denoiser-classical/README.md)
-
-### Radio-Specific Interference Cancellation
-[`sandbox/denoising/audio-denoiser-ale/`](./sandbox/denoising/audio-denoiser-ale/) - Adaptive Line Enhancement (ALE)
-- ✅ Implementation complete (Leaky NLMS, DELAY=400, FILTER_LENGTH=64)
-- ✅ Validated on NOIZEUS corpus (480 files across 4 noise types × 4 SNR levels)
-- ❌ Not effective for OPS-SAT radio interference
-- Uses delayed self-reference to suppress quasi-periodic interference
-- Designed for radio carriers/harmonics, but OPS-SAT interference is too complex
-- 📈 [Full documentation](./sandbox/denoising/audio-denoiser-ale/README.md)
-
-## Documentation
-
-- 📋 [**Full Proposal**](./docs/PROPOSAL.md) - Detailed project description, proof of concept, and next steps
-- 🛰️ [**SEPP Reference**](./SEPP.md) - OPS-SAT Satellite Experimental Processing Platform details
+| Directory | Description |
+|-----------|-------------|
+| [`pretty-doomed/`](pretty-doomed/) | Voice-command-to-DOOM pipeline (C++17, GNU Radio, Sherpa-ONNX) |
+| [`doom/`](doom/) | Headless DOOM engine with JPEG/GIF frame capture |
+| [`sandbox/`](sandbox/) | Experiments: signal processing, denoising, STT evaluation |
+| [`docs/`](docs/) | Project proposal and reference material |
 
 ## Quick Start
 
-GNU Radio signal processor:
 ```bash
-cd sandbox/gnuradio/signal-processor
-./setup-libs.sh
+cd pretty-doomed
+
+# Build
 docker-compose build
-docker-compose run --rm signal-processor make test
+docker-compose run --rm pretty-doomed make all doom
+
+# Download models (see models/README.md)
+# ...
+
+# Run (single file or entire directory)
+docker-compose run --rm pretty-doomed sh run input/georges_01.wav
+docker-compose run --rm pretty-doomed sh run input/
+
+# Test
+docker-compose run --rm pretty-doomed make test
 ```
 
-GNU Radio + Whisper integration:
-```bash
-cd sandbox/integrations/gnuradio-whisper
-docker-compose build
-docker-compose run gnuradio-whisper make test-georges-full
+See [`pretty-doomed/README.md`](pretty-doomed/README.md) for full build, run, and deployment docs.
+
+## Voice Command Format
+
+```
+PRETTY, THIS IS <CALL_SIGN>, PLAY DOOM.
 ```
 
-DTLN neural network denoising:
-```bash
-cd sandbox/denoising/audio-denoiser-dtln
-./build-tflite.sh
-docker-compose up -d
-docker-compose exec dtln-denoiser make
+## Output
+
+Each run produces a numbered directory downlinked to ground:
+
+```
+toGround/run-00001/
+├── transcription.txt       # What the STT heard
+├── summary.txt             # Human-readable summary with ASCII art
+├── scores.txt              # Detection scores
+├── processed.wav           # Filtered audio
+├── impfight/               # DOOM demo output
+│   ├── frame-000700.jpg    # Captured frame
+│   └── stats.txt           # Level statistics
+└── ...
 ```
 
-Classical methods (spectral subtraction, adaptive filtering, Wiener filtering):
-```bash
-cd sandbox/denoising/audio-denoiser-classical
-docker-compose build && docker-compose up -d
-docker-compose exec classical-denoiser sh
-make test
-```
+## Sandbox
 
-ALE radio interference cancellation:
-```bash
-cd sandbox/denoising/audio-denoiser-ale
-docker-compose build && docker-compose up -d
-docker-compose exec ale-denoiser make test
-```
+Earlier experiments that informed the final pipeline design:
 
-## Mission
+- **Signal processing** — [`sandbox/gnuradio/`](sandbox/gnuradio/) — GNU Radio lowpass/bandpass/squelch for ARM32
+- **Denoising** — [`sandbox/denoising/`](sandbox/denoising/) — DTLN, spectral subtraction, adaptive filtering, Wiener, ALE
+- **STT evaluation** — [`sandbox/speech-to-text/`](sandbox/speech-to-text/) — Vosk, Sherpa-ONNX, PocketSphinx comparison
+- **Integration** — [`sandbox/integrations/`](sandbox/integrations/) — GNU Radio + Whisper end-to-end prototype
 
-Making space more interactive, one voice command at a time. 🚀
+**Finding:** Classical and neural denoising methods all struggle with the non-stationary radio interference in OPS-SAT samples. The pipeline instead relies on bandpass filtering + a robust STT model with fuzzy matching.
+
+## References
+
+- [OPS-SAT](https://opssat.esa.int/)
+- [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
+- [GNU Radio](https://wiki.gnuradio.org/)
+- [Project Proposal](docs/PROPOSAL.md)
+- [SEPP Reference](SEPP.md)

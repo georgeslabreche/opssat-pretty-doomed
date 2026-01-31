@@ -282,7 +282,7 @@ package-model:
 	@echo "Model files copied to $(PACKAGE_DIR)/models/sherpa-onnx/small/"
 
 package-input:
-	cp input/*.wav $(PACKAGE_DIR)/input/
+	cp input/georges_01.wav input/oli_04.wav input/vlad_02.wav $(PACKAGE_DIR)/input/
 	@echo "Input WAV files copied to $(PACKAGE_DIR)/input/"
 
 package-demos:
