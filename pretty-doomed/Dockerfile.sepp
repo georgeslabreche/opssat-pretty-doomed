@@ -71,7 +71,8 @@ RUN apk update && apk add --no-cache \
     fmt-dev \
     libsndfile-dev \
     gmp-dev \
-    libvolk-dev
+    libvolk-dev \
+    upx
 
 # glibc compatibility stubs for musl
 # The pre-built onnxruntime library requires glibc symbols not in musl

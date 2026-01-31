@@ -39,6 +39,11 @@ OBJS += $(addprefix $(BUILDDIR)/, $(SRC_DOOM))
 all:	 $(OUTPUT)
 
 clean:
+	rm -rf $(BUILDDIR)/*
+	rm -f $(OUTPUT).gdb
+	rm -f $(OUTPUT).map
+
+clean-all:
 	rm -rf ../build/local ../build/sepp
 	rm -f $(OUTPUT).gdb
 	rm -f $(OUTPUT).map

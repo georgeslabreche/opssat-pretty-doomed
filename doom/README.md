@@ -1,6 +1,6 @@
 # DOOM for OPS-SAT
 
-Headless DOOM engine for OPS-SAT. Plays back demo recordings, outputs frame captures (JPEG) and level statistics. No display or audio — designed for deterministic demo playback on embedded systems.
+Headless DOOM engine for OPS-SAT. Plays back demo recordings, outputs frame captures (JPEG), animated GIFs, and level statistics. No display or audio — designed for deterministic demo playback on embedded systems.
 
 ## Build
 
@@ -62,7 +62,8 @@ make package-tar
     -iwad demos/doom.wad \
     -cdemo demos/e1m7-607 \
     -statdump output/stats.txt \
-    -framedir output/
+    -framedir output/ \
+    -frames "5000,5001-5020"
 ```
 
 ### Options
@@ -72,12 +73,39 @@ make package-tar
 | `-iwad <path>` | Path to doom.wad (required) |
 | `-cdemo <path>` | Demo file to play (without .lmp extension) |
 | `-statdump <path>` | Write level statistics to file |
-| `-framedir <dir>` | Write frame captures (JPEG) to directory |
-| `-runid <N>` | Run identifier (selects which frame to capture) |
+| `-framedir <dir>` | Output directory for frame captures, GIFs, and doom.log |
+| `-frames <spec>` | Frame capture spec: comma-separated frame numbers and dash ranges (e.g. `"5000,5001-5020"`). Individual numbers produce a JPEG. Dash ranges produce an animated GIF built in memory from the framebuffer. |
+| `-keepgifframes` | Also write individual JPEGs for frames within GIF ranges (default: only the GIF is written for range frames) |
+| `-runid <N>` | Run identifier |
 | `-nosound` | Disable sound |
 | `-nomusic` | Disable music |
 | `-nosfx` | Disable sound effects |
 | `-longtics` | Deterministic timing |
+
+### Frame Capture
+
+The `-frames` option controls which frames are captured during demo playback:
+
+- **Individual frames** (e.g. `5000`) produce a single JPEG: `frame-005000.jpg`
+- **Dash ranges** (e.g. `5001-5020`) produce an animated GIF: `frames-005001-005020.gif`
+- **Mixed** (e.g. `"5000,5001-5020"`) produces both
+
+GIF encoding happens entirely in memory using [gif.h](https://github.com/charlietangora/gif-h) (public domain, header-only). Each frame is read directly from the DOOM framebuffer — no intermediate files are read from disk. GIFs loop infinitely with a 30ms frame delay (~33fps).
+
+By default, individual JPEGs are **not** written for frames within a GIF range. Pass `-keepgifframes` to also write them.
+
+A `doom.log` file is written to `-framedir` with timestamped entries for each operation:
+
+```
+[2026-01-30T17:14:55.798Z] doom_start
+[2026-01-30T17:14:56.032Z] jpeg_write frame=5000 time_ms=9.990
+[2026-01-30T17:14:56.173Z] jpeg_write frame=5001 time_ms=50.446
+[2026-01-30T17:14:56.178Z] gif_begin range=5001-5020 time_ms=5.010
+[2026-01-30T17:14:56.271Z] gif_frame frame=5001 time_ms=93.265
+...
+[2026-01-30T17:14:58.262Z] gif_end range=5001-5020 time_ms=0.573
+[2026-01-30T17:14:58.572Z] doom_end
+```
 
 ## Demo Files
 
@@ -110,10 +138,14 @@ toGround/run-00001/
 └── runs/
     ├── e1m7-607/
     │   ├── stats.txt
-    │   └── frame-001920.jpg
+    │   ├── doom.log
+    │   ├── frame-005000.jpg
+    │   └── frames-005001-005020.gif
     ├── impfight/
     │   ├── stats.txt
-    │   └── frame-000780.jpg
+    │   ├── doom.log
+    │   ├── frame-000700.jpg
+    │   └── frames-000701-000720.gif
     └── ...
 ```
 
@@ -139,6 +171,7 @@ exp4023-DOOM-v3/
 doom/
 ├── src/                       # DOOM source code (C)
 │   ├── Makefile               # Source-level build
+│   ├── gif.h                  # Single-header GIF encoder (public domain)
 │   └── *.c / *.h
 ├── build/                     # Build output (gitignored)
 │   ├── local/                 # x86_64 objects + binary

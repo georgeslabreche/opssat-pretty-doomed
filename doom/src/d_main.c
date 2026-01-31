@@ -187,7 +187,12 @@ void D_Display (void)
     shoulddraw = DG_ShouldDrawFrame();
 
     if (nodrawers || !shoulddraw)
+    {
+	// Keep wipe state in sync so skipped frames don't trigger
+	// a spurious screen wipe when the next frame is drawn.
+	oldgamestate = wipegamestate = gamestate;
     	return;                    // for comparative timing / profiling
+    }
 		
     redrawsbar = false;
     

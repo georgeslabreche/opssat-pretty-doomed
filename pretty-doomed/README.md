@@ -151,7 +151,18 @@ decoding_method=modified_beam_search
 wake_word=PRETTY
 call_signs=NIGHT,LIGHT,HEART,POWER,...
 command=DOOM,PLAY DOOM
-fuzzy_max_distance=2
+fuzzy_max_distance=1
+
+# DOOM Frame Capture
+# Per-demo: integer=snapshot, range=GIF, -1=random, list=cycling
+doom_frames_e1m7-607=8000,7992-8025
+doom_frames_impfight=-1
+doom_frames_m1-fast=400,300,500,100
+doom_frames_m1-normal=-1
+doom_frames_m1-simple=-1
+doom_maxframes_impfight=2030
+doom_maxframes_m1-normal=1785
+doom_maxframes_m1-simple=700
 ```
 
 ### `variants.cfg` — Fuzzy match variants
@@ -183,16 +194,12 @@ toGround/run-00001/
 ├── transcription.txt      # STT output
 ├── scores.txt             # Detection scores (exact/approximate breakdown)
 ├── summary.txt            # Human-readable summary
-└── runs/                  # DOOM demo output (if command detected)
-    ├── doom.log           # DOOM stdout/stderr
-    ├── results.log        # Statdump validation (OK/ERROR per demo)
-    ├── e1m7-607/
-    │   ├── stats.txt      # Level statistics
-    │   └── frame-001920.jpg
-    ├── impfight/
-    │   ├── stats.txt
-    │   └── frame-000780.jpg
-    └── ...
+├── doom.log               # DOOM stdout/stderr (if command detected)
+├── results.log            # Statdump validation (OK/ERROR per demo)
+└── e1m7-607/              # DOOM demo output (one demo per run, cycling)
+    ├── stats.txt          # Level statistics
+    ├── frame-NNNNNN.jpg   # Snapshot (random, cycling, or fixed)
+    └── frames-007992-008025.gif  # Animated GIF (if dash range configured)
 ```
 
 ### scores.txt
@@ -230,11 +237,11 @@ Creates `package/exp4023-pretty-DOOMed-v1.tar.gz` containing:
 ```
 exp4023-pretty-DOOMed-v1/
 ├── run                    # SEPP entrypoint
-├── pretty-doomed          # Pipeline binary (ARM32)
+├── pretty-doomed          # Pipeline binary (ARM32, sherpa-onnx statically linked)
 ├── opssat-doom            # DOOM binary (ARM32, static)
 ├── config.cfg
 ├── variants.cfg
-├── libs/                  # Bundled shared libraries
+├── libs/                  # Bundled shared libraries (GNU Radio, Boost, etc.)
 ├── models/                # Speech-to-text models
 │   └── sherpa-onnx/
 │       └── small/         # Sherpa-ONNX model (~27 MB)
@@ -242,6 +249,8 @@ exp4023-pretty-DOOMed-v1/
 ├── input/                 # Sample WAV
 └── toGround/
 ```
+
+**Note:** Sherpa-ONNX and ONNX Runtime are statically linked into the `pretty-doomed` binary. The pre-built `libonnxruntime.so` targets glibc and segfaults on Alpine/musl at runtime. Static linking resolves all ONNX Runtime symbols at link time via glibc compatibility stubs, avoiding the musl/glibc ABI incompatibility. GNU Radio and other dependencies remain as bundled shared libraries in `libs/`.
 
 On the SEPP:
 
@@ -261,13 +270,16 @@ pretty-doomed/
 │   ├── dsp.cpp / .h           # GNU Radio FIR filter + resampling
 │   ├── transcriber.cpp / .h   # Sherpa-ONNX wrapper
 │   ├── matcher.cpp / .h       # Fuzzy matching + detection
-│   └── executor.cpp / .h      # DOOM execution
+│   ├── executor.cpp / .h      # DOOM execution
+│   └── output.cpp / .h        # Summary + log output formatting
 ├── tests/
 │   ├── doctest.h              # Test framework (single header)
 │   ├── test_main.cpp          # Test runner
 │   ├── test_config.cpp
 │   ├── test_dsp.cpp
-│   └── test_matcher.cpp
+│   ├── test_matcher.cpp
+│   ├── test_executor.cpp
+│   └── test_output.cpp
 ├── build/                     # Build output (gitignored)
 │   ├── local/                 # x86_64 objects + binary
 │   └── sepp/                  # ARM32 objects + binary

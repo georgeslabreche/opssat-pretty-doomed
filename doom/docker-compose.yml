@@ -5,6 +5,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./demos:/app/demos
+      - ./build:/app/build
       - ./Makefile:/app/Makefile
       - ./run:/app/run
       - ./toGround:/app/toGround

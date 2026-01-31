@@ -28,7 +28,8 @@ main.cpp (orchestrator)
 ├── dsp.h            [GNU Radio]
 ├── transcriber.h    [sherpa-onnx]
 ├── matcher.h        [pure C++17]
-└── executor.h       [pure C++17]
+├── executor.h       [pure C++17]
+└── output.h         [pure C++17]
 ```
 
 ### Module Responsibilities
@@ -41,6 +42,7 @@ main.cpp (orchestrator)
 | Transcriber | `transcriber.cpp` | Sherpa-ONNX offline recognition: init, feed audio, decode, get text | sherpa-onnx |
 | Matcher | `matcher.cpp` | Fuzzy matching with Levenshtein distance + variant lookup, command detection | None |
 | Executor | `executor.cpp` | Fork+exec DOOM binary for each demo file | None |
+| Output | `output.cpp` | Summary + log output formatting (ASCII art, scores) | None |
 | Main | `main.cpp` | CLI arg parsing, pipeline orchestration, output file writing | All |
 
 ### Dependency Isolation
@@ -50,6 +52,7 @@ Three modules are pure C++17 with zero external dependencies:
 - **config** — string parsing (including model paths)
 - **matcher** — string matching algorithms
 - **executor** — DOOM process execution
+- **output** — summary and log formatting
 
 These are fully unit-testable without installing GNU Radio, sherpa-onnx, or libsndfile. The test binary links only these pure modules. DSP integration tests require GNU Radio and run via `make test-dsp`.
 
@@ -78,8 +81,8 @@ num_threads=1
 # Detection
 wake_word=PRETTY
 call_signs=NIGHT,LIGHT,HEART,...
-command=DOOM
-fuzzy_max_distance=2
+command=DOOM,PLAY DOOM
+fuzzy_max_distance=1
 ```
 
 ### `variants.cfg` — Fuzzy Match Variants
@@ -136,6 +139,8 @@ Unit tests use [doctest](https://github.com/doctest/doctest), a single-header C+
 |--------|-----------|----------|
 | matcher | `test_matcher.cpp` | Levenshtein distance, fuzzy matching, variant lookup, full detection |
 | config | `test_config.cpp` | KEY=VALUE parsing, variants parsing, edge cases |
+| executor | `test_executor.cpp` | Demo file discovery, frame resolution, cycling logic |
+| output | `test_output.cpp` | Summary formatting, ASCII art rendering |
 | dsp | `test_dsp.cpp` | FIR convolution correctness, resampling ratios |
 
 ### Running Tests
@@ -151,18 +156,18 @@ The test binary links only pure C++17 modules — no Docker, no external librari
 Each pipeline run produces:
 
 ```
-toGround/run-000001/
+toGround/run-00001/
 ├── pretty-doomed.log       # Full pipeline log
-├── capture.cf32            # Raw I/Q samples from SDR capture
 ├── processed.wav           # Filtered audio
 ├── transcription.txt       # Transcription text
-├── scores.txt              # Detection counts
+├── scores.txt              # Detection scores (exact/approximate breakdown)
 ├── summary.txt             # Human-readable summary
 ├── doom.log                # DOOM stdout/stderr (if triggered)
-└── runs/                   # DOOM demo runs (if triggered)
-    └── e1m7-607/
-        ├── stats.txt
-        └── frame-001920.jpg
+├── results.log             # Statdump validation (OK/ERROR per demo)
+└── e1m7-607/               # DOOM demo output (one per run, cycling)
+    ├── stats.txt
+    ├── frame-NNNNNN.jpg    # Snapshot (random, cycling, or fixed)
+    └── frames-007992-008025.gif  # Animated GIF (if dash range configured)
 ```
 
 ## SEPP Deployment
@@ -172,11 +177,11 @@ Target: Alpine Linux 3.21.3, ARM32 (armv7l), musl libc.
 ```
 exp4023-pretty-DOOMed-v1/
 ├── run                     # Entrypoint
-├── pretty-doomed           # Pipeline binary
-├── opssat-doom             # DOOM binary
+├── pretty-doomed           # Pipeline binary (sherpa-onnx statically linked)
+├── opssat-doom             # DOOM binary (static)
 ├── config.cfg
 ├── variants.cfg
-├── libs/                   # GNU Radio shared libraries
+├── libs/                   # Bundled shared libraries (GNU Radio, Boost, etc.)
 ├── models/                 # Speech-to-text models
 │   └── sherpa-onnx/
 │       └── small/          # sherpa-onnx model (~27 MB)
@@ -198,3 +203,5 @@ exp4023-pretty-DOOMed-v1/
 5. **Single-token call signs** — Words that map to a single BPE token (NIGHT, LIGHT, etc.) are transcribed far more reliably than multi-token words (NATO alphabet).
 
 6. **Externalized config** — All thresholds, call signs, and variants in text files, not compiled constants. Allows tuning without rebuilding.
+
+7. **Static linking for sherpa-onnx/ONNX Runtime** — The pre-built `libonnxruntime.so` targets glibc. Loading it at runtime on Alpine/musl causes a segfault due to deep ABI incompatibilities that cannot be resolved with stub libraries. Sherpa-ONNX and ONNX Runtime are built as static libraries (`BUILD_SHARED_LIBS=OFF`) and linked directly into the `pretty-doomed` binary, resolving all ONNX Runtime symbols at link time via glibc compatibility stubs (`glibc_compat.o`). GNU Radio and other dependencies remain as bundled shared libraries.

@@ -13,9 +13,40 @@ PACKAGE_NAME = exp4023-pretty-DOOMed-$(PACKAGE_VERSION)
 GNURADIO_CFLAGS = $(shell pkg-config --cflags gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft 2>/dev/null)
 GNURADIO_LIBS = $(shell pkg-config --libs gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft 2>/dev/null) -lfmt
 
-SHERPA_DIR ?= /opt/sherpa-onnx
-SHERPA_CFLAGS = -I$(SHERPA_DIR)/include
-SHERPA_LIBS = -L$(SHERPA_DIR)/lib -lsherpa-onnx-c-api
+# Sherpa-ONNX: two layouts depending on environment.
+#
+# Local (Debian): installed SDK at /opt/sherpa-onnx with shared libs.
+# SEPP (Alpine/musl): built from source at /opt/sherpa-onnx-src with static
+#   libs. Static linking is required because the pre-built onnxruntime binary
+#   targets glibc — loading it as a shared library segfaults on Alpine/musl.
+#   glibc_compat.o stubs resolve the missing symbols at link time.
+ifneq ($(wildcard /opt/sherpa-onnx/include/sherpa-onnx/c-api/c-api.h),)
+  # Local: installed SDK with shared libs
+  SHERPA_CFLAGS = -I/opt/sherpa-onnx/include
+  SHERPA_LIBS = -L/opt/sherpa-onnx/lib -lsherpa-onnx-c-api -lonnxruntime
+else
+  # SEPP: source build with static libs
+  SHERPA_SRC = /opt/sherpa-onnx-src
+  SHERPA_BUILD = $(SHERPA_SRC)/build
+  SHERPA_CFLAGS = -I$(SHERPA_SRC) \
+                  -I$(SHERPA_BUILD)/_deps/onnxruntime-src/include
+  SHERPA_LIBS = -L$(SHERPA_BUILD)/lib \
+                -lsherpa-onnx-c-api \
+                -lsherpa-onnx-core \
+                -lkaldi-native-fbank-core \
+                -lkissfft-float \
+                -lkaldi-decoder-core \
+                -lsherpa-onnx-kaldifst-core \
+                -lsherpa-onnx-fst \
+                -lsherpa-onnx-fstfar \
+                -lssentencepiece_core \
+                -lpiper_phonemize \
+                -lespeak-ng \
+                -lucd \
+                -L$(SHERPA_BUILD)/_deps/onnxruntime-src/lib \
+                -lonnxruntime \
+                /usr/lib/glibc_compat.o
+endif
 
 SNDFILE_LIBS = -lsndfile
 
@@ -24,7 +55,7 @@ BUILDDIR ?= build/local
 TESTDIR = tests
 
 # Pure C++17 sources (no external deps - unit testable)
-SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/executor.cpp
+SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SRCDIR)/executor.cpp
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
@@ -42,8 +73,8 @@ MODEL_FILES = models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx \
               models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx \
               models/sherpa-onnx/small/tokens.txt
 
-.PHONY: all clean test test-dsp doom build-sherpa check-model \
-       package-prepare package-input package-model package-demos package-tar
+.PHONY: all clean test test-dsp doom clone-sherpa patch-sherpa build-sherpa \
+       check-model package-prepare package-input package-model package-demos package-tar
 
 all: check-model $(TARGET)
 
@@ -86,6 +117,9 @@ $(BUILDDIR)/config.o: $(SRCDIR)/config.cpp $(SRCDIR)/config.h | $(BUILDDIR)
 $(BUILDDIR)/matcher.o: $(SRCDIR)/matcher.cpp $(SRCDIR)/matcher.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(BUILDDIR)/output.o: $(SRCDIR)/output.cpp $(SRCDIR)/output.h $(SRCDIR)/matcher.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(BUILDDIR)/executor.o: $(SRCDIR)/executor.cpp $(SRCDIR)/executor.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -106,7 +140,7 @@ $(BUILDDIR)/main.o: $(SRCDIR)/main.cpp | $(BUILDDIR)
 # Unit tests - pure C++17 modules only
 #############################################
 
-TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_matcher.cpp
+TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp
 TEST_OBJS = $(patsubst $(TESTDIR)/%.cpp,$(BUILDDIR)/%.o,$(TEST_SRCS))
 
 $(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp | $(BUILDDIR)
@@ -134,38 +168,57 @@ test-dsp: $(TEST_DSP_TARGET)
 	./$(TEST_DSP_TARGET)
 
 #############################################
-# Sherpa-ONNX build from source (ARM32 container)
+# Sherpa-ONNX static library build (ARM32 container)
+#
+# Built as static libs (BUILD_SHARED_LIBS=OFF) because the pre-built
+# onnxruntime binary targets glibc. Loading libonnxruntime.so at runtime
+# on Alpine/musl causes a segfault due to deep ABI incompatibilities that
+# cannot be resolved with stub libraries. Static linking resolves all
+# onnxruntime symbols at link time via glibc_compat.o stubs.
 #############################################
 
 SHERPA_VERSION = 1.12.21
-SHERPA_SRC = /opt/sherpa-onnx-src
 
-build-sherpa:
-	@if [ ! -f "$(SHERPA_DIR)/lib/libsherpa-onnx-c-api.so" ]; then \
+# Clone sherpa-onnx source
+clone-sherpa:
+	@if [ ! -f "$(SHERPA_SRC)/CMakeLists.txt" ]; then \
 		echo "Cloning sherpa-onnx v$(SHERPA_VERSION)..."; \
+		rm -rf $(SHERPA_SRC)/*; \
 		git clone --depth 1 --branch v$(SHERPA_VERSION) \
 			https://github.com/k2-fsa/sherpa-onnx.git $(SHERPA_SRC); \
-		echo "Patching for musl compatibility..."; \
-		find $(SHERPA_SRC)/sherpa-onnx/csrc -name "*.h" -o -name "*.cc" | while read f; do \
-			if grep -q 'int32_t\|int64_t' "$$f" && ! grep -q '#include <cstdint>' "$$f"; then \
-				sed -i '1i #include <cstdint>' "$$f"; \
-			fi; \
-		done; \
-		echo "Building sherpa-onnx (this may take a while under QEMU)..."; \
-		mkdir -p $(SHERPA_SRC)/build && cd $(SHERPA_SRC)/build && cmake \
+	else \
+		echo "Sherpa-ONNX source already exists at $(SHERPA_SRC)"; \
+	fi
+
+# Patch source files for musl/Alpine compatibility (fix missing #include <cstdint>)
+# GCC 14 on musl requires explicit includes that were implicit before
+patch-sherpa: clone-sherpa
+	@echo "Patching source files for musl compatibility..."
+	@find $(SHERPA_SRC)/sherpa-onnx/csrc -name "*.h" -o -name "*.cc" | while read f; do \
+		if grep -q 'int32_t\|int64_t\|uint32_t\|uint64_t' "$$f" 2>/dev/null && \
+		   ! grep -q '#include <cstdint>' "$$f" 2>/dev/null; then \
+			sed -i '1i #include <cstdint>' "$$f"; \
+			echo "  Patched $$(basename $$f)"; \
+		fi; \
+	done
+
+# Build sherpa-onnx as static libraries
+build-sherpa: patch-sherpa
+	@if [ ! -f "$(SHERPA_BUILD)/lib/libsherpa-onnx-c-api.a" ]; then \
+		echo "Building sherpa-onnx static libs (this may take a while under QEMU)..."; \
+		mkdir -p $(SHERPA_BUILD); \
+		cd $(SHERPA_BUILD) && cmake \
 			-DCMAKE_BUILD_TYPE=Release \
-			-DBUILD_SHARED_LIBS=ON \
+			-DBUILD_SHARED_LIBS=OFF \
 			-DSHERPA_ONNX_ENABLE_TESTS=OFF \
 			-DSHERPA_ONNX_ENABLE_PYTHON=OFF \
 			-DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF \
 			-DSHERPA_ONNX_ENABLE_BINARY=OFF \
-			-DCMAKE_INSTALL_PREFIX=$(SHERPA_DIR) \
 			-DCMAKE_EXE_LINKER_FLAGS="/usr/lib/glibc_compat.o" \
 			.. && \
-		make -j$$(nproc) && \
-		make install; \
+		make -j$$(nproc); \
 	else \
-		echo "sherpa-onnx already built at $(SHERPA_DIR)"; \
+		echo "sherpa-onnx already built"; \
 	fi
 
 #############################################
@@ -181,13 +234,18 @@ package-prepare: $(TARGET) doom
 	mkdir -p $(PACKAGE_DIR)/demos
 	mkdir -p $(PACKAGE_DIR)/input
 	mkdir -p $(PACKAGE_DIR)/toGround
-	# Binaries
+	# Binaries (strip debug symbols + UPX compress for SEPP)
 	cp $(TARGET) $(PACKAGE_DIR)/pretty-doomed
 	cp $(DOOM_BUILDDIR)/opssat-doom $(PACKAGE_DIR)/
+	strip $(PACKAGE_DIR)/pretty-doomed
+	strip $(PACKAGE_DIR)/opssat-doom
+	upx --best $(PACKAGE_DIR)/pretty-doomed
+	upx --best $(PACKAGE_DIR)/opssat-doom
 	# Config + scripts
 	cp run $(PACKAGE_DIR)/
 	cp config.cfg $(PACKAGE_DIR)/
 	cp variants.cfg $(PACKAGE_DIR)/
+	cp ascii.txt $(PACKAGE_DIR)/
 	chmod +x $(PACKAGE_DIR)/run
 	# GNU Radio + VOLK libs
 	cp -P /opt/gnuradio/lib/*.so* $(PACKAGE_DIR)/libs/
@@ -212,10 +270,8 @@ package-prepare: $(TARGET) doom
 	cp -P /usr/lib/libopus.so* $(PACKAGE_DIR)/libs/
 	cp -P /usr/lib/libmpg123.so* $(PACKAGE_DIR)/libs/
 	cp -P /usr/lib/libmp3lame.so* $(PACKAGE_DIR)/libs/
-	# Sherpa-ONNX + ONNX Runtime
-	cp -P $(SHERPA_DIR)/lib/*.so* $(PACKAGE_DIR)/libs/
-	# glibc compat shim (needed by libonnxruntime.so on musl)
-	cp /usr/lib/libglibc_compat.so $(PACKAGE_DIR)/libs/
+	# Sherpa-ONNX + ONNX Runtime: statically linked into pretty-doomed binary
+	# (no shared libs needed — see build-sherpa comment)
 	@echo "Package prepared in $(PACKAGE_DIR)/"
 	@echo "Run outside container: make package-input && make package-model && make package-demos && make package-tar"
 
@@ -251,7 +307,8 @@ $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
 clean:
-	rm -rf build/local/* build/sepp/*
+	rm -rf $(BUILDDIR)/*
 
-clean-all: clean
+clean-all:
+	rm -rf build/local/* build/sepp/*
 	rm -rf package

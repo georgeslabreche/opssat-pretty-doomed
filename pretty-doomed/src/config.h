@@ -30,6 +30,13 @@ struct PipelineConfig {
     std::vector<std::string> call_signs;
     std::vector<std::string> commands = {"DOOM"};
     int fuzzy_max_distance = 2;
+
+    // DOOM frame capture: demo name -> frames spec (e.g. "5000,5001-5020")
+    // Special values: "-1" = random frame, comma list = cycling
+    std::unordered_map<std::string, std::string> doom_frames;
+    // Max frame count per demo (for random frame selection)
+    std::unordered_map<std::string, int> doom_maxframes;
+    bool doom_keepgifframes = false;
 };
 
 // Parse KEY=VALUE config file. Lines starting with # are comments.

@@ -8,6 +8,9 @@
 #include <fstream>
 #include <string>
 #include <ctime>
+#include <chrono>
+#include <cmath>
+#include <algorithm>
 #include <getopt.h>
 
 #include "config.h"
@@ -15,6 +18,7 @@
 #include "dsp.h"
 #include "transcriber.h"
 #include "matcher.h"
+#include "output.h"
 #include "executor.h"
 
 static std::string timestamp() {
@@ -26,6 +30,23 @@ static std::string timestamp() {
 
 static void log(const std::string& msg) {
     std::cout << "[" << timestamp() << "] " << msg << std::endl;
+}
+
+static std::string format_duration(std::chrono::steady_clock::duration d) {
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+    return std::to_string(ms / 1000) + "." + std::to_string((ms % 1000) / 100) + "s";
+}
+
+static void compute_audio_stats(const std::vector<float>& samples,
+                                float& rms, float& peak) {
+    double sum_sq = 0.0;
+    peak = 0.0f;
+    for (float s : samples) {
+        float a = std::fabs(s);
+        sum_sq += static_cast<double>(s) * s;
+        if (a > peak) peak = a;
+    }
+    rms = samples.empty() ? 0.0f : static_cast<float>(std::sqrt(sum_sq / samples.size()));
 }
 
 struct Args {
@@ -96,6 +117,7 @@ int main(int argc, char** argv) {
     }
 
     log("=== PRETTY DOOMed ===");
+    auto pipeline_start = std::chrono::steady_clock::now();
 
     // Step 1: Load config
     log("Loading config: " + args.config_file);
@@ -136,6 +158,9 @@ int main(int argc, char** argv) {
         std::to_string(samples.size()) + " samples (" +
         std::to_string(static_cast<float>(samples.size()) / sample_rate) + "s)");
 
+    AudioStats audio_stats;
+    compute_audio_stats(samples, audio_stats.rms_raw, audio_stats.peak_raw);
+
     // Step 3: GNU Radio signal processing
     log("Filtering (GNU Radio)...");
     if (args.verbose) {
@@ -144,11 +169,14 @@ int main(int argc, char** argv) {
             std::to_string(cfg.bandpass_high) + " Hz");
     }
 
+    auto dsp_start = std::chrono::steady_clock::now();
     auto filtered = apply_lowpass(samples, sample_rate,
                                    cfg.lowpass_cutoff, cfg.lowpass_transition);
     filtered = apply_bandpass(filtered, sample_rate,
                                cfg.bandpass_low, cfg.bandpass_high,
                                cfg.bandpass_transition);
+
+    compute_audio_stats(filtered, audio_stats.rms_filtered, audio_stats.peak_filtered);
 
     // Write denoised audio
     std::string denoised_path = args.output_dir + "/processed.wav";
@@ -158,11 +186,16 @@ int main(int argc, char** argv) {
     // Step 4: Resample to 16 kHz
     log("Resampling to 16 kHz...");
     auto resampled = resample(filtered, sample_rate, 16000);
+    auto dsp_end = std::chrono::steady_clock::now();
     log("  " + std::to_string(resampled.size()) + " samples");
+    log("  DSP time: " + format_duration(dsp_end - dsp_start));
 
     // Step 5: Transcribe
     log("Transcribing (" + cfg.decoding_method + ")...");
+    auto stt_start = std::chrono::steady_clock::now();
     std::string transcript = transcribe(resampled, 16000, cfg);
+    auto stt_end = std::chrono::steady_clock::now();
+    log("  STT time: " + format_duration(stt_end - stt_start));
 
     if (transcript.empty()) {
         std::cerr << "Error: Transcription produced no output" << std::endl;
@@ -200,134 +233,37 @@ int main(int argc, char** argv) {
         log("  Call sign [" + sign + "]: " + std::to_string(count));
     }
 
-    // Total command counts
-    int total_command_exact = 0;
-    int total_command_approx = 0;
-    for (const auto& [cmd, count] : detection.command_exact_counts) {
-        total_command_exact += count;
-    }
-    for (const auto& [cmd, count] : detection.command_approx_counts) {
-        total_command_approx += count;
-    }
-    int total_command_count = total_command_exact + total_command_approx;
-    int total_points_exact = detection.wake_word_exact + total_command_exact;
-    int total_points_approx = detection.wake_word_approx + total_command_approx;
-    int total_points = total_points_exact + total_points_approx;
-
-    auto join = [](const std::vector<std::string>& v, const std::string& sep) {
-        std::string s;
-        for (size_t i = 0; i < v.size(); i++) {
-            if (i > 0) s += sep;
-            s += v[i];
-        }
-        return s;
-    };
-
-    auto to_key = [](const std::string& s) {
-        std::string k = s;
-        for (auto& c : k) { if (c == ' ') c = '_'; }
-        return k;
-    };
-
-    // Collect all command names (union of exact and approx keys)
-    std::vector<std::string> all_cmds;
-    for (const auto& [cmd, _] : detection.command_exact_counts) {
-        all_cmds.push_back(cmd);
-    }
-    for (const auto& [cmd, _] : detection.command_approx_counts) {
-        if (detection.command_exact_counts.count(cmd) == 0) {
-            all_cmds.push_back(cmd);
-        }
-    }
-
-    // Write scores
+    // Read ASCII art for summary (optional, from ascii.txt next to binary or config)
+    std::string ascii_art;
     {
-        std::string scores;
-        scores += "wake_word_exact=" + std::to_string(detection.wake_word_exact) + "\n";
-        scores += "wake_word_exact_matches=" + join(detection.wake_word_exact_matches, ",") + "\n";
-        scores += "wake_word_approx=" + std::to_string(detection.wake_word_approx) + "\n";
-        scores += "wake_word_approx_matches=" + join(detection.wake_word_approx_matches, ",") + "\n";
-        for (const auto& cmd : all_cmds) {
-            int ec = 0, ac = 0;
-            auto eit = detection.command_exact_counts.find(cmd);
-            if (eit != detection.command_exact_counts.end()) ec = eit->second;
-            auto ait = detection.command_approx_counts.find(cmd);
-            if (ait != detection.command_approx_counts.end()) ac = ait->second;
-
-            std::string key = "command_" + to_key(cmd);
-            scores += key + "_exact=" + std::to_string(ec) + "\n";
-            auto emit = detection.command_exact_matches.find(cmd);
-            scores += key + "_exact_matches=" +
-                      (emit != detection.command_exact_matches.end() ? join(emit->second, ",") : "") + "\n";
-            scores += key + "_approx=" + std::to_string(ac) + "\n";
-            auto amit = detection.command_approx_matches.find(cmd);
-            scores += key + "_approx_matches=" +
-                      (amit != detection.command_approx_matches.end() ? join(amit->second, ",") : "") + "\n";
+        // Try directory of config file first, then current directory
+        std::string cfg_dir = args.config_file;
+        auto pos = cfg_dir.find_last_of('/');
+        std::string ascii_path = (pos != std::string::npos)
+            ? cfg_dir.substr(0, pos + 1) + "ascii.txt"
+            : "ascii.txt";
+        std::ifstream af(ascii_path);
+        if (af) {
+            ascii_art.assign(std::istreambuf_iterator<char>(af),
+                             std::istreambuf_iterator<char>());
         }
-        for (const auto& [sign, count] : detection.call_sign_counts) {
-            scores += "call_sign_" + sign + "=" + std::to_string(count) + "\n";
-            auto it = detection.call_sign_matches.find(sign);
-            if (it != detection.call_sign_matches.end()) {
-                scores += "call_sign_" + sign + "_matches=" + join(it->second, ",") + "\n";
-            }
-        }
-        scores += "total_points=" + std::to_string(total_points) + "\n";
-        scores += "total_points_exact=" + std::to_string(total_points_exact) + "\n";
-        scores += "total_points_approx=" + std::to_string(total_points_approx) + "\n";
-        write_file(args.output_dir + "/scores.txt", scores);
     }
 
-    // Write summary
-    {
-        std::string summary;
-        summary += "=== PRETTY DOOMed Summary ===\n\n";
-        summary += "Input: " + args.input_file + "\n";
-        summary += "Transcription: " + transcript + "\n\n";
-        summary += "Detection:\n";
-        summary += "  Wake word (" + cfg.wake_word + "):\n";
-        summary += "    Exact: " + std::to_string(detection.wake_word_exact) +
-                   " [" + join(detection.wake_word_exact_matches, ", ") + "]\n";
-        summary += "    Approximate: " + std::to_string(detection.wake_word_approx) +
-                   " [" + join(detection.wake_word_approx_matches, ", ") + "]\n";
-        for (const auto& cmd : all_cmds) {
-            int ec = 0, ac = 0;
-            auto eit = detection.command_exact_counts.find(cmd);
-            if (eit != detection.command_exact_counts.end()) ec = eit->second;
-            auto ait = detection.command_approx_counts.find(cmd);
-            if (ait != detection.command_approx_counts.end()) ac = ait->second;
-
-            summary += "  Command [" + cmd + "]:\n";
-            auto emit = detection.command_exact_matches.find(cmd);
-            summary += "    Exact: " + std::to_string(ec) + " [" +
-                       (emit != detection.command_exact_matches.end() ? join(emit->second, ", ") : "") + "]\n";
-            auto amit = detection.command_approx_matches.find(cmd);
-            summary += "    Approximate: " + std::to_string(ac) + " [" +
-                       (amit != detection.command_approx_matches.end() ? join(amit->second, ", ") : "") + "]\n";
-        }
-        for (const auto& [sign, count] : detection.call_sign_counts) {
-            summary += "  Call sign [" + sign + "]: " + std::to_string(count) + "\n";
-            auto it = detection.call_sign_matches.find(sign);
-            if (it != detection.call_sign_matches.end()) {
-                summary += "    Matches: " + join(it->second, ", ") + "\n";
-            }
-        }
-        summary += "\nTotal points: " + std::to_string(total_points) +
-                   " (exact=" + std::to_string(total_points_exact) +
-                   ", approx=" + std::to_string(total_points_approx) + ")\n\n";
-
-        if (total_command_count >= 1) {
-            summary += "Result: COMMAND DETECTED - launching DOOM\n";
-        } else {
-            summary += "Result: No command detected\n";
-        }
-
-        write_file(args.output_dir + "/summary.txt", summary);
-    }
+    // Write scores + summary
+    DetectionTotals totals = compute_totals(detection);
+    write_file(args.output_dir + "/scores.txt", format_scores(detection, totals, audio_stats));
+    write_file(args.output_dir + "/summary.txt",
+               format_summary(detection, totals, cfg, args.input_file, transcript, ascii_art));
 
     // Step 7: Launch DOOM if command detected
-    if (total_command_count >= 1) {
+    if (totals.command_detected) {
         log("Command detected! Launching DOOM...");
-        int result = run_doom(args.doom_binary, args.demos_dir, args.output_dir);
+        if (!ascii_art.empty()) {
+            std::cout << ascii_art << std::endl;
+        }
+        int result = run_doom(args.doom_binary, args.demos_dir, args.output_dir,
+                              cfg.doom_frames, cfg.doom_maxframes,
+                              cfg.doom_keepgifframes);
         if (result != 0) {
             std::cerr << "Warning: DOOM had " << result << " failure(s)" << std::endl;
         }
@@ -335,6 +271,8 @@ int main(int argc, char** argv) {
         log("No command detected.");
     }
 
+    auto pipeline_end = std::chrono::steady_clock::now();
+    log("Total time: " + format_duration(pipeline_end - pipeline_start));
     log("=== Done ===");
-    return 0;
+    return totals.command_detected ? 0 : 2;
 }

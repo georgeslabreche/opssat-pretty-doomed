@@ -50,6 +50,18 @@ bool load_config(std::istream& stream, PipelineConfig& cfg) {
         else if (key == "call_signs") cfg.call_signs = split_csv(value);
         else if (key == "command") cfg.commands = split_csv(value);
         else if (key == "fuzzy_max_distance") cfg.fuzzy_max_distance = std::stoi(value);
+        else if (key == "doom_keepgifframes") cfg.doom_keepgifframes = (value == "true" || value == "1");
+        else {
+            const std::string frames_prefix = "doom_frames_";
+            const std::string maxframes_prefix = "doom_maxframes_";
+            if (key.compare(0, maxframes_prefix.size(), maxframes_prefix) == 0) {
+                std::string demo = key.substr(maxframes_prefix.size());
+                cfg.doom_maxframes[demo] = std::stoi(value);
+            } else if (key.compare(0, frames_prefix.size(), frames_prefix) == 0) {
+                std::string demo = key.substr(frames_prefix.size());
+                cfg.doom_frames[demo] = value;
+            }
+        }
     }
     return true;
 }

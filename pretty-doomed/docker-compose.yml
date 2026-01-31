@@ -9,6 +9,7 @@ services:
       - ./build/local:/app/build/local
       - ./models:/app/models
       - ./input:/app/input
+      - ./ascii.txt:/app/ascii.txt
       - ./config.cfg:/app/config.cfg
       - ./variants.cfg:/app/variants.cfg
       - ./run:/app/run

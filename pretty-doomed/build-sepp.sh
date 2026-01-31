@@ -4,7 +4,7 @@
 # Prerequisites:
 #   - Docker and Docker Compose
 #   - resources/exp_env.tar.gz (one level up)
-#   - Model files in model/ (see README.md)
+#   - Model files in models/sherpa-onnx/small/ (see README.md)
 #
 # First build takes a long time (GNU Radio + sherpa-onnx compilation under QEMU).
 # Subsequent builds are fast thanks to Docker layer caching.
@@ -56,8 +56,8 @@ docker-compose -f docker-compose.sepp.yml build
 
 mkdir -p build/sepp package
 
-# Step 4: Build sherpa-onnx C API (first time only)
-echo "=== Building sherpa-onnx C API ==="
+# Step 4: Build sherpa-onnx static libs (first time only)
+echo "=== Building sherpa-onnx static libs ==="
 docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make build-sherpa
 
 # Step 5: Build pretty-doomed + doom + prepare package

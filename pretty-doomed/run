@@ -2,14 +2,6 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
 
-# glibc compat: onnxruntime needs ld-linux-armhf.so.3 and glibc symbols on musl
-if [ ! -e /lib/ld-linux-armhf.so.3 ] && [ -e /lib/ld-musl-armhf.so.1 ]; then
-    ln -sf /lib/ld-musl-armhf.so.1 /lib/ld-linux-armhf.so.3 2>/dev/null || true
-fi
-if [ -f "${SCRIPT_DIR}/libs/libglibc_compat.so" ]; then
-    export LD_PRELOAD="${SCRIPT_DIR}/libs/libglibc_compat.so${LD_PRELOAD:+:$LD_PRELOAD}"
-fi
-
 # Locate binaries: check SEPP layout first, then Docker dev layout
 if [ -x "${SCRIPT_DIR}/pretty-doomed" ]; then
     PRETTY_DOOMED="${SCRIPT_DIR}/pretty-doomed"
@@ -29,8 +21,8 @@ else
     exit 1
 fi
 
-# Input: file or directory (default: input/sample.wav)
-INPUT="${1:-${SCRIPT_DIR}/input/sample.wav}"
+# Input: file or directory (default: all WAVs in input/)
+INPUT="${1:-${SCRIPT_DIR}/input}"
 
 # Collect WAV files to process
 if [ -d "$INPUT" ]; then

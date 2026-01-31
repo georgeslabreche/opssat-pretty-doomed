@@ -21,11 +21,27 @@ do
 
     statdump_path="${demo_dir}/stats.txt"
 
+    # Per-demo frame captures: one snapshot + a 20-frame GIF range
+    case "$demo" in
+        e1m7-607)  demo_frames="8000,7992-8025" ;;
+        impfight)  demo_frames="700,701-720"     ;;
+        m1-fast)   demo_frames="200,201-220"     ;;
+        m1-normal) demo_frames="600,601-620"     ;;
+        m1-simple) demo_frames="250,251-270"     ;;
+        *)         demo_frames=""                ;;
+    esac
+
+    frames_arg=""
+    if [ -n "$demo_frames" ]; then
+        frames_arg="-frames $demo_frames"
+    fi
+
     ./build/local/opssat-doom -nosound -nomusic -nosfx -runid $doomid -longtics \
         -iwad demos/doom.wad \
         -cdemo $demos_folder/$demo \
         -statdump "$statdump_path" \
         -framedir "$demo_dir" \
+        $frames_arg \
         >> "${RUN_DIR}/doom.log" 2>&1
 
     if [ -f "$statdump_path" ]; then

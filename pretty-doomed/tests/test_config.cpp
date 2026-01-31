@@ -24,6 +24,11 @@ TEST_CASE("load_config parses key=value pairs") {
         "call_signs=NIGHT,DELTA,ALPHA\n"
         "command=DOOM\n"
         "fuzzy_max_distance=3\n"
+        "\n"
+        "# DOOM Frame Capture\n"
+        "doom_frames_e1m7-607=5000,5001-5020\n"
+        "doom_frames_impfight=700,701-720\n"
+        "doom_keepgifframes=true\n"
     );
 
     PipelineConfig cfg;
@@ -47,6 +52,10 @@ TEST_CASE("load_config parses key=value pairs") {
     CHECK(cfg.call_signs[2] == "ALPHA");
     CHECK(cfg.commands == std::vector<std::string>{"DOOM"});
     CHECK(cfg.fuzzy_max_distance == 3);
+    CHECK(cfg.doom_frames.size() == 2);
+    CHECK(cfg.doom_frames.at("e1m7-607") == "5000,5001-5020");
+    CHECK(cfg.doom_frames.at("impfight") == "700,701-720");
+    CHECK(cfg.doom_keepgifframes == true);
 }
 
 TEST_CASE("load_config ignores comments and blank lines") {
@@ -73,6 +82,8 @@ TEST_CASE("load_config preserves defaults for missing keys") {
     CHECK(cfg.lowpass_cutoff == doctest::Approx(3400.0f));
     CHECK(cfg.decoding_method == "modified_beam_search");
     CHECK(cfg.fuzzy_max_distance == 2);
+    CHECK(cfg.doom_frames.empty());
+    CHECK(cfg.doom_keepgifframes == false);
 }
 
 TEST_CASE("load_config handles whitespace around =") {
