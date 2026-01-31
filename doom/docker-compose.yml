@@ -1,0 +1,13 @@
+services:
+  doom:
+    build: .
+    container_name: doom
+    volumes:
+      - ./src:/app/src
+      - ./demos:/app/demos
+      - ./build:/app/build
+      - ./Makefile:/app/Makefile
+      - ./run:/app/run
+      - ./toGround:/app/toGround
+    working_dir: /app
+    tty: true

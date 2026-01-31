@@ -1,0 +1,16 @@
+# DOOM build environment for OPS-SAT SEPP (ARM32)
+#
+# PREREQUISITES:
+#   1. Setup QEMU emulation:
+#      docker run --rm --privileged tonistiigi/binfmt --install arm
+#
+#   2. Import exp_env:
+#      docker import --platform linux/arm/v7 resources/exp_env.tar.gz exp_env:latest
+
+FROM exp_env:latest
+
+RUN apk update && apk add --no-cache build-base make
+
+WORKDIR /app
+
+CMD ["/bin/sh"]

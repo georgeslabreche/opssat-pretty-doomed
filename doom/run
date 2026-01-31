@@ -1,26 +1,58 @@
-#!/bin/bash
+#!/bin/sh
 
-rm -rf toGround;
-mkdir -p toGround;
+TOGROUND="toGround"
+mkdir -p "$TOGROUND"
+rm -rf "$TOGROUND"/*
 
 demos_folder="demos"
 demos_shareware="e1m7-607 impfight m1-fast m1-normal m1-simple"
 
-statdump_filepath=toGround/run-wsl.txt
+# Auto-increment run number
+LAST=$(ls -d "$TOGROUND"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{5\}$')
+RUNID=$((${LAST:-0} + 1))
+RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$RUN_DIR"
 
-runid=1
+doomid=1
 for demo in $demos_shareware
 do
-    ./src/bin/opssat-doom -nosound -nomusic -nosfx -runid $runid -longtics -iwad demos/doom.wad -cdemo $demos_folder/$demo -statdump ${statdump_filepath} >> toGround/doom.log 2>&1;
-    if [ -f "${statdump_filepath}" ]; then
-        if diff ${statdump_filepath} ${demos_folder}/${demo}.txt; then
+    demo_dir="${RUN_DIR}/runs/${demo}"
+    mkdir -p "$demo_dir"
+
+    statdump_path="${demo_dir}/stats.txt"
+
+    # Per-demo frame captures: one snapshot + a 20-frame GIF range
+    case "$demo" in
+        e1m7-607)  demo_frames="8000,7992-8025" ;;
+        impfight)  demo_frames="700,701-720"     ;;
+        m1-fast)   demo_frames="200,201-220"     ;;
+        m1-normal) demo_frames="600,601-620"     ;;
+        m1-simple) demo_frames="250,251-270"     ;;
+        *)         demo_frames=""                ;;
+    esac
+
+    frames_arg=""
+    if [ -n "$demo_frames" ]; then
+        frames_arg="-frames $demo_frames"
+    fi
+
+    ./build/local/opssat-doom -nosound -nomusic -nosfx -runid $doomid -longtics \
+        -iwad demos/doom.wad \
+        -cdemo $demos_folder/$demo \
+        -statdump "$statdump_path" \
+        -framedir "$demo_dir" \
+        $frames_arg \
+        >> "${RUN_DIR}/doom.log" 2>&1
+
+    if [ -f "$statdump_path" ]; then
+        if diff "$statdump_path" "${demos_folder}/${demo}.txt" > /dev/null 2>&1; then
             result="OK"
         else
             result="ERROR"
-            diff ${statdump_filepath} ${demos_folder}/${demo}.txt >> toGround/doom.log 2>&1
+            diff "$statdump_path" "${demos_folder}/${demo}.txt" >> "${RUN_DIR}/doom.log" 2>&1
         fi
-        echo ${result} - ${demo} >> toGround/results.log 2>&1;
+        echo "${result} - ${demo}" >> "${RUN_DIR}/results.log" 2>&1
     fi
 
-    runid=$((runid+1))
+    doomid=$((doomid+1))
 done

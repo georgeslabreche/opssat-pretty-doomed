@@ -7,7 +7,7 @@
 #      docker run --rm --privileged tonistiigi/binfmt --install arm
 #
 #   2. Import exp_env:
-#      docker import --platform linux/arm/v7 resources/internal/exp_env.tar.gz exp_env:latest
+#      docker import --platform linux/arm/v7 resources/exp_env.tar.gz exp_env:latest
 
 FROM exp_env:latest
 
@@ -33,6 +33,10 @@ RUN printf '%s\n' \
     'int lstat64(const char *path, struct stat *buf) { return lstat(path, buf); }' \
     > /tmp/glibc_compat.c && \
     gcc -c /tmp/glibc_compat.c -o /usr/lib/glibc_compat.o && \
+    gcc -shared -o /usr/lib/libglibc_compat.so /usr/lib/glibc_compat.o && \
     rm /tmp/glibc_compat.c
+
+# Create glibc dynamic linker symlink so libonnxruntime.so can be loaded on musl
+RUN ln -sf /lib/ld-musl-armhf.so.1 /lib/ld-linux-armhf.so.3
 
 CMD ["/bin/sh"]
