@@ -1,98 +1,177 @@
 #!/bin/sh
 
-# SDR Capture Loop - OPS-SAT SEPP Entrypoint
+# OPSSAT PRETTY SDR Capture - OPS-SAT SEPP Entrypoint
 #
-# Continuous RF capture loop for live reception.
-# Captures FM-demodulated audio from AD9361 SDR.
+# Runs N sequential RF captures (N = captures in config.cfg).
+# Each capture produces FM-demodulated audio and sc16 I/Q data from AD9361 SDR.
 #
-# Usage: ./run [--duration N] [--once]
-#   --duration N  Capture duration per run in seconds (default: 10)
-#   --once        Single capture, then exit (default: loop forever)
+# Usage: ./run [--duration N] [--captures N]
+#   --duration N  Override capture duration per capture in seconds
+#   --captures N  Override number of captures (default from config.cfg)
 #
 # Directory structure:
-#   toGround/       - Output artifacts for downlink
+#   toGround/run-NNNNNN/                    - One directory per execution
+#   toGround/run-NNNNNN/capture-NNN/         - One subdirectory per capture
+#   toGround/run-NNNNNN/capture-NNN/capture.wav
+#   toGround/run-NNNNNN/capture-NNN/capture.sc16
+#   toGround/run-NNNNNN/capture-NNN/capture.log
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Set up library path to find bundled shared libraries
-export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
+CONFIG_FILE="${SCRIPT_DIR}/config.cfg"
 
-# Parse arguments
-DURATION=10
-LOOP=1
+# Preflight checks
+[ -x "${SCRIPT_DIR}/capture_loop" ] || { echo "Error: capture_loop not found or not executable" >&2; exit 1; }
+[ -f "$CONFIG_FILE" ] || { echo "Error: missing $CONFIG_FILE" >&2; exit 1; }
+
+# Set up library path to find bundled shared libraries
+if [ -n "$LD_LIBRARY_PATH" ]; then
+    export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:$LD_LIBRARY_PATH"
+else
+    export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs"
+fi
+
+# Read captures from config file (default: 1 if not set or unparseable)
+CAPTURES=$(grep -E '^captures=' "$CONFIG_FILE" | tail -1 | cut -d= -f2 | tr -d ' \t\r')
+case "$CAPTURES" in
+    ''|*[!0-9]*)
+        CAPTURES=1
+        ;;
+    *)
+        [ "$CAPTURES" -gt 0 ] || CAPTURES=1
+        ;;
+esac
+
+# Parse arguments (command-line overrides config)
+DURATION=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --duration)
+            [ -n "$2" ] || { echo "Error: --duration requires a value" >&2; exit 1; }
             DURATION="$2"
             shift 2
             ;;
-        --once)
-            LOOP=0
-            shift
+        --captures)
+            [ -n "$2" ] || { echo "Error: --captures requires a value" >&2; exit 1; }
+            CAPTURES="$2"
+            shift 2
             ;;
         *)
-            shift
+            echo "Error: unknown argument: $1" >&2
+            exit 1
             ;;
     esac
 done
 
-TOGROUND_DIR="${SCRIPT_DIR}/toGround"
+# Validate captures
+case "$CAPTURES" in
+    ''|*[!0-9]*)
+        echo "Error: captures must be a positive integer, got '$CAPTURES'" >&2
+        exit 1
+        ;;
+    *)
+        [ "$CAPTURES" -gt 0 ] || { echo "Error: captures must be > 0" >&2; exit 1; }
+        ;;
+esac
 
-# Create toGround directory if it doesn't exist
+# Validate duration override if provided
+if [ -n "$DURATION" ]; then
+    case "$DURATION" in
+        ''|*[!0-9]*)
+            echo "Error: duration must be a positive integer, got '$DURATION'" >&2
+            exit 1
+            ;;
+        *)
+            [ "$DURATION" -gt 0 ] || { echo "Error: duration must be > 0" >&2; exit 1; }
+            ;;
+    esac
+fi
+
+TOGROUND_DIR="${SCRIPT_DIR}/toGround"
 mkdir -p "$TOGROUND_DIR"
 
-# Main capture loop
-while true; do
-    # Auto-increment run ID
-    LAST_RUN=$(ls -d "$TOGROUND_DIR"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{6\}$')
-    if [ -z "$LAST_RUN" ]; then
-        RUNID=1
-    else
-        RUNID=$((10#$LAST_RUN + 1))
-    fi
+# Auto-increment run ID (one run directory per execution)
+# Uses shell glob with strict pattern to avoid ls parsing and sort -V portability issues
+LAST_RUN=0
+for d in "$TOGROUND_DIR"/run-[0-9][0-9][0-9][0-9][0-9][0-9]; do
+    [ -d "$d" ] || continue
+    n=${d##*-}
+    # Strip leading zeros for arithmetic (POSIX sh treats 08/09 as invalid octal)
+    n=$(echo "$n" | sed 's/^0*//' )
+    [ -z "$n" ] && n=0
+    [ "$n" -gt "$LAST_RUN" ] && LAST_RUN=$n
+done
+RUNID=$((LAST_RUN + 1))
 
-    RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
-    mkdir -p "$RUN_DIR"
+RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
+mkdir -p "$RUN_DIR"
 
-    LOG_FILE="${RUN_DIR}/capture.log"
-    OUTPUT_FILE="${RUN_DIR}/capture.wav"
+echo "Run $RUNID: Starting capture session ($CAPTURES captures) in $RUN_DIR"
+
+# Track failures across captures
+CAPTURE_NUM=0
+FAILURES=0
+
+# Main capture loop (bounded by CAPTURES)
+while [ "$CAPTURE_NUM" -lt "$CAPTURES" ]; do
+    CAPTURE_NUM=$((CAPTURE_NUM + 1))
+    CAPTURE_DIR=$(printf "%s/capture-%03d" "$RUN_DIR" "$CAPTURE_NUM")
+    mkdir -p "$CAPTURE_DIR"
+
+    LOG_FILE="${CAPTURE_DIR}/capture.log"
+    OUTPUT_FILE="${CAPTURE_DIR}/capture.wav"
 
     # Log start
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting RF Capture" > "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting RF Capture #${CAPTURE_NUM}/${CAPTURES}" > "$LOG_FILE"
     echo "Run ID: $RUNID" >> "$LOG_FILE"
-    echo "Duration: $DURATION seconds" >> "$LOG_FILE"
     echo "Output: $OUTPUT_FILE" >> "$LOG_FILE"
 
-    echo "Run $RUNID: Capturing $DURATION seconds..."
+    echo "  Capture #${CAPTURE_NUM}/${CAPTURES}: Capturing..."
 
-    # Run capture
-    "${SCRIPT_DIR}/capture_loop" \
-        --output "$OUTPUT_FILE" \
-        --duration "$DURATION" \
-        >> "$LOG_FILE" 2>&1
+    # Run capture with config file; duration from config.cfg unless overridden
+    if [ -n "$DURATION" ]; then
+        "${SCRIPT_DIR}/capture_loop" \
+            --config "$CONFIG_FILE" \
+            --output "$OUTPUT_FILE" \
+            --duration "$DURATION" \
+            >> "$LOG_FILE" 2>&1
+    else
+        "${SCRIPT_DIR}/capture_loop" \
+            --config "$CONFIG_FILE" \
+            --output "$OUTPUT_FILE" \
+            >> "$LOG_FILE" 2>&1
+    fi
 
     STATUS=$?
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Capture completed with status: $STATUS" >> "$LOG_FILE"
 
-    # Create summary
-    {
-        echo "SDR Capture Results"
-        echo "==================="
-        echo "Run ID: $RUNID"
-        echo "Duration: $DURATION seconds"
-        echo "Frequency: 1.2 GHz"
-        echo "Status: $STATUS"
-        echo ""
-        echo "Output file:"
-        ls -la "$OUTPUT_FILE" 2>/dev/null || echo "  (none)"
-    } > "${RUN_DIR}/summary.txt"
+    echo "  Capture #${CAPTURE_NUM}/${CAPTURES}: Complete (status=$STATUS)"
 
-    # Exit if single run mode
-    if [ "$LOOP" -eq 0 ]; then
-        echo "Single capture complete."
-        exit $STATUS
-    fi
-
-    echo "Run $RUNID complete. Starting next capture..."
+    [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
 done
+
+# Read frequency from config for summary
+FREQ=$(grep -E '^frequency=' "$CONFIG_FILE" | tail -1 | cut -d= -f2 | tr -d ' \t\r')
+[ -n "$FREQ" ] || FREQ="(unknown)"
+
+# Create summary for the entire run
+{
+    echo "OPSSAT PRETTY SDR Capture Results"
+    echo "==================="
+    echo "Run ID: $RUNID"
+    echo "Captures: $CAPTURE_NUM"
+    echo "Failures: $FAILURES"
+    echo "Frequency: $FREQ Hz"
+    echo ""
+    echo "Output files:"
+    ls -la "$RUN_DIR"/capture-*/capture.* 2>/dev/null || echo "  (none)"
+} > "${RUN_DIR}/summary.txt"
+
+if [ "$FAILURES" -gt 0 ]; then
+    echo "Run $RUNID complete ($CAPTURE_NUM captures, $FAILURES failed)."
+    exit 1
+else
+    echo "Run $RUNID complete ($CAPTURE_NUM captures)."
+    exit 0
+fi
