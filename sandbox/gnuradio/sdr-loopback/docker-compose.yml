@@ -8,6 +8,7 @@ services:
       - ./build:/app/build
       - ./package:/app/package
       - ./run:/app/run
+      - ./config.cfg:/app/config.cfg
       - ./io:/app/io
       - ./toGround:/app/toGround
       - ../../../samples:/app/samples
