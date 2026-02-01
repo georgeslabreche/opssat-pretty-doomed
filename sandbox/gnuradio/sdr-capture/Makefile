@@ -35,17 +35,20 @@ clean:
 	rm -rf $(BUILDDIR)
 	rm -rf toGround
 
-# Test capture (10 seconds)
+# Test capture (uses config.cfg defaults)
 test: $(TARGET)
 	mkdir -p toGround/run-000001
-	./$(TARGET) -o toGround/run-000001/capture.wav -d 10
+	./$(TARGET) -c config.cfg -o toGround/run-000001/capture.wav
 	@echo "Output: toGround/run-000001/capture.wav"
+	@echo "I/Q:    toGround/run-000001/capture.sc16"
+	@ls -lh toGround/run-000001/capture.wav toGround/run-000001/capture.sc16 2>/dev/null
 
 # Create deployment package for SEPP
 package-prepare: $(TARGET)
 	mkdir -p package/$(PACKAGE_NAME)/libs
 	cp $(TARGET) package/$(PACKAGE_NAME)/
 	cp run package/$(PACKAGE_NAME)/
+	cp config.cfg package/$(PACKAGE_NAME)/
 	chmod +x package/$(PACKAGE_NAME)/run
 	# Copy GNU Radio + AD9361 libs
 	cp -P $(GNURADIO_PREFIX)/lib/*.so* package/$(PACKAGE_NAME)/libs/

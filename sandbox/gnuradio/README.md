@@ -1,6 +1,6 @@
-# GNU Radio Experiments for OPS-SAT SEPP
+# GNU Radio Experiments for OPS-SAT PRETTY SEPP
 
-This directory contains GNU Radio signal processing experiments designed for the OPS-SAT Satellite Experimental Processing Platform (SEPP).
+This directory contains GNU Radio signal processing experiments designed for the OPS-SAT PRETTY Satellite Experimental Processing Platform (SEPP).
 
 ## Motivation
 

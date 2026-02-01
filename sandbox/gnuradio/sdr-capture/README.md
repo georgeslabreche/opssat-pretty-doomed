@@ -1,12 +1,15 @@
-# SDR Capture Loop for OPS-SAT SEPP
+# SDR Capture for OPS-SAT PRETTY SEPP
 
-Continuous RF capture loop for live signal reception. Captures FM-demodulated audio and raw I/Q data from AD9361 SDR.
+RF capture for live signal reception. Runs N sequential captures (configurable via `captures` in `config.cfg`). Each capture produces FM-demodulated audio and raw I/Q data from AD9361 SDR. Follows [CAPTURE.md](../CAPTURE.md) guidelines: sc16 I/Q format, 200 kSPS, channelization LPF, audio bandpass, RMS normalization.
 
 ## Pipeline
 
 ```
-AD9361 RX (1296 MHz) ─┬─> I/Q File (.cf32)
-                      └─> FM Demod -> Resample (48 kHz) -> WAV
+AD9361 RX (1296 MHz, 200 kSPS)
+  -> Complex LPF (85 kHz cutoff)
+    +-> head -> sc16 conversion -> File (.sc16)
+    +-> FM Demod -> Resample (16 kHz) -> Bandpass (300-3400 Hz)
+        -> head -> WAV -> RMS Normalize (-20 dBFS)
 ```
 
 ## Prerequisites
@@ -47,58 +50,93 @@ docker-compose run --rm sdr-capture make
 ### Development (Docker)
 
 ```bash
-# Single 10-second capture
-docker-compose run --rm sdr-capture sh -c "cp build/capture_loop . && ./run --once"
+# Run captures (count and duration from config.cfg)
+docker-compose run --rm sdr-capture sh -c "cp build/capture_loop . && ./run"
 
-# Continuous capture loop (5-second intervals)
-docker-compose run --rm sdr-capture sh -c "cp build/capture_loop . && ./run --duration 5"
+# Override number of captures
+docker-compose run --rm sdr-capture sh -c "cp build/capture_loop . && ./run --captures 1"
+
+# Override duration per capture
+docker-compose run --rm sdr-capture sh -c "cp build/capture_loop . && ./run --duration 10"
 ```
 
 ### On Flatsat SEPP
 
 ```bash
-# Single capture
-./run --once
-
-# Continuous loop (default: 10 seconds each)
+# Run captures (count and duration from config.cfg)
 ./run
 
-# Custom duration
+# Override number of captures
+./run --captures 5
+
+# Override duration per capture
 ./run --duration 30
 ```
 
-## Command Line Options (capture_loop)
+## Configuration
+
+Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arguments override config values.
+
+### config.cfg defaults
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `frequency` | 1296000000 | Center frequency (Hz) |
+| `sample_rate` | 200000 | SDR sample rate (Hz) |
+| `gain` | 50 | RX gain (dB) |
+| `fm_deviation` | 5000 | FM deviation (Hz) |
+| `uri` | local: | IIO URI |
+| `duration` | 20 | Capture duration per capture (seconds) |
+| `captures` | 30 | Number of sequential captures (30 x 20s = 10 min) |
+| `max_iq_mb` | 20 | Max I/Q file size in MiB (caps duration) |
+| `audio_rate` | 16000 | Output audio sample rate (Hz) |
+| `bandpass_low` | 300 | Audio bandpass low cutoff (Hz) |
+| `bandpass_high` | 3400 | Audio bandpass high cutoff (Hz) |
+| `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
+| `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
+
+`duration` and `max_iq_mb` act as independent limits per capture — the shorter of the two wins. At 200 kSPS, `max_iq_mb=20` allows up to ~26s of I/Q data. With `duration=20`, the duration is the active constraint. If `duration` is raised above ~26s, the budget cap truncates it to protect downlink bandwidth. `captures` controls how many sequential captures to run (default 30 x 20s = 10 minutes total).
+
+### Command Line Options (capture_loop)
 
 | Option | Description | Default |
 |--------|-------------|---------|
+| `-c, --config` | Config file path | - |
 | `-o, --output` | Output WAV file path | capture.wav |
-| `-d, --duration` | Capture duration in seconds | 10 |
+| `-d, --duration` | Capture duration in seconds | 20 |
 | `-u, --uri` | IIO URI | local: |
 | `-f, --freq` | Frequency in Hz | 1296000000 |
-| `-s, --rate` | SDR sample rate in Hz | 528000 |
+| `-s, --rate` | SDR sample rate in Hz | 200000 |
 | `-g, --gain` | RX gain in dB | 50 |
 | `-e, --deviation` | FM deviation in Hz | 5000 |
 
 ## Output
 
-Each run creates a new directory in `toGround/`:
+Each execution creates a single run directory in `toGround/`, with a subdirectory per capture:
 
 ```
 toGround/
-├── run-000001/
-│   ├── capture.wav      # FM-demodulated audio (48 kHz, mono, 16-bit PCM)
-│   ├── capture.cf32     # Raw I/Q data (complex float32, 8 bytes/sample)
-│   ├── capture.log
-│   └── summary.txt
-├── run-000002/
-└── ...
+└── run-000001/
+    ├── capture-001/
+    │   ├── capture.wav      # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
+    │   ├── capture.sc16     # Raw I/Q data (interleaved int16, 4 bytes/sample)
+    │   └── capture.log
+    ├── capture-002/
+    │   ├── capture.wav
+    │   ├── capture.sc16
+    │   └── capture.log
+    ├── ...
+    └── summary.txt
 ```
+
+The number of `capture-NNN/` subdirectories matches the `captures` config value (or `--captures` override).
 
 ### I/Q File Format
 
-The `.cf32` file contains raw I/Q samples at the SDR sample rate (default 528 kHz):
-- Format: Interleaved float32 (I, Q, I, Q, ...)
-- 8 bytes per sample (4 bytes I + 4 bytes Q)
+The `.sc16` file contains raw I/Q samples at the SDR sample rate (200 kSPS):
+- Format: Interleaved int16 (I, Q, I, Q, ...)
+- 4 bytes per sample (2 bytes I + 2 bytes Q)
+- 20 seconds at 200 kSPS = ~16 MB
 - Compatible with GNU Radio, inspectrum, baudline, etc.
 
 ## AD9361 Settings
@@ -106,7 +144,7 @@ The `.cf32` file contains raw I/Q samples at the SDR sample rate (default 528 kH
 | Parameter | Value |
 |-----------|-------|
 | Frequency | 1296 MHz (23cm amateur band) |
-| Sample Rate | 528 kHz |
+| Sample Rate | 200 kSPS |
 | FM Deviation | 5 kHz (NBFM) |
 | RX Gain | 50 dB (manual mode) |
 

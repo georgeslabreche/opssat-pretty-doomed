@@ -6,34 +6,35 @@
 # Processes WAV files through FM modulation/demodulation.
 #
 # Directory structure:
-#   input/          - Input WAV files (packaged)
-#   io/input/       - Input WAV files (development)
+#   input/          - Input WAV files
 #   toGround/       - Output artifacts for downlink
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Set up library path to find bundled shared libraries
-export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
-
-# I/O directories - check for packaged structure first, then dev structure
-if [ -d "${SCRIPT_DIR}/input" ]; then
-    INPUT_DIR="${SCRIPT_DIR}/input"
+if [ -n "$LD_LIBRARY_PATH" ]; then
+    export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:$LD_LIBRARY_PATH"
 else
-    INPUT_DIR="${SCRIPT_DIR}/io/input"
+    export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs"
 fi
+
+INPUT_DIR="${SCRIPT_DIR}/input"
 TOGROUND_DIR="${SCRIPT_DIR}/toGround"
 
 # Create toGround directory if it doesn't exist
 mkdir -p "$TOGROUND_DIR"
 
-# Auto-increment run ID based on existing runs
-LAST_RUN=$(ls -d "$TOGROUND_DIR"/run-* 2>/dev/null | sort -V | tail -1 | grep -o '[0-9]\{6\}$')
-if [ -z "$LAST_RUN" ]; then
-    RUNID=1
-else
-    RUNID=$((10#$LAST_RUN + 1))
-fi
+# Auto-increment run ID (POSIX-safe, no sort -V or bashisms)
+LAST_RUN=0
+for d in "$TOGROUND_DIR"/run-[0-9][0-9][0-9][0-9][0-9][0-9]; do
+    [ -d "$d" ] || continue
+    n=${d##*-}
+    n=$(echo "$n" | sed 's/^0*//')
+    [ -z "$n" ] && n=0
+    [ "$n" -gt "$LAST_RUN" ] && LAST_RUN=$n
+done
+RUNID=$((LAST_RUN + 1))
 
 RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
 
@@ -51,6 +52,7 @@ echo "Output directory: $RUN_DIR" >> "$LOG_FILE"
 
 # Process all WAV files in input directory
 PROCESSED=0
+FAILURES=0
 for INPUT_FILE in "$INPUT_DIR"/*.wav; do
     if [ -f "$INPUT_FILE" ]; then
         FILENAME=$(basename "$INPUT_FILE")
@@ -59,6 +61,7 @@ for INPUT_FILE in "$INPUT_DIR"/*.wav; do
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Processing: $FILENAME" >> "$LOG_FILE"
 
         "${SCRIPT_DIR}/loopback_test" \
+            --config "${SCRIPT_DIR}/config.cfg" \
             --input "$INPUT_FILE" \
             --output "$OUTPUT_FILE" \
             >> "$LOG_FILE" 2>&1
@@ -67,6 +70,7 @@ for INPUT_FILE in "$INPUT_DIR"/*.wav; do
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Completed $FILENAME with status: $STATUS" >> "$LOG_FILE"
 
         PROCESSED=$((PROCESSED + 1))
+        [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
     fi
 done
 
@@ -82,9 +86,14 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files" >> "$LOG_FILE"
     echo "Modulation: FM (5 kHz deviation)"
     echo "Frequency: 1.2 GHz"
     echo "Files processed: $PROCESSED"
+    echo "Failures: $FAILURES"
     echo ""
     echo "Output files:"
-    ls -la "$RUN_DIR"/*.wav 2>/dev/null || echo "  (none)"
+    ls -la "$RUN_DIR"/*.wav "$RUN_DIR"/*.sc16 2>/dev/null || echo "  (none)"
 } > "${RUN_DIR}/summary.txt"
 
-exit 0
+if [ "$FAILURES" -gt 0 ]; then
+    exit 1
+else
+    exit 0
+fi

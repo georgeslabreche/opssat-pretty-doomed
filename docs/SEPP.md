@@ -1,6 +1,6 @@
-# Building for OPS-SAT SEPP
+# Building for OPS-SAT PRETTY SEPP
 
-This document describes how to build and package applications for deployment to the OPS-SAT SEPP (Satellite Experiment Processing Platform).
+This document describes how to build and package applications for deployment to the SEPP onboard the OPS-SAT PRETTY satellite. SEPP stands for Satellite Experiment Processing Platform.
 
 ## Target Environment
 

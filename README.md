@@ -80,4 +80,4 @@ Earlier experiments that informed the final pipeline design:
 - [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
 - [GNU Radio](https://wiki.gnuradio.org/)
 - [Project Proposal](docs/PROPOSAL.md)
-- [SEPP Reference](SEPP.md)
+- [SEPP Reference](docs/SEPP.md)
