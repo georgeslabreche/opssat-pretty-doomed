@@ -9,7 +9,7 @@ CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
 
 # Package version (change this for new releases)
-PACKAGE_VERSION = v1
+PACKAGE_VERSION = v2
 PACKAGE_NAME = exp4023-sherpa-onnx-$(PACKAGE_VERSION)
 
 SHERPA_VERSION = 1.12.21
@@ -114,6 +114,7 @@ $(BUILDDIR):
 package-prepare: $(TARGET)
 	mkdir -p $(PACKAGE_DIR)/model
 	mkdir -p $(PACKAGE_DIR)/input
+	mkdir -p $(PACKAGE_DIR)/libs
 	mkdir -p $(PACKAGE_DIR)/toGround
 	# Binary
 	cp $(TARGET) $(PACKAGE_DIR)/
@@ -121,6 +122,15 @@ package-prepare: $(TARGET)
 	cp run $(PACKAGE_DIR)/
 	chmod +x $(PACKAGE_DIR)/run
 	chmod +x $(PACKAGE_DIR)/sherpa-stt
+	# Copy audio libs (libsndfile + codecs)
+	cp -P /usr/lib/libsndfile.so* $(PACKAGE_DIR)/libs/
+	cp -P /usr/lib/libogg.so* $(PACKAGE_DIR)/libs/
+	cp -P /usr/lib/libvorbis.so* $(PACKAGE_DIR)/libs/
+	cp -P /usr/lib/libvorbisenc.so* $(PACKAGE_DIR)/libs/
+	cp -P /usr/lib/libFLAC.so* $(PACKAGE_DIR)/libs/
+	cp -P /usr/lib/libopus.so* $(PACKAGE_DIR)/libs/
+	cp -P /usr/lib/libmpg123.so* $(PACKAGE_DIR)/libs/
+	cp -P /usr/lib/libmp3lame.so* $(PACKAGE_DIR)/libs/
 	@echo ""
 	@echo "Package prepared in $(PACKAGE_DIR)/"
 	@echo "Run outside container:"
