@@ -18,6 +18,9 @@ INPUT_DIR="${SCRIPT_DIR}/input"
 MODEL_DIR="${SCRIPT_DIR}/model"
 TOGROUND_DIR="${SCRIPT_DIR}/toGround"
 
+# Set library path for bundled shared libraries
+export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs:${LD_LIBRARY_PATH}"
+
 # Locate binary: check SEPP layout first, then Docker dev layout
 if [ -x "${SCRIPT_DIR}/sherpa-stt" ]; then
     SHERPA_STT="${SCRIPT_DIR}/sherpa-stt"
