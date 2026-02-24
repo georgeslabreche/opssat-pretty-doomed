@@ -107,7 +107,12 @@ RUNID=$((LAST_RUN + 1))
 RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
 mkdir -p "$RUN_DIR"
 
-echo "Run $RUNID: Starting capture session ($CAPTURES captures) in $RUN_DIR"
+RUN_LOG="${RUN_DIR}/run.log"
+
+# Redirect all subsequent stderr to run.log so unexpected errors are captured
+exec 2>> "$RUN_LOG"
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Run $RUNID: Starting capture session ($CAPTURES captures)" >> "$RUN_LOG"
 
 # Track failures across captures
 CAPTURE_NUM=0
@@ -127,7 +132,7 @@ while [ "$CAPTURE_NUM" -lt "$CAPTURES" ]; do
     echo "Run ID: $RUNID" >> "$LOG_FILE"
     echo "Output: $OUTPUT_FILE" >> "$LOG_FILE"
 
-    echo "  Capture #${CAPTURE_NUM}/${CAPTURES}: Capturing..."
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Capture #${CAPTURE_NUM}/${CAPTURES}: Capturing..." >> "$RUN_LOG"
 
     # Run capture with config file; duration from config.cfg unless overridden
     if [ -n "$DURATION" ]; then
@@ -146,7 +151,7 @@ while [ "$CAPTURE_NUM" -lt "$CAPTURES" ]; do
     STATUS=$?
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Capture completed with status: $STATUS" >> "$LOG_FILE"
 
-    echo "  Capture #${CAPTURE_NUM}/${CAPTURES}: Complete (status=$STATUS)"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Capture #${CAPTURE_NUM}/${CAPTURES}: Complete (status=$STATUS)" >> "$RUN_LOG"
 
     [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
 done
@@ -168,10 +173,5 @@ FREQ=$(grep -E '^frequency=' "$CONFIG_FILE" | tail -1 | cut -d= -f2 | tr -d ' \t
     ls -la "$RUN_DIR"/capture-*/capture.* 2>/dev/null || echo "  (none)"
 } > "${RUN_DIR}/summary.txt"
 
-if [ "$FAILURES" -gt 0 ]; then
-    echo "Run $RUNID complete ($CAPTURE_NUM captures, $FAILURES failed)."
-    exit 1
-else
-    echo "Run $RUNID complete ($CAPTURE_NUM captures)."
-    exit 0
-fi
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Run $RUNID complete ($CAPTURE_NUM captures, $FAILURES failed)." >> "$RUN_LOG"
+exit $( [ "$FAILURES" -gt 0 ] && echo 1 || echo 0 )

@@ -2,8 +2,9 @@
  * loopback_test.cpp - GNU Radio IIO Loopback Test for OPS-SAT PRETTY
  *
  * Validates AD9361 SDR integration using internal loopback mode.
- * TX: WAV file -> FM modulate -> AD9361 TX
- * RX: AD9361 RX -> LPF -> sc16 I/Q + FM demod -> bandpass -> 16 kHz WAV
+ * TX: WAV file -> resample -> FM mod -> AD9361 TX (sdr_rate e.g. 2.4 MSPS)
+ * RX: AD9361 RX (sdr_rate) -> Decimating LPF (decim=12 -> 200 kSPS effective)
+ *     -> sc16 I/Q + FM demod -> bandpass -> 16 kHz WAV
  *
  * Loopback mode routes TX internally to RX (no RF emission).
  *
@@ -102,14 +103,18 @@ static std::string trim(const std::string& s) {
 
 // Defaults are overridden by config file values (-c), then by command-line args.
 struct LoopbackConfig {
-    // SDR
+    // SDR hardware
     unsigned long long frequency = 1296000000;  // overridden by config: frequency
-    unsigned long sample_rate = 200000;         // overridden by config: sample_rate
-    unsigned long bandwidth = 200000;           // overridden by config: bandwidth
+    unsigned long sdr_rate = 2400000;           // overridden by config: sdr_rate (AD9361 hardware rate)
+    int decimation = 12;                        // overridden by config: decimation (LPF decimation factor)
+    unsigned long rf_bandwidth = 200000;        // overridden by config: rf_bandwidth (AD9361 analog filter)
     double fm_deviation = 5000.0;              // overridden by config: fm_deviation
     double tx_attenuation = 10.0;              // overridden by config: tx_attenuation
     double rx_gain = 50.0;                     // overridden by config: gain
     std::string uri = "local:";                // overridden by config: uri
+
+    // Derived (set after parsing)
+    unsigned long effective_rate = 200000;      // sdr_rate / decimation
 
     // Downlink budget
     int max_iq_mb = 20;                       // overridden by config: max_iq_mb
@@ -150,8 +155,9 @@ bool load_config(const std::string& path, LoopbackConfig& cfg) {
 
         try {
             if (key == "frequency") cfg.frequency = std::stoull(value);
-            else if (key == "sample_rate") cfg.sample_rate = std::stoul(value);
-            else if (key == "bandwidth") cfg.bandwidth = std::stoul(value);
+            else if (key == "sdr_rate") cfg.sdr_rate = std::stoul(value);
+            else if (key == "decimation") cfg.decimation = std::stoi(value);
+            else if (key == "rf_bandwidth") cfg.rf_bandwidth = std::stoul(value);
             else if (key == "gain") cfg.rx_gain = std::stod(value);
             else if (key == "tx_attenuation") cfg.tx_attenuation = std::stod(value);
             else if (key == "fm_deviation") cfg.fm_deviation = std::stod(value);
@@ -183,7 +189,6 @@ void print_usage(const char* prog) {
               << "  -o, --output    Output WAV file (default: output.wav)\n"
               << "  -u, --uri       IIO URI (default: local:)\n"
               << "  -f, --freq      Frequency in Hz (default: 1296000000)\n"
-              << "  -s, --rate      Sample rate (default: 200000)\n"
               << "  -d, --deviation FM deviation in Hz (default: 5000)\n"
               << "  -h, --help      Show this help\n";
 }
@@ -221,12 +226,6 @@ int parse_args(int argc, char* argv[], LoopbackConfig& cfg) {
             cfg.uri = argv[++i];
         } else if ((arg == "-f" || arg == "--freq") && i + 1 < argc) {
             cfg.frequency = std::stoull(argv[++i]);
-        } else if ((arg == "-s" || arg == "--rate") && i + 1 < argc) {
-            cfg.sample_rate = std::stoul(argv[++i]);
-            if (cfg.sample_rate == 0) {
-                log_error() << "Sample rate must be > 0\n";
-                return 1;
-            }
         } else if ((arg == "-d" || arg == "--deviation") && i + 1 < argc) {
             cfg.fm_deviation = std::stod(argv[++i]);
             if (cfg.fm_deviation <= 0) {
@@ -249,8 +248,34 @@ int parse_args(int argc, char* argv[], LoopbackConfig& cfg) {
         print_usage(argv[0]);
         return 1;
     }
-    if (cfg.sample_rate == 0) {
-        log_error() << "Sample rate must be > 0\n";
+    if (cfg.sdr_rate == 0) {
+        log_error() << "sdr_rate must be > 0\n";
+        return 1;
+    }
+    if (cfg.decimation <= 0) {
+        log_error() << "decimation must be > 0\n";
+        return 1;
+    }
+    if (cfg.sdr_rate % cfg.decimation != 0) {
+        log_error() << "sdr_rate (" << cfg.sdr_rate << ") must be divisible by decimation ("
+                    << cfg.decimation << ")\n";
+        return 1;
+    }
+    cfg.effective_rate = cfg.sdr_rate / cfg.decimation;
+    if (cfg.effective_rate == 0) {
+        log_error() << "effective_rate (sdr_rate/decimation) must be > 0\n";
+        return 1;
+    }
+    // AD9361 sampling_frequency_Hz limits: 2,083,000 - 61,440,000 Hz
+    if (cfg.sdr_rate < 2083000 || cfg.sdr_rate > 61440000) {
+        log_error() << "sdr_rate " << cfg.sdr_rate
+                    << " Hz out of AD9361 range (2,083,000 - 61,440,000 Hz)\n";
+        return 1;
+    }
+    // AD9361 rf_bandwidth_Hz limits: 200,000 - 56,000,000 Hz
+    if (cfg.rf_bandwidth < 200000 || cfg.rf_bandwidth > 56000000) {
+        log_error() << "rf_bandwidth " << cfg.rf_bandwidth
+                    << " Hz out of AD9361 range (200,000 - 56,000,000 Hz)\n";
         return 1;
     }
     if (cfg.max_iq_mb <= 0) {
@@ -286,7 +311,10 @@ void log_config(const LoopbackConfig& cfg) {
     log_info() << "Output:      " << cfg.output_wav << "\n";
     log_info() << "URI:         " << cfg.uri << "\n";
     log_info() << "Frequency:   " << cfg.frequency / 1e6 << " MHz\n";
-    log_info() << "Rate:        " << cfg.sample_rate << " Hz\n";
+    log_info() << "SDR rate:    " << cfg.sdr_rate << " Hz (AD9361 hardware)\n";
+    log_info() << "Decimation:  " << cfg.decimation << "x\n";
+    log_info() << "Eff. rate:   " << cfg.effective_rate << " Hz (post-LPF)\n";
+    log_info() << "RF BW:       " << cfg.rf_bandwidth << " Hz\n";
     log_info() << "Audio rate:  " << cfg.audio_rate << " Hz\n";
     log_info() << "FM Dev:      " << cfg.fm_deviation << " Hz\n";
     log_info() << "LPF cutoff:  " << cfg.lpf_cutoff << " Hz\n";
@@ -372,8 +400,8 @@ bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
         log_info() << "AD9361 sample rate readback: " << val << " Hz\n";
         try {
             long actual_rate = std::stol(trim(val));
-            if ((unsigned long)actual_rate != cfg.sample_rate) {
-                log_error() << "FATAL: sample rate mismatch — requested " << cfg.sample_rate
+            if ((unsigned long)actual_rate != cfg.sdr_rate) {
+                log_error() << "FATAL: sample rate mismatch — requested " << cfg.sdr_rate
                             << " Hz, got " << actual_rate
                             << " Hz (invalidates downlink budget and file size expectations)\n";
                 return false;
@@ -390,8 +418,8 @@ bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
             log_info() << "AD9361 RX RF bandwidth readback: " << val << " Hz\n";
             try {
                 long actual_bw = std::stol(trim(val));
-                if ((unsigned long)actual_bw != cfg.bandwidth) {
-                    log_warning() << "RX RF bandwidth mismatch — requested " << cfg.bandwidth
+                if ((unsigned long)actual_bw != cfg.rf_bandwidth) {
+                    log_warning() << "RX RF bandwidth mismatch — requested " << cfg.rf_bandwidth
                                 << " Hz, got " << actual_bw << " Hz\n";
                 }
             } catch (const std::exception& e) {
@@ -440,8 +468,8 @@ bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
             log_info() << "AD9361 TX RF bandwidth readback: " << val << " Hz\n";
             try {
                 long actual_bw = std::stol(trim(val));
-                if ((unsigned long)actual_bw != cfg.bandwidth) {
-                    log_warning() << "TX RF bandwidth mismatch — requested " << cfg.bandwidth
+                if ((unsigned long)actual_bw != cfg.rf_bandwidth) {
+                    log_warning() << "TX RF bandwidth mismatch — requested " << cfg.rf_bandwidth
                                 << " Hz, got " << actual_bw << " Hz\n";
                 }
             } catch (const std::exception& e) {
@@ -820,8 +848,8 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
     g_running = 1;
     g_signal_received = 0;
 
-    if (cfg.sample_rate == 0 || cfg.audio_rate <= 0) {
-        log_error() << "Invalid rates: sample_rate and audio_rate must be > 0\n";
+    if (cfg.effective_rate == 0 || cfg.audio_rate <= 0) {
+        log_error() << "Invalid rates: effective_rate and audio_rate must be > 0\n";
         return 1;
     }
     if (input_audio_rate <= 0) {
@@ -834,57 +862,58 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
     log_info() << "Input audio rate: " << input_audio_rate << " Hz\n";
     log_info() << "Output audio rate: " << cfg.audio_rate << " Hz\n";
 
-    // TX resampling: input audio rate -> SDR sample rate
-    unsigned long tx_gcd = std::gcd((unsigned long)cfg.sample_rate, (unsigned long)input_audio_rate);
-    unsigned long tx_interp = cfg.sample_rate / tx_gcd;
+    // TX resampling: input audio rate -> SDR hardware rate (sdr_rate)
+    unsigned long tx_gcd = std::gcd((unsigned long)cfg.sdr_rate, (unsigned long)input_audio_rate);
+    unsigned long tx_interp = cfg.sdr_rate / tx_gcd;
     unsigned long tx_decim = input_audio_rate / tx_gcd;
-    log_info() << "TX resample:      " << input_audio_rate << " -> " << cfg.sample_rate
+    log_info() << "TX resample:      " << input_audio_rate << " -> " << cfg.sdr_rate
                << " (interp=" << tx_interp << ", decim=" << tx_decim << ")\n";
     // Sanity cap: absurd ratios produce huge FIR filter tap counts and blow memory
     if (tx_interp > 1000 || tx_decim > 1000) {
         log_error() << "TX resampler ratio " << tx_interp << "/" << tx_decim
-                    << " too large (sample_rate=" << cfg.sample_rate
+                    << " too large (sdr_rate=" << cfg.sdr_rate
                     << ", input_audio_rate=" << input_audio_rate
                     << ") — choose rates with a reasonable GCD\n";
         return 1;
     }
 
-    // RX resampling: SDR sample rate -> output audio rate (always 16 kHz)
-    unsigned long rx_gcd = std::gcd((unsigned long)cfg.sample_rate, (unsigned long)cfg.audio_rate);
+    // RX resampling: effective_rate (post-LPF) -> output audio rate (always 16 kHz)
+    unsigned long rx_gcd = std::gcd((unsigned long)cfg.effective_rate, (unsigned long)cfg.audio_rate);
     unsigned long rx_interp = cfg.audio_rate / rx_gcd;
-    unsigned long rx_decim = cfg.sample_rate / rx_gcd;
-    log_info() << "RX resample:      " << cfg.sample_rate << " -> " << cfg.audio_rate
+    unsigned long rx_decim = cfg.effective_rate / rx_gcd;
+    log_info() << "RX resample:      " << cfg.effective_rate << " -> " << cfg.audio_rate
                << " (interp=" << rx_interp << ", decim=" << rx_decim << ")\n";
     if (rx_interp > 1000 || rx_decim > 1000) {
         log_error() << "RX resampler ratio " << rx_interp << "/" << rx_decim
-                    << " too large (sample_rate=" << cfg.sample_rate
+                    << " too large (effective_rate=" << cfg.effective_rate
                     << ", audio_rate=" << cfg.audio_rate
                     << ") — choose rates with a reasonable GCD\n";
         return 1;
     }
 
     // Use integer sample count directly (passed from main, avoids float->int truncation)
+    // iq_samples is at effective_rate (post-LPF). TX runs at sdr_rate.
     long long iq_samples = iq_sample_count;
-    long long tx_samples = iq_samples;  // TX limited to same capped duration as RX
-    double duration_sec = (double)iq_samples / cfg.sample_rate;
+    long long tx_samples = iq_samples * (long long)cfg.decimation;  // TX at sdr_rate
+    double duration_sec = (double)iq_samples / cfg.effective_rate;
     // Divide before multiply to avoid overflow in the intermediate product.
     if (iq_samples % (long long)rx_decim != 0) {
         long long snapped = (iq_samples / (long long)rx_decim) * (long long)rx_decim;
         log_info() << "Snapping iq_samples " << iq_samples << " -> " << snapped
                    << " (multiple of rx_decim=" << rx_decim << ")\n";
         iq_samples = snapped;
-        tx_samples = snapped;
+        tx_samples = snapped * (long long)cfg.decimation;  // TX at sdr_rate
         if (iq_samples <= 0) {
             log_error() << "iq_samples snapped to 0 — duration too short for rx_decim\n";
             return 1;
         }
-        duration_sec = (double)iq_samples / cfg.sample_rate;
+        duration_sec = (double)iq_samples / cfg.effective_rate;
     }
     long long rx_audio_samples = (iq_samples / (long long)rx_decim) * (long long)rx_interp;
     log_info() << "I/Q scale:        " << IQ_SCALE << " (|1.0| -> " << (int)IQ_SCALE << " int16)\n";
-    log_info() << "TX samples:       " << tx_samples << " (at " << cfg.sample_rate << " Hz)\n";
-    log_info() << "RX samples:       " << rx_audio_samples << " audio, "
-               << iq_samples << " I/Q\n";
+    log_info() << "TX samples:       " << tx_samples << " (at " << cfg.sdr_rate << " Hz)\n";
+    log_info() << "RX I/Q samples:   " << iq_samples << " (at " << cfg.effective_rate << " Hz post-LPF)\n";
+    log_info() << "RX audio samples: " << rx_audio_samples << " (at " << cfg.audio_rate << " Hz)\n";
 
     // Expected sc16 file size: 2 shorts per complex sample = 4 bytes/sample
     long long expected_iq_bytes = iq_samples * 4LL;
@@ -892,9 +921,10 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
     log_info() << "I/Q file:         " << iq_file << "\n";
 
     // Validate DSP parameters before designing filter taps
-    if (cfg.lpf_cutoff <= 0 || cfg.lpf_cutoff >= cfg.sample_rate / 2.0) {
+    // LPF cutoff is validated against sdr_rate (LPF input rate before decimation)
+    if (cfg.lpf_cutoff <= 0 || cfg.lpf_cutoff >= cfg.sdr_rate / 2.0) {
         log_error() << "LPF cutoff " << cfg.lpf_cutoff << " Hz out of range (0, "
-                    << cfg.sample_rate / 2.0 << " Hz)\n";
+                    << cfg.sdr_rate / 2.0 << " Hz)\n";
         return 1;
     }
     if (cfg.lpf_transition <= 0) {
@@ -908,12 +938,13 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
         return 1;
     }
 
-    // Design filter taps
+    // Design LPF taps at sdr_rate (input rate before decimation)
     std::vector<float> lpf_taps = gr::filter::firdes::low_pass(
-        1.0, cfg.sample_rate, cfg.lpf_cutoff, cfg.lpf_transition,
+        1.0, cfg.sdr_rate, cfg.lpf_cutoff, cfg.lpf_transition,
         gr::fft::window::WIN_HAMMING
     );
-    log_info() << "LPF taps: " << lpf_taps.size() << "\n";
+    log_info() << "LPF taps: " << lpf_taps.size()
+               << " (designed at " << cfg.sdr_rate << " Hz, decim=" << cfg.decimation << ")\n";
 
     std::vector<float> bp_taps = gr::filter::firdes::band_pass(
         1.0, cfg.audio_rate, cfg.bandpass_low, cfg.bandpass_high, 200.0,
@@ -943,40 +974,44 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
         std::vector<bool> rx_ch_en = {true, false};
 
         // TX path blocks (input samples loaded via libsndfile — deterministic float type)
+        // TX runs at sdr_rate (AD9361 hardware rate)
         auto wav_src      = gr::blocks::vector_source_f::make(input_samples, false);
         auto resampler_tx = gr::filter::rational_resampler_fff::make(tx_interp, tx_decim);
         tx_head           = gr::blocks::head::make(sizeof(float), tx_samples);
         auto scaler       = gr::blocks::multiply_const_ff::make(0.8);
-        double sensitivity = 2.0 * M_PI * cfg.fm_deviation / cfg.sample_rate;
+        double sensitivity = 2.0 * M_PI * cfg.fm_deviation / cfg.sdr_rate;
         auto fm_mod       = gr::analog::frequency_modulator_fc::make(sensitivity);
 
         auto iio_sink = gr::iio::fmcomms2_sink_fc32::make(cfg.uri, tx_ch_en, 0x8000, false);
         iio_sink->set_frequency(cfg.frequency);
-        iio_sink->set_samplerate(cfg.sample_rate);
-        iio_sink->set_bandwidth(cfg.bandwidth);
+        iio_sink->set_samplerate(cfg.sdr_rate);
+        iio_sink->set_bandwidth(cfg.rf_bandwidth);
         iio_sink->set_attenuation(0, cfg.tx_attenuation);
         iio_sink->set_filter_params("auto", "", 0, 0);
 
-        // RX source
+        // RX source (runs at sdr_rate, the AD9361 hardware rate)
         auto iio_src = gr::iio::fmcomms2_source_fc32::make(cfg.uri, rx_ch_en, 0x8000);
         iio_src->set_frequency(cfg.frequency);
-        iio_src->set_samplerate(cfg.sample_rate);
+        iio_src->set_samplerate(cfg.sdr_rate);
         iio_src->set_gain_mode(0, "manual");
         iio_src->set_gain(0, cfg.rx_gain);
         iio_src->set_quadrature(true);
         iio_src->set_rfdc(true);
         iio_src->set_bbdc(true);
-        iio_src->set_filter_params("auto", "", static_cast<float>(cfg.bandwidth * 0.8), static_cast<float>(cfg.bandwidth));
+        iio_src->set_filter_params("auto", "", static_cast<float>(cfg.rf_bandwidth * 0.8), static_cast<float>(cfg.rf_bandwidth));
 
-        // RX DSP blocks
-        auto lpf         = gr::filter::fir_filter_ccf::make(1, lpf_taps);
+        // RX DSP blocks — LPF decimates from sdr_rate to effective_rate
+        auto lpf         = gr::filter::fir_filter_ccf::make(cfg.decimation, lpf_taps);
         auto to_short    = gr::blocks::complex_to_interleaved_short::make(false, IQ_SCALE);
         iq_head          = gr::blocks::head::make(sizeof(gr_complex), iq_samples);
-        // iq_samples counts complex samples; sink writes 2 int16 per sample (I,Q) => 4 bytes/sample
+        // iq_samples counts complex samples at effective_rate (post-LPF);
+        // sink writes 2 int16 per sample (I,Q) => 4 bytes/sample
         auto iq_sink_blk = gr::blocks::file_sink::make(sizeof(short), iq_file.c_str(), false);
+        // FM demod operates at effective_rate (post-LPF output)
         auto fm_demod    = gr::analog::quadrature_demod_cf::make(
-            cfg.sample_rate / (2.0 * M_PI * cfg.fm_deviation)
+            cfg.effective_rate / (2.0 * M_PI * cfg.fm_deviation)
         );
+        // Resample from effective_rate to audio_rate
         auto resampler_rx = gr::filter::rational_resampler_fff::make(rx_interp, rx_decim);
         auto bandpass     = gr::filter::fir_filter_fff::make(1, bp_taps);
         rx_head           = gr::blocks::head::make(sizeof(float), rx_audio_samples);
@@ -1149,7 +1184,7 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
                                   << " not a multiple of 4 bytes (truncated write?)\n";
                 }
                 long long actual_samples = actual_bytes / 4;
-                double actual_duration = (double)actual_samples / cfg.sample_rate;
+                double actual_duration = (double)actual_samples / cfg.effective_rate;
                 if (early_stop) {
                     // On early stop, just report what's on disk — don't compare to expected
                     log_info() << "sc16 file: " << actual_bytes << " bytes, "
@@ -1185,7 +1220,7 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
     // Check for I/Q clipping and peak magnitude (still useful on partial captures)
     double clip_rate;
     int peak_abs;
-    check_sc16_quality(iq_file, cfg.sample_rate, clip_rate, peak_abs);
+    check_sc16_quality(iq_file, cfg.effective_rate, clip_rate, peak_abs);
     if (clip_rate >= 0.0) {
         double peak_dbfs = (peak_abs > 0) ? 20.0 * std::log10((double)peak_abs / IQ_SCALE) : -999.0;
         log_info() << "sc16 peak: " << peak_abs << "/" << (int)IQ_SCALE
@@ -1223,8 +1258,8 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
         log_warning() << "skipping loopback quality check (partial capture)\n";
     }
 
-    log_info() << "NOTE: This test validates the " << cfg.sample_rate / 1000
-               << " kSPS path only; fallback (higher rate + SW decimation) not exercised\n";
+    log_info() << "NOTE: SDR at " << cfg.sdr_rate / 1000 << " kSPS, decimation "
+               << cfg.decimation << "x -> " << cfg.effective_rate / 1000 << " kSPS effective\n";
 
     if (timed_out) return 2;
     if (interrupted) return 128 + g_signal_received;  // conventional: 130 for SIGINT, 143 for SIGTERM
@@ -1350,26 +1385,27 @@ int main(int argc, char* argv[]) {
     log_info() << "Input frames:     " << input_frames << " (" << duration_sec << " sec)\n";
 
     // Cap duration to stay within downlink budget (sc16: 4 bytes per complex sample)
+    // File is written at effective_rate (post-LPF decimation)
     const long long max_iq_bytes = (long long)cfg.max_iq_mb * 1024LL * 1024;
-    double max_duration = (double)max_iq_bytes / (cfg.sample_rate * 4.0);
+    double max_duration = (double)max_iq_bytes / (cfg.effective_rate * 4.0);
     log_info() << "Capture cap:      " << max_duration << "s ("
                << cfg.max_iq_mb << " MiB @ "
-               << cfg.sample_rate << " SPS sc16)\n";
+               << cfg.effective_rate << " SPS sc16)\n";
     if (duration_sec > max_duration) {
         log_warning() << "Input duration " << duration_sec << "s exceeds cap, truncating\n";
         duration_sec = max_duration;
     }
 
-    // Snap to sample boundary for deterministic file sizes
-    long long snap_samples = (long long)(duration_sec * cfg.sample_rate);
+    // Snap to sample boundary at effective_rate for deterministic file sizes
+    long long snap_samples = (long long)(duration_sec * cfg.effective_rate);
     if (snap_samples <= 0) {
         log_error() << "Effective duration must be > 0 (increase max_iq_mb or input length)\n";
         return 1;
     }
     // Align to RX decimation multiple *before* computing TX need_in,
     // otherwise we can falsely reject "too short" WAVs.
-    unsigned long rx_gcd_m = std::gcd((unsigned long)cfg.sample_rate, (unsigned long)cfg.audio_rate);
-    unsigned long rx_decim_m = cfg.sample_rate / rx_gcd_m;
+    unsigned long rx_gcd_m = std::gcd((unsigned long)cfg.effective_rate, (unsigned long)cfg.audio_rate);
+    unsigned long rx_decim_m = cfg.effective_rate / rx_gcd_m;
     {
         long long rem = snap_samples % (long long)rx_decim_m;
         if (rem != 0) {
@@ -1384,8 +1420,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    log_info() << "Effective duration: " << (double)snap_samples / cfg.sample_rate << " sec ("
-               << snap_samples << " samples)\n";
+    log_info() << "Effective duration: " << (double)snap_samples / cfg.effective_rate << " sec ("
+               << snap_samples << " samples @ " << cfg.effective_rate << " Hz)\n";
 
     // TX input is not truncated — tx_head in the flowgraph caps output to tx_samples.
     // Truncating here would risk starving the resampler due to filter group delay.

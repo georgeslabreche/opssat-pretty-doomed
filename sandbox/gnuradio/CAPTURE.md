@@ -60,7 +60,9 @@ At ~1200 MHz, the expected Doppler magnitude is approximately +/-30 kHz.
 | Parameter | Value |
 |-----------|-------|
 | Format | sc16 (int16 I/Q) |
-| Sample rate | 200 kSPS |
+| AD9361 hardware rate | 2.4 MSPS |
+| Software decimation | 12x |
+| Effective sample rate | 200 kSPS (= 2.4 MSPS / 12, the rate at which I/Q data is written to disk) |
 | Duration | 20 seconds |
 | File size | ~16 MB |
 | Nyquist bandwidth | +/-100 kHz |
@@ -70,17 +72,17 @@ The +/-100 kHz bandwidth covers Doppler offset, LO error, and FM voice modulatio
 ### Onboard DSP Chain
 
 ```
-AD9361 RX (fc32, 200 kSPS — internal decimation)
+AD9361 RX (cf32, 2.4 MSPS hardware rate)
   |
   v
-Complex LPF (cutoff ~85 kHz, transition ~15 kHz)
+Decimating LPF (cutoff ~85 kHz, transition ~15 kHz, decimation 12x -> 200 kSPS)
   |
   +---> head -> complex_to_interleaved_short (scale 8192) -> .sc16 file
   +---> FM demod -> resample (200k -> 16k) -> bandpass (300-3400 Hz)
           -> head -> .wav file -> RMS normalize (-20 dBFS)
 ```
 
-The I/Q file and the audio fed to ASR originate from the same LPF-filtered stream. The AD9361 handles decimation to 200 kSPS internally. The sc16 scale factor of 8192 maps nominal |1.0| fc32 magnitude to 8192 int16, leaving ~12 dB headroom before rail (32767).
+The AD9361 samples at 2.4 MSPS (within the hardware limit of 2,083,000 – 61,440,000 Hz). The decimating LPF reduces the rate to 200 kSPS in software. The I/Q file and the audio fed to ASR originate from the same LPF-filtered stream. The sc16 scale factor of 8192 maps nominal |1.0| cf32 magnitude to 8192 int16, leaving ~12 dB headroom before rail (32767).
 
 ## FM Demodulation
 
@@ -115,4 +117,4 @@ At ~520 km altitude, a typical ground station pass lasts 8-12 minutes with a 3-5
 
 Capture wide, capture often, and let ASR decide. The system trades signal processing complexity for capture volume, relying on the statistical certainty that repeated independent trials will produce a successful detection.
 
-Recommended minimum configuration: 20 seconds of sc16 I/Q at 200 kSPS, channelized to +/-90 kHz, with always-on FM demodulation feeding ASR.
+Recommended minimum configuration: 20 seconds of sc16 I/Q at 200 kSPS effective (AD9361 at 2.4 MSPS, 12x software decimation), channelized to +/-90 kHz, with always-on FM demodulation feeding ASR.

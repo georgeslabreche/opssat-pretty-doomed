@@ -1,0 +1,36 @@
+# SDR emulator integration test
+#
+# Usage:
+#   docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+#   docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture make
+#   docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
+#     sh -c "cp build/capture_loop . && ./capture_loop --config config.emu.cfg --output toGround/emu-test.wav --no-readback"
+#   docker-compose -f docker-compose.emu-test.yml down
+
+services:
+  sdr-emu:
+    image: iio-emu:latest
+    container_name: sdr_emu
+    ports:
+      - "30431:30431"
+    volumes:
+      - ./emu-samples:/samples:ro
+    environment:
+      SAMPLE_FILE: "sdr_20210519_101920_1176450000_38400000_12.cs16"
+      DATA_SOURCE_TYPE: "file"
+
+  sdr-capture:
+    build: .
+    container_name: gnuradio-sdr-capture-emu
+    depends_on:
+      - sdr-emu
+    volumes:
+      - ./src:/app/src
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./run:/app/run
+      - ./config.cfg:/app/config.cfg
+      - ./config.emu.cfg:/app/config.emu.cfg
+      - ./toGround:/app/toGround
+    working_dir: /app
+    tty: true

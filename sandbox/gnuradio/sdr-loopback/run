@@ -41,14 +41,16 @@ RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
 # Create run directory
 mkdir -p "$RUN_DIR"
 
-# Log file
-LOG_FILE="${RUN_DIR}/loopback.log"
+RUN_LOG="${RUN_DIR}/run.log"
+
+# Redirect all subsequent stderr to run.log so unexpected errors are captured
+exec 2>> "$RUN_LOG"
 
 # Log start
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting SDR Loopback Test" > "$LOG_FILE"
-echo "Run ID: $RUNID" >> "$LOG_FILE"
-echo "Input directory: $INPUT_DIR" >> "$LOG_FILE"
-echo "Output directory: $RUN_DIR" >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting SDR Loopback Test" >> "$RUN_LOG"
+echo "Run ID: $RUNID" >> "$RUN_LOG"
+echo "Input directory: $INPUT_DIR" >> "$RUN_LOG"
+echo "Output directory: $RUN_DIR" >> "$RUN_LOG"
 
 # Process all WAV files in input directory
 PROCESSED=0
@@ -58,16 +60,16 @@ for INPUT_FILE in "$INPUT_DIR"/*.wav; do
         FILENAME=$(basename "$INPUT_FILE")
         OUTPUT_FILE="${RUN_DIR}/captured_${FILENAME}"
 
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Processing: $FILENAME" >> "$LOG_FILE"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Processing: $FILENAME" >> "$RUN_LOG"
 
         "${SCRIPT_DIR}/loopback_test" \
             --config "${SCRIPT_DIR}/config.cfg" \
             --input "$INPUT_FILE" \
             --output "$OUTPUT_FILE" \
-            >> "$LOG_FILE" 2>&1
+            >> "$RUN_LOG" 2>&1
 
         STATUS=$?
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Completed $FILENAME with status: $STATUS" >> "$LOG_FILE"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Completed $FILENAME with status: $STATUS" >> "$RUN_LOG"
 
         PROCESSED=$((PROCESSED + 1))
         [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
@@ -75,11 +77,11 @@ for INPUT_FILE in "$INPUT_DIR"/*.wav; do
 done
 
 # Log completion
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files" >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files ($FAILURES failed)" >> "$RUN_LOG"
 
 # Create summary file
 {
-    echo "SDR Loopback Test Results"
+    echo "OPSSAT PRETTY SDR Loopback Test Results"
     echo "========================="
     echo "Run ID: $RUNID"
     echo "Mode: AD9361 internal loopback (TX -> RX)"
@@ -92,8 +94,4 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files" >> "$LOG_FILE"
     ls -la "$RUN_DIR"/*.wav "$RUN_DIR"/*.sc16 2>/dev/null || echo "  (none)"
 } > "${RUN_DIR}/summary.txt"
 
-if [ "$FAILURES" -gt 0 ]; then
-    exit 1
-else
-    exit 0
-fi
+exit $( [ "$FAILURES" -gt 0 ] && echo 1 || echo 0 )

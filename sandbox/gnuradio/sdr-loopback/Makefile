@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
 
 # Package version (change this for new releases)
-PACKAGE_VERSION = v1
+PACKAGE_VERSION = v2
 PACKAGE_NAME = exp4023-sdr-loopback-$(PACKAGE_VERSION)
 
 # GNU Radio libraries
