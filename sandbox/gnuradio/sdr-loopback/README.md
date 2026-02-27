@@ -167,20 +167,15 @@ All three paths (TX, RX audio, RX I/Q) must reach their expected sample counts. 
 ## Packaging for SEPP
 
 ```bash
-# Inside container — normal + emu variants
-docker-compose run --rm sdr-loopback sh -c "make package-prepare && make package-prepare-emu"
+# Inside container
+docker-compose run --rm sdr-loopback make package-prepare
 
 # Outside container
 make package-samples
 make package-tar
-make package-tar-emu
 ```
 
-Creates two packages:
-- `package/exp4023-sdr-loopback-v3.tar.gz` — for EM/FM (strict readback, `uri=local:`)
-- `package/exp4023-sdr-loopback-v3-emu.tar.gz` — for emulator testing (`min_readback=true`, `uri=ip:sdr-emu:30431`)
-
-Both share the same binary and libraries — only `config.cfg` differs.
+Creates `package/exp4023-sdr-loopback-v3.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
 
 ### Bundled Libraries
 
@@ -201,12 +196,16 @@ An SDR emulator is available for testing the IIO data path without real hardware
 
 The emulator Docker image (`sdr_emu.tar`) and sample file are not included in this repository due to size. Request them from the OPS-SAT mission control team.
 
-An emulator config (`config.emu.cfg`) is provided with `uri=ip:sdr-emu:30431` and `min_readback=true`. The emulator accepts parameter writes but does not update the `sampling_frequency` readback attribute; `min_readback` downgrades the sample rate check from fatal to a warning while all other readbacks still run.
+For emulator testing, uncomment the `uri` and `min_readback` lines at the bottom of `config.cfg` (or pass `--uri` and `--min-readback` on the command line). The emulator accepts parameter writes but does not update the `sampling_frequency` readback attribute; `--min-readback` downgrades the sample rate check from fatal to a warning while all other readbacks still run.
 
-### Limitations
+### Emulator Limitations
 
 - The emulator has no TX support, so it cannot be used for loopback testing (TX -> RX). The loopback test requires real AD9361 hardware on the flatsat.
 - The emulator accepts SDR setting writes but does not reflect them in readback attributes (e.g. `sampling_frequency`). The `min_readback` config key (or `--min-readback` CLI flag) downgrades the sample rate check to a warning.
-- GNU Radio flowgraphs crash under QEMU ARM emulation (VOLK SIMD issues). Full end-to-end testing requires a native ARM environment or real hardware.
+- QEMU user-mode ARM emulation (ARM32 on ARM64) can produce intermittent SIGFPE crashes unrelated to the experiment code. Full end-to-end testing requires native ARM hardware on the flatsat.
 
 See the [sdr-capture README](../sdr-capture/README.md#sdr-emulator-testing) for emulator setup instructions.
+
+## Known Issues
+
+See [sdr-capture Known Issues](../sdr-capture/README.md#known-issues) for the `fmcomms2_source_fc32` / `fmcomms2_sink_fc32` FPGA register crash and the `device_source` / `device_sink` fix. The same issue and fix apply to this loopback test (both source and sink).

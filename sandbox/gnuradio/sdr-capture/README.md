@@ -171,19 +171,14 @@ The `.sc16` file contains raw I/Q samples at the effective rate (200 kSPS after 
 ## Packaging for SEPP
 
 ```bash
-# Inside container — normal + emu variants
-docker-compose run --rm sdr-capture sh -c "make package-prepare && make package-prepare-emu"
+# Inside container
+docker-compose run --rm sdr-capture make package-prepare
 
 # Outside container
 make package-tar
-make package-tar-emu
 ```
 
-Creates two packages:
-- `package/exp4023-sdr-capture-v3.tar.gz` — for EM/FM (strict readback, `uri=local:`)
-- `package/exp4023-sdr-capture-v3-emu.tar.gz` — for emulator testing (`min_readback=true`, `uri=ip:sdr-emu:30431`)
-
-Both share the same binary and libraries — only `config.cfg` differs.
+Creates `package/exp4023-sdr-capture-v3.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
 
 ### Bundled Libraries
 
@@ -219,22 +214,40 @@ The emulator Docker image (`sdr_emu.tar`) and sample file are not included in th
    docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture make
    docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
      sh -c "cp build/capture_loop . && ./capture_loop \
-       --config config.emu.cfg --output toGround/emu-test.wav"
+       --config config.cfg --uri ip:sdr-emu:30431 \
+       --min-readback --output toGround/emu-test.wav"
    docker-compose -f docker-compose.emu-test.yml down
    ```
 
-### Emulator Config (config.emu.cfg)
+The `--uri` and `--min-readback` flags override the defaults in `config.cfg`. Alternatively, uncomment the `uri` and `min_readback` lines at the bottom of `config.cfg`.
 
-The emulator config uses the same experiment parameters as `config.cfg` (same SDR rate, frequency, decimation) with two differences:
+The emulator accepts parameter writes (visible in its logs) but does not update the `sampling_frequency` readback attribute. `--min-readback` downgrades the sample rate check from fatal to a warning, while all other readbacks (frequency, gain, bandwidth, RSSI) still run normally.
 
-| Parameter | Emulator | Production |
-|-----------|----------|------------|
-| `uri` | `ip:sdr-emu:30431` | `local:` |
-| `min_readback` | `true` | not set |
-
-The emulator accepts parameter writes (visible in its logs) but does not update the `sampling_frequency` readback attribute. Setting `min_readback=true` downgrades the sample rate check from fatal to a warning, while all other readbacks (frequency, gain, bandwidth, RSSI) still run normally.
-
-### Limitations
+### Emulator Limitations
 
 - The emulator accepts SDR setting writes but does not reflect them in readback attributes (e.g. `sampling_frequency`). The `min_readback` config key (or `--min-readback` CLI flag) downgrades the sample rate check to a warning so the experiment can proceed.
-- GNU Radio flowgraphs crash under QEMU ARM emulation (VOLK SIMD issues). Full end-to-end emulator testing requires a native ARM environment or real hardware on the flatsat.
+- QEMU user-mode ARM emulation (ARM32 on ARM64) can produce intermittent SIGFPE crashes unrelated to the experiment code. Full end-to-end testing requires native ARM hardware on the flatsat.
+
+## Known Issues
+
+### gr-iio `fmcomms2_source_fc32` Crashes on Non-ADI FPGA Designs
+
+GNU Radio's gr-iio `fmcomms2_source_fc32` block spawns an internal overflow monitoring thread (`check_overflow`) that periodically reads FPGA register `0x80000088` via `iio_device_reg_read()`. This register is the `REG_UI_STATUS` register of Analog Devices' [AXI AD9361 IP core](https://wiki.analog.com/resources/fpga/docs/axi_ad9361), which is part of their reference FPGA HDL design. When the register read fails (because the FPGA does not have the ADI AXI ADC core at that address), the thread throws `std::runtime_error("Failed to read overflow status register")` from a `std::thread` with no catch handler, which calls `std::terminate()` and crashes the process.
+
+The `fmcomms2_sink_fc32` block has the same issue with its underflow monitoring thread (`check_underflow`), which reads the same register from the DAC side.
+
+This is **not documented** in the gr-iio user-facing documentation. The [ADI gr-iio wiki](https://wiki.analog.com/resources/tools-software/linux-software/gnuradio) describes the fmcomms2 blocks as "device specific blocks that simplify the process of configuring the generic IIO device block" but does not mention the FPGA register dependency.
+
+**Fix:** Use `device_source` / `device_sink` instead of `fmcomms2_source_fc32` / `fmcomms2_sink_fc32`. These are the generic IIO blocks that only use the IIO buffer API with no FPGA register assumptions. AD9361 parameters are passed via `iio_param_vec_t` using sysfs-style attribute names (e.g. `in_voltage0_sampling_frequency`). The tradeoff is that `device_source` outputs raw `int16` per channel instead of `gr_complex`, so explicit format conversion blocks are needed:
+
+- **RX:** `device_source` (int16) -> `short_to_float` (scale=2048.0, 12-bit ADC normalization) -> `float_to_complex`
+- **TX:** `complex_to_float` -> `float_to_short` (scale=32768.0) -> `device_sink`
+
+**References:**
+
+| Resource | Link |
+|----------|------|
+| fmcomms2_source_impl.cc (crash source) | https://github.com/analogdevicesinc/gr-iio/blob/master/lib/fmcomms2_source_impl.cc |
+| AXI AD9361 register map (REG_UI_STATUS at 0x0088) | https://wiki.analog.com/resources/fpga/docs/axi_ad9361 |
+| ADI gr-iio wiki | https://wiki.analog.com/resources/tools-software/linux-software/gnuradio |
+| GREP-0017: gr-iio in GNU Radio | https://github.com/gnuradio/greps/blob/main/grep-0017-iio.md |

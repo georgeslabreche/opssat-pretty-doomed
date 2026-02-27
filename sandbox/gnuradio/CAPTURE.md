@@ -72,7 +72,7 @@ The +/-100 kHz bandwidth covers Doppler offset, LO error, and FM voice modulatio
 ### Onboard DSP Chain
 
 ```
-AD9361 RX (cf32, 2.4 MSPS hardware rate)
+AD9361 RX (int16 via IIO, converted to fc32, 2.4 MSPS hardware rate)
   |
   v
 Decimating LPF (cutoff ~85 kHz, transition ~15 kHz, decimation 12x -> 200 kSPS)
@@ -82,7 +82,7 @@ Decimating LPF (cutoff ~85 kHz, transition ~15 kHz, decimation 12x -> 200 kSPS)
           -> head -> .wav file -> RMS normalize (-20 dBFS)
 ```
 
-The AD9361 samples at 2.4 MSPS (within the hardware limit of 2,083,000 – 61,440,000 Hz). The decimating LPF reduces the rate to 200 kSPS in software. The I/Q file and the audio fed to ASR originate from the same LPF-filtered stream. The sc16 scale factor of 8192 maps nominal |1.0| cf32 magnitude to 8192 int16, leaving ~12 dB headroom before rail (32767).
+The AD9361 samples at 2.4 MSPS (within the hardware limit of 2,083,000 – 61,440,000 Hz). The IIO `device_source` block delivers raw int16 samples per channel; these are converted to fc32 (÷2048 for 12-bit ADC normalization) before entering the DSP chain. The decimating LPF reduces the rate to 200 kSPS in software. The I/Q file and the audio fed to ASR originate from the same LPF-filtered stream. The sc16 scale factor of 8192 maps nominal |1.0| fc32 magnitude to 8192 int16, leaving ~12 dB headroom before rail (32767). See [sdr-capture Known Issues](sdr-capture/README.md#known-issues) for why `device_source` is used instead of `fmcomms2_source_fc32`.
 
 ## FM Demodulation
 
