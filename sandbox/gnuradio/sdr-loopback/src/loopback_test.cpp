@@ -1388,7 +1388,7 @@ int main(int argc, char* argv[]) {
     // Context is created, used to enable loopback, then destroyed BEFORE
     // run_loopback() creates GNU Radio blocks (which open their own contexts).
     // Keeping this context alive during flowgraph execution causes segfaults
-    // due to IIO device conflicts with the fmcomms2 source/sink contexts.
+    // due to IIO device conflicts with the device_source/sink contexts.
     std::string prev_loopback = "0";
     {
         log_info() << "Connecting to IIO context for loopback setup...\n";
