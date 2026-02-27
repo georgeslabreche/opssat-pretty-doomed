@@ -30,14 +30,18 @@
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/multiply_const.h>
 #include <gnuradio/blocks/head.h>
+#include <gnuradio/blocks/short_to_float.h>
+#include <gnuradio/blocks/float_to_complex.h>
+#include <gnuradio/blocks/complex_to_float.h>
+#include <gnuradio/blocks/float_to_short.h>
 #include <gnuradio/blocks/complex_to_interleaved_short.h>
 #include <gnuradio/analog/frequency_modulator_fc.h>
 #include <gnuradio/analog/quadrature_demod_cf.h>
 #include <gnuradio/filter/rational_resampler.h>
 #include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/filter/firdes.h>
-#include <gnuradio/iio/fmcomms2_source.h>
-#include <gnuradio/iio/fmcomms2_sink.h>
+#include <gnuradio/iio/device_source.h>
+#include <gnuradio/iio/device_sink.h>
 #include <numeric>  // for std::gcd
 
 #include <iio.h>
@@ -338,11 +342,13 @@ static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
     if (n <= 0) return "";
     if ((size_t)n >= sizeof(buf)) {
         log_warning() << "IIO attr '" << attr << "' truncated (" << n << " bytes, buf=" << sizeof(buf) << ")\n";
-        // Accept truncated prefix — numeric attrs like sampling_frequency fit in 256 bytes,
-        // so truncation here is unexpected but the prefix is still useful for parsing/logging.
         buf[sizeof(buf) - 1] = '\0';
         return std::string(buf, sizeof(buf) - 1);
     }
+    // Strip trailing NUL bytes — iio_channel_attr_read() may include the
+    // NUL terminator in the returned byte count, which would create a
+    // std::string containing embedded NUL that breaks string comparisons.
+    while (n > 0 && buf[n - 1] == '\0') n--;
     return std::string(buf, (size_t)n);
 }
 
@@ -860,11 +866,34 @@ double read_input_wav(const std::string& path, int& audio_rate, long long& frame
     return (double)frame_count / audio_rate;
 }
 
+// Helper: restore loopback attribute via a fresh IIO context.
+// Called after run_loopback() returns so no context conflicts with GNU Radio.
+static void restore_loopback(const std::string& uri, const std::string& prev_loopback) {
+    log_info() << "Restoring loopback to '" << prev_loopback << "'...\n";
+    struct iio_context* ctx = iio_create_context_from_uri(uri.c_str());
+    if (!ctx) {
+        log_warning() << "could not connect to IIO for loopback restore\n";
+        return;
+    }
+    struct iio_device* phy = iio_context_find_device(ctx, "ad9361-phy");
+    if (!phy) {
+        log_warning() << "could not find ad9361-phy for loopback restore\n";
+        iio_context_destroy(ctx);
+        return;
+    }
+    int ret = iio_device_attr_write(phy, "loopback", prev_loopback.c_str());
+    if (ret < 0) {
+        log_warning() << "restore failed (ret=" << ret << "), trying '0'\n";
+        iio_device_attr_write(phy, "loopback", "0");
+    }
+    iio_context_destroy(ctx);
+}
+
 // Build GNU Radio flowgraph, run loopback test, then post-process audio.
 // iq_sample_count is the pre-snapped integer sample count (avoids float->int truncation).
 // input_samples: PCM float samples read via libsndfile (deterministic type).
 // prev_loopback: value to restore on forced exit (_Exit path bypasses RAII).
-int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
+int run_loopback(const LoopbackConfig& cfg,
                  int input_audio_rate, long long iq_sample_count,
                  const std::vector<float>& input_samples,
                  const std::string& prev_loopback) {
@@ -986,9 +1015,6 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
         log_info() << "Building flowgraph...\n";
         tb = gr::make_top_block("loopback_test");
 
-        std::vector<bool> tx_ch_en = {true, false};
-        std::vector<bool> rx_ch_en = {true, false};
-
         // TX path blocks (input samples loaded via libsndfile — deterministic float type)
         // TX runs at sdr_rate (AD9361 hardware rate)
         auto wav_src      = gr::blocks::vector_source_f::make(input_samples, false);
@@ -998,44 +1024,75 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
         double sensitivity = 2.0 * M_PI * cfg.fm_deviation / cfg.sdr_rate;
         auto fm_mod       = gr::analog::frequency_modulator_fc::make(sensitivity);
 
-        auto iio_sink = gr::iio::fmcomms2_sink_fc32::make(cfg.uri, tx_ch_en, 0x8000, false);
-        iio_sink->set_frequency(cfg.frequency);
-        iio_sink->set_samplerate(cfg.sdr_rate);
-        iio_sink->set_bandwidth(cfg.rf_bandwidth);
-        iio_sink->set_attenuation(0, cfg.tx_attenuation);
-        try {
-            iio_sink->set_filter_params("auto", "", 0, 0);
-        } catch (const std::exception& e) {
-            log_warning() << "TX set_filter_params(auto) failed: " << e.what()
-                          << " (non-fatal, AD9361 FIR auto-config unavailable)\n";
-        }
+        // TX IIO sink — uses device_sink directly instead of fmcomms2_sink_fc32
+        // to avoid the underflow-check thread that crashes when FPGA register
+        // reads are unsupported (throws from std::thread → std::terminate).
+        gr::iio::iio_param_vec_t tx_params;
+        tx_params.emplace_back("out_altvoltage1_TX_LO_frequency",
+                               static_cast<unsigned long long>(cfg.frequency));
+        tx_params.emplace_back("out_voltage_sampling_frequency",
+                               static_cast<unsigned long>(cfg.sdr_rate));
+        tx_params.emplace_back("out_voltage_rf_bandwidth",
+                               static_cast<unsigned long>(cfg.rf_bandwidth));
+        tx_params.emplace_back("out_voltage0_hardwaregain", -cfg.tx_attenuation);
 
-        // RX source (runs at sdr_rate, the AD9361 hardware rate)
-        auto iio_src = gr::iio::fmcomms2_source_fc32::make(cfg.uri, rx_ch_en, 0x8000);
-        iio_src->set_frequency(cfg.frequency);
-        iio_src->set_samplerate(cfg.sdr_rate);
-        iio_src->set_gain_mode(0, "manual");
-        iio_src->set_gain(0, cfg.rx_gain);
-        iio_src->set_quadrature(true);
-        iio_src->set_rfdc(true);
-        iio_src->set_bbdc(true);
-        try {
-            iio_src->set_filter_params("auto", "", static_cast<float>(cfg.rf_bandwidth * 0.8), static_cast<float>(cfg.rf_bandwidth));
-        } catch (const std::exception& e) {
-            log_warning() << "RX set_filter_params(auto) failed: " << e.what()
-                          << " (non-fatal, AD9361 FIR auto-config unavailable)\n";
-        }
+        std::vector<std::string> tx_channels = {"voltage0", "voltage1"};
+        auto iio_sink = gr::iio::device_sink::make(
+            cfg.uri, "cf-ad9361-dds-core-lpc", tx_channels, "ad9361-phy",
+            tx_params, 0x8000, 0, false);
 
-        // Readback validation — after set_*() so the device has our parameters
-        if (!phy) {
-            log_error() << "FATAL: no ad9361-phy device — cannot validate SDR configuration\n";
-            return 1;
-        }
-        if (cfg.min_readback) {
-            log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
-        }
-        if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
-            return 1;
+        // TX format conversion: gr_complex → float I/Q → int16
+        // fmcomms2_sink_fc32 internally multiplies by 32768.0
+        auto from_fc32   = gr::blocks::complex_to_float::make(1);
+        auto tx_r_to_s16 = gr::blocks::float_to_short::make(1, 32768.0f);
+        auto tx_i_to_s16 = gr::blocks::float_to_short::make(1, 32768.0f);
+
+        // RX IIO source — same device_source approach as sdr-capture
+        gr::iio::iio_param_vec_t rx_params;
+        rx_params.emplace_back("out_altvoltage0_RX_LO_frequency",
+                               static_cast<unsigned long long>(cfg.frequency));
+        rx_params.emplace_back("in_voltage0_sampling_frequency",
+                               static_cast<unsigned long>(cfg.sdr_rate));
+        rx_params.emplace_back("in_voltage0_rf_bandwidth",
+                               static_cast<unsigned long>(cfg.rf_bandwidth));
+        rx_params.emplace_back("in_voltage0_gain_control_mode=manual");
+        rx_params.emplace_back("in_voltage0_hardwaregain", cfg.rx_gain);
+        rx_params.emplace_back("in_voltage_quadrature_tracking_en", 1);
+        rx_params.emplace_back("in_voltage_rf_dc_offset_tracking_en", 1);
+        rx_params.emplace_back("in_voltage_bb_dc_offset_tracking_en", 1);
+
+        std::vector<std::string> rx_channels = {"voltage0", "voltage1"};
+        auto iio_src = gr::iio::device_source::make(
+            cfg.uri, "cf-ad9361-lpc", rx_channels, "ad9361-phy",
+            rx_params, 0x8000);
+
+        // RX format conversion: int16 → float → gr_complex
+        // AD9361 ADC is 12-bit: divide by 2048.0 to normalize to ≈±1.0
+        auto i_s2f   = gr::blocks::short_to_float::make(1, 2048.0f);
+        auto q_s2f   = gr::blocks::short_to_float::make(1, 2048.0f);
+        auto to_fc32 = gr::blocks::float_to_complex::make(1);
+
+        // Readback validation with a temporary IIO context.
+        {
+            struct iio_context* rb_ctx = iio_create_context_from_uri(cfg.uri.c_str());
+            if (!rb_ctx) {
+                log_error() << "Could not connect to IIO for readback at " << cfg.uri << "\n";
+                return 1;
+            }
+            struct iio_device* phy = iio_context_find_device(rb_ctx, "ad9361-phy");
+            if (!phy) {
+                log_error() << "No ad9361-phy device for readback\n";
+                iio_context_destroy(rb_ctx);
+                return 1;
+            }
+            if (cfg.min_readback) {
+                log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
+            }
+            if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
+                iio_context_destroy(rb_ctx);
+                return 1;
+            }
+            iio_context_destroy(rb_ctx);
         }
 
         // RX DSP blocks — LPF decimates from sdr_rate to effective_rate
@@ -1058,15 +1115,23 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
             gr::blocks::FORMAT_WAV, gr::blocks::FORMAT_PCM_16
         );
 
-        // Connect TX path (tx_head enforces same capped duration as RX)
+        // Connect TX path: wav → resample → head → scaler → FM mod → convert → IIO sink
         tb->connect(wav_src, 0, resampler_tx, 0);
         tb->connect(resampler_tx, 0, tx_head, 0);
         tb->connect(tx_head, 0, scaler, 0);
         tb->connect(scaler, 0, fm_mod, 0);
-        tb->connect(fm_mod, 0, iio_sink, 0);
+        tb->connect(fm_mod, 0, from_fc32, 0);
+        tb->connect(from_fc32, 0, tx_r_to_s16, 0);
+        tb->connect(from_fc32, 1, tx_i_to_s16, 0);
+        tb->connect(tx_r_to_s16, 0, iio_sink, 0);
+        tb->connect(tx_i_to_s16, 0, iio_sink, 1);
 
-        // Connect RX path: IIO src -> LPF -> (I/Q branch + audio branch)
-        tb->connect(iio_src, 0, lpf, 0);
+        // Connect RX path: IIO src (shorts) → fc32 conversion → LPF → branches
+        tb->connect(iio_src, 0, i_s2f, 0);
+        tb->connect(iio_src, 1, q_s2f, 0);
+        tb->connect(i_s2f, 0, to_fc32, 0);
+        tb->connect(q_s2f, 0, to_fc32, 1);
+        tb->connect(to_fc32, 0, lpf, 0);
 
         // Branch 1: LPF -> head -> sc16 conversion -> file_sink (.sc16)
         tb->connect(lpf, 0, iq_head, 0);
@@ -1148,11 +1213,7 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
                 log_error() << "FATAL: tb->wait() hung for " << WAIT_GRACE_SEC
                             << "s after stop — force-exiting to prevent automation stall\n";
                 // Best-effort loopback restore before forced exit (_Exit skips RAII)
-                if (phy) {
-                    int r = iio_device_attr_write(phy, "loopback", prev_loopback.c_str());
-                    if (r < 0)
-                        iio_device_attr_write(phy, "loopback", "0");
-                }
+                restore_loopback(cfg.uri, prev_loopback);
                 std::cerr.flush();
                 std::cout.flush();
                 wait_thread.detach();
@@ -1305,25 +1366,6 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
     return 0;
 }
 
-// RAII wrapper to restore loopback attribute and clean up IIO context
-struct IioLoopbackGuard {
-    struct iio_device* phy;
-    struct iio_context* ctx;
-    std::string prev_loopback;  // value to restore on exit
-    ~IioLoopbackGuard() {
-        if (phy) {
-            log_info() << "Restoring loopback to '" << prev_loopback << "'...\n";
-            int ret = iio_device_attr_write(phy, "loopback", prev_loopback.c_str());
-            if (ret < 0) {
-                // Fallback: try "0" if restore failed (e.g. attr was unreadable on entry)
-                log_warning() << "restore failed (ret=" << ret << "), trying '0'\n";
-                iio_device_attr_write(phy, "loopback", "0");
-            }
-        }
-        if (ctx) iio_context_destroy(ctx);
-    }
-};
-
 int main(int argc, char* argv[]) {
     LoopbackConfig cfg;
 
@@ -1343,74 +1385,82 @@ int main(int argc, char* argv[]) {
     log_config(cfg);
 
     // --- Enable Loopback Mode via libiio ---
-    log_info() << "Connecting to IIO context...\n";
-    struct iio_context* ctx = iio_create_context_from_uri(cfg.uri.c_str());
-    if (!ctx) {
-        log_error() << "Could not connect to IIO context at " << cfg.uri << "\n";
-        return 1;
-    }
-
-    struct iio_device* phy = iio_context_find_device(ctx, "ad9361-phy");
-    if (!phy) {
-        log_error() << "Could not find ad9361-phy device\n";
-        iio_context_destroy(ctx);
-        return 1;
-    }
-
-    // Save current loopback value for restore on exit
+    // Context is created, used to enable loopback, then destroyed BEFORE
+    // run_loopback() creates GNU Radio blocks (which open their own contexts).
+    // Keeping this context alive during flowgraph execution causes segfaults
+    // due to IIO device conflicts with the fmcomms2 source/sink contexts.
     std::string prev_loopback = "0";
     {
-        char lb_buf[64];
-        ssize_t rb = iio_device_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
-        if (rb <= 0) {
-            log_warning() << "Could not read loopback attribute, will restore to '0'\n";
-        } else if ((size_t)rb >= sizeof(lb_buf)) {
-            log_warning() << "Loopback attr truncated (" << rb << " bytes, buf="
-                          << sizeof(lb_buf) << "), will restore to '0'\n";
-        } else {
-            prev_loopback = trim(std::string(lb_buf, (size_t)rb));
-            log_info() << "AD9361 loopback current value: " << prev_loopback << "\n";
+        log_info() << "Connecting to IIO context for loopback setup...\n";
+        struct iio_context* ctx = iio_create_context_from_uri(cfg.uri.c_str());
+        if (!ctx) {
+            log_error() << "Could not connect to IIO context at " << cfg.uri << "\n";
+            return 1;
         }
-    }
 
-    log_info() << "Enabling loopback mode (writing '1' to loopback attr)...\n";
-    int ret = iio_device_attr_write(phy, "loopback", "1");
-    if (ret < 0) {
-        log_error() << "FATAL: could not enable loopback (ret=" << ret
-                    << "). Loopback validation requires working loopback mode.\n";
-        iio_context_destroy(ctx);
-        return 1;
-    }
-    log_info() << "Loopback write OK (wrote " << ret << " bytes)\n";
-
-    // Read back loopback attribute to confirm actual mode
-    {
-        char lb_buf[64];
-        ssize_t rb = iio_device_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
-        if (rb <= 0) {
-            log_error() << "FATAL: could not read back loopback attribute — "
-                        << "cannot confirm loopback is active\n";
+        struct iio_device* phy = iio_context_find_device(ctx, "ad9361-phy");
+        if (!phy) {
+            log_error() << "Could not find ad9361-phy device\n";
             iio_context_destroy(ctx);
             return 1;
-        } else if ((size_t)rb >= sizeof(lb_buf)) {
-            log_error() << "FATAL: loopback readback truncated (" << rb << " bytes, buf="
-                        << sizeof(lb_buf) << ") — cannot confirm loopback is active\n";
-            iio_context_destroy(ctx);
-            return 1;
-        } else {
-            std::string readback = trim(std::string(lb_buf, (size_t)rb));
-            log_info() << "AD9361 loopback readback: " << readback << "\n";
-            if (readback != "1") {
-                log_error() << "FATAL: loopback readback is '" << readback
-                            << "', expected '1' — loopback not confirmed active\n";
-                iio_context_destroy(ctx);
-                return 1;
+        }
+
+        // Save current loopback value for restore on exit
+        {
+            char lb_buf[64];
+            ssize_t rb = iio_device_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
+            if (rb <= 0) {
+                log_warning() << "Could not read loopback attribute, will restore to '0'\n";
+            } else if ((size_t)rb >= sizeof(lb_buf)) {
+                log_warning() << "Loopback attr truncated (" << rb << " bytes, buf="
+                              << sizeof(lb_buf) << "), will restore to '0'\n";
+            } else {
+                prev_loopback = trim(std::string(lb_buf, (size_t)rb));
+                log_info() << "AD9361 loopback current value: " << prev_loopback << "\n";
             }
         }
-    }
 
-    // Guard restores loopback and destroys context on any exit path
-    IioLoopbackGuard guard{phy, ctx, prev_loopback};
+        log_info() << "Enabling loopback mode (writing '1' to loopback attr)...\n";
+        int ret = iio_device_attr_write(phy, "loopback", "1");
+        if (ret < 0) {
+            log_error() << "FATAL: could not enable loopback (ret=" << ret
+                        << "). Loopback validation requires working loopback mode.\n";
+            iio_context_destroy(ctx);
+            return 1;
+        }
+        log_info() << "Loopback write OK (wrote " << ret << " bytes)\n";
+
+        // Read back loopback attribute to confirm actual mode
+        {
+            char lb_buf[64];
+            ssize_t rb = iio_device_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
+            if (rb <= 0) {
+                log_error() << "FATAL: could not read back loopback attribute — "
+                            << "cannot confirm loopback is active\n";
+                iio_context_destroy(ctx);
+                return 1;
+            } else if ((size_t)rb >= sizeof(lb_buf)) {
+                log_error() << "FATAL: loopback readback truncated (" << rb << " bytes, buf="
+                            << sizeof(lb_buf) << ") — cannot confirm loopback is active\n";
+                iio_context_destroy(ctx);
+                return 1;
+            } else {
+                std::string readback = trim(std::string(lb_buf, (size_t)rb));
+                log_info() << "AD9361 loopback readback: " << readback << "\n";
+                if (readback != "1") {
+                    log_error() << "FATAL: loopback readback is '" << readback
+                                << "', expected '1' — loopback not confirmed active\n";
+                    iio_context_destroy(ctx);
+                    return 1;
+                }
+            }
+        }
+
+        // Destroy context — loopback setting persists in the kernel driver.
+        // No IIO context will be alive during flowgraph execution.
+        iio_context_destroy(ctx);
+        log_info() << "Loopback setup context released\n";
+    }
 
     // Read input WAV (samples loaded via libsndfile for deterministic float type)
     int input_audio_rate = 0;
@@ -1418,6 +1468,7 @@ int main(int argc, char* argv[]) {
     std::vector<float> input_samples;
     double duration_sec = read_input_wav(cfg.input_wav, input_audio_rate, input_frames, input_samples);
     if (duration_sec < 0) {
+        restore_loopback(cfg.uri, prev_loopback);
         return 1;
     }
     log_info() << "Input frames:     " << input_frames << " (" << duration_sec << " sec)\n";
@@ -1438,6 +1489,7 @@ int main(int argc, char* argv[]) {
     long long snap_samples = (long long)(duration_sec * cfg.effective_rate);
     if (snap_samples <= 0) {
         log_error() << "Effective duration must be > 0 (increase max_iq_mb or input length)\n";
+        restore_loopback(cfg.uri, prev_loopback);
         return 1;
     }
     // Align to RX decimation multiple *before* computing TX need_in,
@@ -1450,6 +1502,7 @@ int main(int argc, char* argv[]) {
             long long snapped = snap_samples - rem;
             if (snapped <= 0) {
                 log_error() << "Effective duration too short after RX alignment snap\n";
+                restore_loopback(cfg.uri, prev_loopback);
                 return 1;
             }
             log_info() << "Aligning snap_samples to RX decim: " << snap_samples
@@ -1465,10 +1518,15 @@ int main(int argc, char* argv[]) {
     // Truncating here would risk starving the resampler due to filter group delay.
     // The full (already duration-capped) input is passed; any excess is simply unused.
 
+    int rc;
     try {
-        return run_loopback(cfg, phy, input_audio_rate, snap_samples, input_samples, prev_loopback);
+        rc = run_loopback(cfg, input_audio_rate, snap_samples, input_samples, prev_loopback);
     } catch (const std::exception& e) {
         log_error() << e.what() << "\n";
-        return 1;
+        rc = 1;
     }
+
+    // Restore loopback via a fresh context (no conflicts with GNU Radio)
+    restore_loopback(cfg.uri, prev_loopback);
+    return rc;
 }

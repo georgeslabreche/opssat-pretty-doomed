@@ -32,12 +32,14 @@
 #include <gnuradio/blocks/wavfile_sink.h>
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/head.h>
+#include <gnuradio/blocks/short_to_float.h>
+#include <gnuradio/blocks/float_to_complex.h>
 #include <gnuradio/blocks/complex_to_interleaved_short.h>
 #include <gnuradio/analog/quadrature_demod_cf.h>
 #include <gnuradio/filter/rational_resampler.h>
 #include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/filter/firdes.h>
-#include <gnuradio/iio/fmcomms2_source.h>
+#include <gnuradio/iio/device_source.h>
 #include <numeric>  // for std::gcd
 
 #include <iio.h>
@@ -355,11 +357,13 @@ static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
     if (n <= 0) return "";
     if ((size_t)n >= sizeof(buf)) {
         log_warning() << "IIO attr '" << attr << "' truncated (" << n << " bytes, buf=" << sizeof(buf) << ")\n";
-        // Accept truncated prefix — numeric attrs like sampling_frequency fit in 256 bytes,
-        // so truncation here is unexpected but the prefix is still useful for parsing/logging.
         buf[sizeof(buf) - 1] = '\0';
         return std::string(buf, sizeof(buf) - 1);
     }
+    // Strip trailing NUL bytes — iio_channel_attr_read() may include the
+    // NUL terminator in the returned byte count, which would create a
+    // std::string containing embedded NUL that breaks string comparisons.
+    while (n > 0 && buf[n - 1] == '\0') n--;
     return std::string(buf, (size_t)n);
 }
 
@@ -598,7 +602,7 @@ bool rms_normalize(const std::string& wav_path, double target_dbfs) {
 
 // Build GNU Radio flowgraph, run capture, then post-process audio.
 // interp/decim are the GCD-reduced resampler ratio (effective_rate -> audio_rate).
-int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
+int run_capture(const CaptureConfig& cfg,
                 const std::string& iq_file,
                 long long audio_samples, long long iq_samples,
                 unsigned long interpolation, unsigned long decimation) {
@@ -653,35 +657,60 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
         log_info() << "Building flowgraph...\n";
         tb = gr::make_top_block("capture_loop");
 
-        std::vector<bool> rx_ch_en = {true, cfg.rx_channels == 2};
+        // IIO RX source — uses device_source directly instead of
+        // fmcomms2_source_fc32 to avoid the overflow-check thread that
+        // crashes when FPGA register reads are unsupported (the thread
+        // throws std::runtime_error → std::terminate).
+        gr::iio::iio_param_vec_t ad9361_params;
+        ad9361_params.emplace_back("out_altvoltage0_RX_LO_frequency",
+                                   static_cast<unsigned long long>(cfg.frequency));
+        ad9361_params.emplace_back("in_voltage0_sampling_frequency",
+                                   static_cast<unsigned long>(cfg.sdr_rate));
+        ad9361_params.emplace_back("in_voltage0_rf_bandwidth",
+                                   static_cast<unsigned long>(cfg.rf_bandwidth));
+        ad9361_params.emplace_back("in_voltage0_gain_control_mode=manual");
+        ad9361_params.emplace_back("in_voltage0_hardwaregain", cfg.gain);
+        ad9361_params.emplace_back("in_voltage_quadrature_tracking_en", 1);
+        ad9361_params.emplace_back("in_voltage_rf_dc_offset_tracking_en", 1);
+        ad9361_params.emplace_back("in_voltage_bb_dc_offset_tracking_en", 1);
 
-        // IIO RX source (runs at sdr_rate, the AD9361 hardware rate)
-        auto iio_src = gr::iio::fmcomms2_source_fc32::make(cfg.uri, rx_ch_en, 0x8000);
-        iio_src->set_frequency(cfg.frequency);
-        iio_src->set_samplerate(cfg.sdr_rate);
-        iio_src->set_gain_mode(0, "manual");
-        iio_src->set_gain(0, cfg.gain);
-        iio_src->set_quadrature(true);
-        iio_src->set_rfdc(true);
-        iio_src->set_bbdc(true);
-        try {
-            iio_src->set_filter_params("auto", "", 0, 0);
-        } catch (const std::exception& e) {
-            log_warning() << "set_filter_params(auto) failed: " << e.what()
-                          << " (non-fatal, AD9361 FIR auto-config unavailable)\n";
+        std::vector<std::string> iio_channels = {"voltage0", "voltage1"};
+        auto iio_src = gr::iio::device_source::make(
+            cfg.uri, "cf-ad9361-lpc", iio_channels, "ad9361-phy",
+            ad9361_params, 0x8000);
+
+        // Readback validation with a temporary IIO context.
+        // Destroyed before tb->start() so only GNU Radio's internal context(s)
+        // exist during flowgraph execution.
+        {
+            struct iio_context* rb_ctx = iio_create_context_from_uri(cfg.uri.c_str());
+            if (!rb_ctx) {
+                log_error() << "Could not connect to IIO for readback at " << cfg.uri << "\n";
+                return 1;
+            }
+            struct iio_device* phy = iio_context_find_device(rb_ctx, "ad9361-phy");
+            if (!phy) {
+                log_error() << "No ad9361-phy device for readback\n";
+                iio_context_destroy(rb_ctx);
+                return 1;
+            }
+            if (cfg.min_readback) {
+                log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
+            }
+            if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
+                iio_context_destroy(rb_ctx);
+                return 1;
+            }
+            iio_context_destroy(rb_ctx);
         }
 
-        // Readback validation — after set_*() so the device has our parameters
-        if (!phy) {
-            log_error() << "No ad9361-phy device for readback\n";
-            return 1;
-        }
-        if (cfg.min_readback) {
-            log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
-        }
-        if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
-            return 1;
-        }
+        // Convert device_source shorts to gr_complex.
+        // device_source outputs int16 per IIO channel (voltage0=I, voltage1=Q).
+        // AD9361 ADC is 12-bit: divide by 2048.0 to normalize to ≈±1.0
+        // (same conversion that fmcomms2_source_fc32::work() performs internally).
+        auto i_s2f  = gr::blocks::short_to_float::make(1, 2048.0f);
+        auto q_s2f  = gr::blocks::short_to_float::make(1, 2048.0f);
+        auto to_fc32 = gr::blocks::float_to_complex::make(1);
 
         // DSP blocks — LPF decimates from sdr_rate to effective_rate
         auto lpf       = gr::filter::fir_filter_ccf::make(cfg.decimation, lpf_taps);
@@ -703,8 +732,12 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
             gr::blocks::FORMAT_WAV, gr::blocks::FORMAT_PCM_16
         );
 
-        // Connect: IIO src -> LPF -> (I/Q branch + audio branch)
-        tb->connect(iio_src, 0, lpf, 0);
+        // Connect: IIO src (shorts) → fc32 conversion → LPF → branches
+        tb->connect(iio_src, 0, i_s2f, 0);
+        tb->connect(iio_src, 1, q_s2f, 0);
+        tb->connect(i_s2f, 0, to_fc32, 0);
+        tb->connect(q_s2f, 0, to_fc32, 1);
+        tb->connect(to_fc32, 0, lpf, 0);
 
         // Branch 1: LPF -> head -> sc16 conversion -> file_sink (.sc16)
         tb->connect(lpf, 0, iq_head, 0);
@@ -720,6 +753,7 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
 
         // --- Start ---
         log_info() << "Starting capture for " << cfg.duration << " seconds...\n";
+
         tb->start();
     } catch (const std::exception& e) {
         log_error() << "FATAL: flowgraph build/start failed: " << e.what() << "\n";
@@ -964,29 +998,13 @@ int main(int argc, char* argv[]) {
 
     log_config(cfg, iq_file, audio_samples, iq_samples);
 
-    // Create IIO context once, reuse for readback and throughout capture
-    log_info() << "Connecting to IIO context...\n";
-    struct iio_context* ctx = iio_create_context_from_uri(cfg.uri.c_str());
-    if (!ctx) {
-        log_error() << "Could not connect to IIO context at " << cfg.uri << "\n";
-        return 1;
-    }
-
-    struct iio_device* phy = iio_context_find_device(ctx, "ad9361-phy");
-    if (!phy) {
-        log_error() << "Could not find ad9361-phy device\n";
-        iio_context_destroy(ctx);
-        return 1;
-    }
-
     int rc;
     try {
-        rc = run_capture(cfg, phy, iq_file, audio_samples, iq_samples, interp, decim);
+        rc = run_capture(cfg, iq_file, audio_samples, iq_samples, interp, decim);
     } catch (const std::exception& e) {
         log_error() << e.what() << "\n";
         rc = 1;
     }
 
-    iio_context_destroy(ctx);
     return rc;
 }

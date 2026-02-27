@@ -9,7 +9,6 @@ services:
       - ./package:/app/package
       - ./run:/app/run
       - ./config.cfg:/app/config.cfg
-      - ./config.emu.cfg:/app/config.emu.cfg
       - ./toGround:/app/toGround
     working_dir: /app
     tty: true

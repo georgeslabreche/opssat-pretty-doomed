@@ -4,7 +4,6 @@ CXXFLAGS = -Wall -O3 -std=c++17
 # Package version (change this for new releases)
 PACKAGE_VERSION = v3
 PACKAGE_NAME = exp4023-sdr-capture-$(PACKAGE_VERSION)
-PACKAGE_NAME_EMU = exp4023-sdr-capture-$(PACKAGE_VERSION)-emu
 
 # GNU Radio libraries
 GNURADIO_PREFIX = /opt/gnuradio
@@ -22,7 +21,7 @@ TARGET = $(BUILDDIR)/capture_loop
 
 SOURCES = $(SRCDIR)/capture_loop.cpp
 
-.PHONY: all clean test package-prepare package-prepare-emu package-tar package-tar-emu
+.PHONY: all clean test package-prepare package-tar
 
 all: $(TARGET)
 
@@ -77,21 +76,8 @@ package-prepare: $(TARGET)
 	@echo "Package prepared in package/$(PACKAGE_NAME)/"
 	@echo "Run 'make package-tar' outside the container"
 
-# Create emu deployment package (same binary/libs, emu config)
-package-prepare-emu: package-prepare
-	rm -rf package/$(PACKAGE_NAME_EMU)
-	cp -r package/$(PACKAGE_NAME) package/$(PACKAGE_NAME_EMU)
-	cp config.emu.cfg package/$(PACKAGE_NAME_EMU)/config.cfg
-	@echo "EMU package prepared in package/$(PACKAGE_NAME_EMU)/"
-
 # Run OUTSIDE the container
 package-tar:
 	COPYFILE_DISABLE=1 tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME).tar.gz -C package/$(PACKAGE_NAME) .
 	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"
 	@ls -lh package/$(PACKAGE_NAME).tar.gz
-
-# Run OUTSIDE the container
-package-tar-emu:
-	COPYFILE_DISABLE=1 tar --owner=exp --group=exp -czvf package/$(PACKAGE_NAME_EMU).tar.gz -C package/$(PACKAGE_NAME_EMU) .
-	@echo "EMU package created: package/$(PACKAGE_NAME_EMU).tar.gz"
-	@ls -lh package/$(PACKAGE_NAME_EMU).tar.gz
