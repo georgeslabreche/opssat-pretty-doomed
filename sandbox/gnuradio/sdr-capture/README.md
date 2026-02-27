@@ -96,7 +96,6 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `bandpass_high` | 3400 | Audio bandpass high cutoff (Hz) |
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
-| `rx_channels` | 1 | Number of IIO RX channels (1 or 2) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.

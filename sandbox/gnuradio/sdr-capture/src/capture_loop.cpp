@@ -133,9 +133,6 @@ struct CaptureConfig {
     // Output
     std::string output_wav = "capture.wav";
 
-    // IIO device
-    int rx_channels = 1;                // overridden by config: rx_channels (1 or 2)
-
     // Testing
     bool min_readback = false;          // --min-readback: downgrade sample rate check to warning (emulator)
 };
@@ -175,7 +172,6 @@ bool load_config(const std::string& path, CaptureConfig& cfg) {
             else if (key == "bandpass_high") cfg.bandpass_high = std::stod(value);
             else if (key == "lpf_cutoff") cfg.lpf_cutoff = std::stod(value);
             else if (key == "lpf_transition") cfg.lpf_transition = std::stod(value);
-            else if (key == "rx_channels") cfg.rx_channels = std::stoi(value);
             else if (key == "min_readback") cfg.min_readback = (value == "true" || value == "1");
             // Keys consumed by the run script, not by capture_loop
             else if (key == "captures") { /* ignored */ }
@@ -286,10 +282,6 @@ int parse_args(int argc, char* argv[], CaptureConfig& cfg) {
     if (cfg.sdr_rate < 2083000 || cfg.sdr_rate > 61440000) {
         log_error() << "sdr_rate " << cfg.sdr_rate
                     << " Hz out of AD9361 range (2,083,000 - 61,440,000 Hz)\n";
-        return 1;
-    }
-    if (cfg.rx_channels < 1 || cfg.rx_channels > 2) {
-        log_error() << "rx_channels must be 1 or 2, got " << cfg.rx_channels << "\n";
         return 1;
     }
     // AD9361 rf_bandwidth_Hz limits: 200,000 - 56,000,000 Hz
