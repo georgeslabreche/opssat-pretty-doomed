@@ -3,4 +3,5 @@ io/
 package/
 toGround/
 libs-gnuradio/
+artifacts/
 *.o

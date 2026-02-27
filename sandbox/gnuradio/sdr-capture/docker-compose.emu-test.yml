@@ -4,7 +4,7 @@
 #   docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
 #   docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture make
 #   docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
-#     sh -c "cp build/capture_loop . && ./capture_loop --config config.emu.cfg --output toGround/emu-test.wav --no-readback"
+#     sh -c "cp build/capture_loop . && ./capture_loop --config config.emu.cfg --output toGround/emu-test.wav"
 #   docker-compose -f docker-compose.emu-test.yml down
 
 services:

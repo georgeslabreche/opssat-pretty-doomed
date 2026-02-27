@@ -96,7 +96,8 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `bandpass_high` | 3400 | Audio bandpass high cutoff (Hz) |
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
-| `rx_channels` | 1 | Number of IIO RX channels (1 or 2; emulator needs 2) |
+| `rx_channels` | 1 | Number of IIO RX channels (1 or 2) |
+| `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
 
@@ -124,7 +125,7 @@ The `run` script reads `captures` and `duration` from `config.cfg` and accepts o
 | `-f, --freq` | Frequency in Hz | 1296000000 |
 | `-g, --gain` | RX gain in dB | 50 |
 | `-e, --deviation` | FM deviation in Hz | 5000 |
-| `--no-readback` | Skip IIO readback validation (for emulator testing) | false |
+| `--min-readback` | Minimal readback: downgrade sample rate check to warning (emulator) | false |
 
 ## Output
 
@@ -170,14 +171,19 @@ The `.sc16` file contains raw I/Q samples at the effective rate (200 kSPS after 
 ## Packaging for SEPP
 
 ```bash
-# Inside container
-docker-compose run --rm sdr-capture make package-prepare
+# Inside container — normal + emu variants
+docker-compose run --rm sdr-capture sh -c "make package-prepare && make package-prepare-emu"
 
 # Outside container
 make package-tar
+make package-tar-emu
 ```
 
-Creates `package/exp4023-sdr-capture-v2.tar.gz` (~9 MB).
+Creates two packages:
+- `package/exp4023-sdr-capture-v3.tar.gz` — for EM/FM (strict readback, `uri=local:`)
+- `package/exp4023-sdr-capture-v3-emu.tar.gz` — for emulator testing (`min_readback=true`, `uri=ip:sdr-emu:30431`)
+
+Both share the same binary and libraries — only `config.cfg` differs.
 
 ### Bundled Libraries
 
@@ -213,24 +219,22 @@ The emulator Docker image (`sdr_emu.tar`) and sample file are not included in th
    docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture make
    docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
      sh -c "cp build/capture_loop . && ./capture_loop \
-       --config config.emu.cfg --output toGround/emu-test.wav --no-readback"
+       --config config.emu.cfg --output toGround/emu-test.wav"
    docker-compose -f docker-compose.emu-test.yml down
    ```
 
 ### Emulator Config (config.emu.cfg)
 
-The emulator config matches the sample file parameters (38.4 MSPS, 2 RX channels, GPS L5 @ 1176.45 MHz) with decimation=192 to produce the same 200 kSPS effective rate as production:
+The emulator config uses the same experiment parameters as `config.cfg` (same SDR rate, frequency, decimation) with two differences:
 
 | Parameter | Emulator | Production |
 |-----------|----------|------------|
-| `sdr_rate` | 38400000 | 2400000 |
-| `decimation` | 192 | 12 |
-| `rx_channels` | 2 | 1 |
-| `frequency` | 1176450000 | 1296000000 |
-| `rf_bandwidth` | 38400000 | 200000 |
-| Effective rate | 200000 | 200000 |
+| `uri` | `ip:sdr-emu:30431` | `local:` |
+| `min_readback` | `true` | not set |
+
+The emulator accepts parameter writes (visible in its logs) but does not update the `sampling_frequency` readback attribute. Setting `min_readback=true` downgrades the sample rate check from fatal to a warning, while all other readbacks (frequency, gain, bandwidth, RSSI) still run normally.
 
 ### Limitations
 
-- The emulator ignores all SDR setting changes — it always streams the recorded sample file at its original parameters. The `--no-readback` flag is required to skip IIO readback validation.
+- The emulator accepts SDR setting writes but does not reflect them in readback attributes (e.g. `sampling_frequency`). The `min_readback` config key (or `--min-readback` CLI flag) downgrades the sample rate check to a warning so the experiment can proceed.
 - GNU Radio flowgraphs crash under QEMU ARM emulation (VOLK SIMD issues). Full end-to-end emulator testing requires a native ARM environment or real hardware on the flatsat.

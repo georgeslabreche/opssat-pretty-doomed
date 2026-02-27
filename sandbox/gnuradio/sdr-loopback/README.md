@@ -89,6 +89,7 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `bandpass_high` | 3400 | Audio bandpass high cutoff (Hz) |
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
+| `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
 
@@ -106,6 +107,7 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `-u, --uri` | IIO URI | local: |
 | `-f, --freq` | Frequency in Hz | 1296000000 |
 | `-d, --deviation` | FM deviation in Hz | 5000 |
+| `--min-readback` | Minimal readback: downgrade sample rate check to warning (emulator) | false |
 
 ## Output
 
@@ -165,15 +167,20 @@ All three paths (TX, RX audio, RX I/Q) must reach their expected sample counts. 
 ## Packaging for SEPP
 
 ```bash
-# Inside container
-docker-compose run --rm sdr-loopback make package-prepare
+# Inside container — normal + emu variants
+docker-compose run --rm sdr-loopback sh -c "make package-prepare && make package-prepare-emu"
 
 # Outside container
 make package-samples
 make package-tar
+make package-tar-emu
 ```
 
-Creates `package/exp4023-sdr-loopback-v2.tar.gz` (~10 MB).
+Creates two packages:
+- `package/exp4023-sdr-loopback-v3.tar.gz` — for EM/FM (strict readback, `uri=local:`)
+- `package/exp4023-sdr-loopback-v3-emu.tar.gz` — for emulator testing (`min_readback=true`, `uri=ip:sdr-emu:30431`)
+
+Both share the same binary and libraries — only `config.cfg` differs.
 
 ### Bundled Libraries
 
@@ -194,10 +201,12 @@ An SDR emulator is available for testing the IIO data path without real hardware
 
 The emulator Docker image (`sdr_emu.tar`) and sample file are not included in this repository due to size. Request them from the OPS-SAT mission control team.
 
+An emulator config (`config.emu.cfg`) is provided with `uri=ip:sdr-emu:30431` and `min_readback=true`. The emulator accepts parameter writes but does not update the `sampling_frequency` readback attribute; `min_readback` downgrades the sample rate check from fatal to a warning while all other readbacks still run.
+
 ### Limitations
 
 - The emulator has no TX support, so it cannot be used for loopback testing (TX -> RX). The loopback test requires real AD9361 hardware on the flatsat.
-- The emulator ignores all SDR setting changes — it always streams the recorded sample file at its original parameters.
+- The emulator accepts SDR setting writes but does not reflect them in readback attributes (e.g. `sampling_frequency`). The `min_readback` config key (or `--min-readback` CLI flag) downgrades the sample rate check to a warning.
 - GNU Radio flowgraphs crash under QEMU ARM emulation (VOLK SIMD issues). Full end-to-end testing requires a native ARM environment or real hardware.
 
-See the [sdr-capture README](../sdr-capture/README.md#sdr-emulator-testing) for emulator setup instructions and config details.
+See the [sdr-capture README](../sdr-capture/README.md#sdr-emulator-testing) for emulator setup instructions.

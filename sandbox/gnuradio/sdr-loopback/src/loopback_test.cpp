@@ -131,6 +131,9 @@ struct LoopbackConfig {
     // I/O
     std::string input_wav;
     std::string output_wav = "output.wav";
+
+    // Testing
+    bool min_readback = false;          // --min-readback: downgrade sample rate check to warning (emulator)
 };
 
 bool load_config(const std::string& path, LoopbackConfig& cfg) {
@@ -168,6 +171,7 @@ bool load_config(const std::string& path, LoopbackConfig& cfg) {
             else if (key == "bandpass_high") cfg.bandpass_high = std::stod(value);
             else if (key == "lpf_cutoff") cfg.lpf_cutoff = std::stod(value);
             else if (key == "lpf_transition") cfg.lpf_transition = std::stod(value);
+            else if (key == "min_readback") cfg.min_readback = (value == "true" || value == "1");
             else log_warning() << path << ":" << line_no << ": unknown config key: " << key << "\n";
         } catch (const std::exception& e) {
             log_error() << path << ":" << line_no << ": parse error: " << key << "=" << value
@@ -190,6 +194,7 @@ void print_usage(const char* prog) {
               << "  -u, --uri       IIO URI (default: local:)\n"
               << "  -f, --freq      Frequency in Hz (default: 1296000000)\n"
               << "  -d, --deviation FM deviation in Hz (default: 5000)\n"
+              << "      --min-readback  Minimal readback: downgrade sample rate check to warning (emulator)\n"
               << "  -h, --help      Show this help\n";
 }
 
@@ -232,6 +237,8 @@ int parse_args(int argc, char* argv[], LoopbackConfig& cfg) {
                 log_error() << "FM deviation must be > 0\n";
                 return 1;
             }
+        } else if (arg == "--min-readback") {
+            cfg.min_readback = true;
         } else if (arg == "-h" || arg == "--help") {
             print_usage(argv[0]);
             return 2;
@@ -340,8 +347,9 @@ static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
 }
 
 // Read back actual AD9361 configuration and warn if values differ from requested.
-// Returns false if sample rate mismatch detected (fatal for downlink budget correctness).
-bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
+// When strict=true, sample rate mismatch is fatal (returns false).
+// When strict=false (--min-readback), sample rate mismatch is a warning (returns true).
+bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg, bool strict) {
     // RX LO frequency
     struct iio_channel* rx_lo = iio_device_find_channel(phy, "altvoltage0", true);
     if (rx_lo) {
@@ -381,7 +389,7 @@ bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
     }
 
     // RX channel attributes (voltage0, input) — sample rate confirmation is mandatory
-    // for downlink budget correctness. All failure modes are fatal.
+    // for downlink budget correctness when strict=true.
     struct iio_channel* rx0 = iio_device_find_channel(phy, "voltage0", false);
     if (!rx0) {
         log_error() << "FATAL: could not find RX channel voltage0 — "
@@ -393,24 +401,40 @@ bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
 
         val = iio_attr_read_str(rx0, "sampling_frequency");
         if (val.empty()) {
-            log_error() << "FATAL: could not read sampling_frequency — "
-                        << "cannot confirm sample rate for budget correctness\n";
-            return false;
-        }
-        log_info() << "AD9361 sample rate readback: " << val << " Hz\n";
-        try {
-            long actual_rate = std::stol(trim(val));
-            if ((unsigned long)actual_rate != cfg.sdr_rate) {
-                log_error() << "FATAL: sample rate mismatch — requested " << cfg.sdr_rate
-                            << " Hz, got " << actual_rate
-                            << " Hz (invalidates downlink budget and file size expectations)\n";
+            if (strict) {
+                log_error() << "FATAL: could not read sampling_frequency — "
+                            << "cannot confirm sample rate for budget correctness\n";
                 return false;
+            } else {
+                log_warning() << "could not read sampling_frequency (--min-readback, continuing)\n";
             }
-        } catch (const std::exception& e) {
-            log_error() << "FATAL: could not parse sampling_frequency '" << val
-                        << "' (" << e.what()
-                        << ") — cannot confirm sample rate for budget correctness\n";
-            return false;
+        } else {
+            log_info() << "AD9361 sample rate readback: " << val << " Hz\n";
+            try {
+                long actual_rate = std::stol(trim(val));
+                if ((unsigned long)actual_rate != cfg.sdr_rate) {
+                    if (strict) {
+                        log_error() << "FATAL: sample rate mismatch — requested " << cfg.sdr_rate
+                                    << " Hz, got " << actual_rate
+                                    << " Hz (invalidates downlink budget and file size expectations)\n";
+                        return false;
+                    } else {
+                        log_warning() << "sample rate mismatch — requested " << cfg.sdr_rate
+                                    << " Hz, got " << actual_rate
+                                    << " Hz (--min-readback, continuing)\n";
+                    }
+                }
+            } catch (const std::exception& e) {
+                if (strict) {
+                    log_error() << "FATAL: could not parse sampling_frequency '" << val
+                                << "' (" << e.what()
+                                << ") — cannot confirm sample rate for budget correctness\n";
+                    return false;
+                } else {
+                    log_warning() << "could not parse sampling_frequency '" << val
+                                << "' (" << e.what() << ") (--min-readback, continuing)\n";
+                }
+            }
         }
 
         val = iio_attr_read_str(rx0, "rf_bandwidth");
@@ -952,14 +976,6 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
     );
     log_info() << "Bandpass taps: " << bp_taps.size() << "\n";
 
-    if (!phy) {
-        log_error() << "FATAL: no ad9361-phy device — cannot validate SDR configuration\n";
-        return 1;
-    }
-    if (!readback_iio_config(phy, cfg)) {
-        return 1;
-    }
-
     // --- Build flowgraph ---
     // Wrap construction + connection + start in try/catch — GNU Radio blocks can throw
     // on bad parameters, missing IIO devices, file I/O errors, etc.
@@ -987,7 +1003,12 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
         iio_sink->set_samplerate(cfg.sdr_rate);
         iio_sink->set_bandwidth(cfg.rf_bandwidth);
         iio_sink->set_attenuation(0, cfg.tx_attenuation);
-        iio_sink->set_filter_params("auto", "", 0, 0);
+        try {
+            iio_sink->set_filter_params("auto", "", 0, 0);
+        } catch (const std::exception& e) {
+            log_warning() << "TX set_filter_params(auto) failed: " << e.what()
+                          << " (non-fatal, AD9361 FIR auto-config unavailable)\n";
+        }
 
         // RX source (runs at sdr_rate, the AD9361 hardware rate)
         auto iio_src = gr::iio::fmcomms2_source_fc32::make(cfg.uri, rx_ch_en, 0x8000);
@@ -998,7 +1019,24 @@ int run_loopback(const LoopbackConfig& cfg, struct iio_device* phy,
         iio_src->set_quadrature(true);
         iio_src->set_rfdc(true);
         iio_src->set_bbdc(true);
-        iio_src->set_filter_params("auto", "", static_cast<float>(cfg.rf_bandwidth * 0.8), static_cast<float>(cfg.rf_bandwidth));
+        try {
+            iio_src->set_filter_params("auto", "", static_cast<float>(cfg.rf_bandwidth * 0.8), static_cast<float>(cfg.rf_bandwidth));
+        } catch (const std::exception& e) {
+            log_warning() << "RX set_filter_params(auto) failed: " << e.what()
+                          << " (non-fatal, AD9361 FIR auto-config unavailable)\n";
+        }
+
+        // Readback validation — after set_*() so the device has our parameters
+        if (!phy) {
+            log_error() << "FATAL: no ad9361-phy device — cannot validate SDR configuration\n";
+            return 1;
+        }
+        if (cfg.min_readback) {
+            log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
+        }
+        if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
+            return 1;
+        }
 
         // RX DSP blocks — LPF decimates from sdr_rate to effective_rate
         auto lpf         = gr::filter::fir_filter_ccf::make(cfg.decimation, lpf_taps);
