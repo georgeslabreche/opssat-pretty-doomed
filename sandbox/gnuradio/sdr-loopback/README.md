@@ -89,6 +89,7 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `bandpass_high` | 3400 | Audio bandpass high cutoff (Hz) |
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
+| `rate_tolerance` | 10 | Max Hz offset for sample rate readback before fatal (AD9361 PLL quantization) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
@@ -157,7 +158,7 @@ After capture, the test computes normalized cross-correlation between input and 
 
 ### Completion Condition
 
-All three paths (TX, RX audio, RX I/Q) must reach their expected sample counts. TX stalling while RX produces noise is detected as a timeout, not a false success.
+The RX I/Q head block reaching its expected sample count is the completion trigger. The audio path may fall slightly short due to filter group delay (resampler + bandpass) when the I/Q head completes — this is normal and does not affect the output. A 500ms grace period after I/Q completion lets the scheduler drain in-flight buffer items before stopping the flowgraph. TX stalling while RX produces noise is detected as a timeout, not a false success.
 
 ### Timeout
 
@@ -197,6 +198,8 @@ An SDR emulator is available for testing the IIO data path without real hardware
 The emulator Docker image (`sdr_emu.tar`) and sample file are not included in this repository due to size. Request them from the OPS-SAT mission control team.
 
 For emulator testing, uncomment the `uri` and `min_readback` lines at the bottom of `config.cfg` (or pass `--uri` and `--min-readback` on the command line). The emulator accepts parameter writes but does not update the `sampling_frequency` readback attribute; `--min-readback` downgrades the sample rate check from fatal to a warning while all other readbacks still run.
+
+Note: the RX/TX LO frequency readback is always a warning, never fatal. The AD9361 PLL quantizes to the nearest achievable frequency based on its reference clock dividers, so a small offset (typically a few Hz) is normal and has no practical impact on reception. The sample rate readback also allows a small tolerance (`rate_tolerance`, default ±10 Hz) for the same reason — the AD9361 may quantize the sample rate by a few Hz (e.g. 2,399,999 vs 2,400,000). Offsets beyond the tolerance are fatal when strict (default on EM/FlatSat) or a warning when `min_readback=true` (emulator).
 
 ### Emulator Limitations
 

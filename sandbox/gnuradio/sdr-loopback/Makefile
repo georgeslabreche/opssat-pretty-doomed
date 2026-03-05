@@ -1,5 +1,6 @@
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
+LDFLAGS = -Wl,-z,stack-size=8388608
 
 # Package version (change this for new releases)
 PACKAGE_VERSION = v3
@@ -26,7 +27,7 @@ SOURCES = $(SRCDIR)/loopback_test.cpp
 all: $(TARGET)
 
 $(TARGET): $(SOURCES) | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) $(SOURCES) -o $@ $(GNURADIO_LIBS)
+	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) $(SOURCES) -o $@ $(GNURADIO_LIBS) $(LDFLAGS)
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)

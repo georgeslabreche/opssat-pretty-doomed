@@ -24,7 +24,9 @@
 #include <atomic>
 #include <cmath>
 #include <csignal>
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <vector>
 
@@ -41,6 +43,8 @@
 #include <gnuradio/filter/firdes.h>
 #include <gnuradio/iio/device_source.h>
 #include <numeric>  // for std::gcd
+
+#include <sched.h>
 
 #include <iio.h>
 #include <sndfile.h>
@@ -133,8 +137,10 @@ struct CaptureConfig {
     // Output
     std::string output_wav = "capture.wav";
 
-    // Testing
+    // Testing / diagnostics
     bool min_readback = false;          // --min-readback: downgrade sample rate check to warning (emulator)
+    bool single_core = false;           // --single-core: pin process to CPU 0 (diagnose threading issues)
+    long rate_tolerance = 10;           // max Hz offset for sample rate readback before fatal (AD9361 PLL quantization)
 };
 
 bool load_config(const std::string& path, CaptureConfig& cfg) {
@@ -173,6 +179,8 @@ bool load_config(const std::string& path, CaptureConfig& cfg) {
             else if (key == "lpf_cutoff") cfg.lpf_cutoff = std::stod(value);
             else if (key == "lpf_transition") cfg.lpf_transition = std::stod(value);
             else if (key == "min_readback") cfg.min_readback = (value == "true" || value == "1");
+            else if (key == "single_core") cfg.single_core = (value == "true" || value == "1");
+            else if (key == "rate_tolerance") cfg.rate_tolerance = std::stol(value);
             // Keys consumed by the run script, not by capture_loop
             else if (key == "captures") { /* ignored */ }
             else log_warning() << path << ":" << line_no << ": unknown config key: " << key << "\n";
@@ -199,6 +207,7 @@ void print_usage(const char* prog) {
               << "  -g, --gain      RX gain in dB (default: 50)\n"
               << "  -e, --deviation FM deviation in Hz (default: 5000)\n"
               << "      --min-readback  Minimal readback: downgrade sample rate check to warning (emulator)\n"
+              << "      --single-core   Pin process to CPU 0 (diagnose multi-threading crashes)\n"
               << "  -h, --help      Show this help\n";
 }
 
@@ -245,6 +254,8 @@ int parse_args(int argc, char* argv[], CaptureConfig& cfg) {
             }
         } else if (arg == "--min-readback") {
             cfg.min_readback = true;
+        } else if (arg == "--single-core") {
+            cfg.single_core = true;
         } else if (arg == "-h" || arg == "--help") {
             print_usage(argv[0]);
             return 2;
@@ -363,7 +374,10 @@ static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
 // When strict=true, sample rate mismatch is fatal (returns false).
 // When strict=false (--min-readback), sample rate mismatch is a warning (returns true).
 bool readback_iio_config(struct iio_device* phy, const CaptureConfig& cfg, bool strict) {
-    // RX LO frequency
+    // RX LO frequency — always warn-only because the AD9361 PLL quantizes to the
+    // nearest achievable frequency (typically a few Hz off). This is normal and has
+    // no practical impact on reception. Sample rate mismatches, on the other hand,
+    // are fatal (when strict) because they affect file sizes and downlink budget.
     struct iio_channel* rx_lo = iio_device_find_channel(phy, "altvoltage0", true);
     if (rx_lo) {
         std::string val = iio_attr_read_str(rx_lo, "frequency");
@@ -406,7 +420,10 @@ bool readback_iio_config(struct iio_device* phy, const CaptureConfig& cfg, bool 
             log_info() << "AD9361 sample rate readback: " << val << " Hz\n";
             try {
                 long actual_rate = std::stol(trim(val));
-                if (actual_rate != cfg.sdr_rate) {
+                // AD9361 may quantize the sample rate by a few Hz (e.g. 2399999
+                // vs 2400000).  Allow ±rate_tolerance Hz before treating it as a mismatch.
+                long rate_delta = std::abs(actual_rate - cfg.sdr_rate);
+                if (rate_delta > cfg.rate_tolerance) {
                     if (strict) {
                         log_error() << "FATAL: sample rate mismatch — requested " << cfg.sdr_rate
                                     << " Hz, got " << actual_rate
@@ -417,6 +434,9 @@ bool readback_iio_config(struct iio_device* phy, const CaptureConfig& cfg, bool 
                                     << " Hz, got " << actual_rate
                                     << " Hz (--min-readback, continuing)\n";
                     }
+                } else if (rate_delta > 0) {
+                    log_info() << "AD9361 sample rate readback: " << actual_rate
+                               << " Hz (within ±" << cfg.rate_tolerance << " Hz of requested " << cfg.sdr_rate << " Hz)\n";
                 }
             } catch (const std::exception& e) {
                 if (strict) {
@@ -434,6 +454,16 @@ bool readback_iio_config(struct iio_device* phy, const CaptureConfig& cfg, bool 
         val = iio_attr_read_str(rx0, "rf_bandwidth");
         if (!val.empty()) {
             log_info() << "AD9361 RX RF bandwidth readback: " << val << " Hz\n";
+            try {
+                long actual_bw = std::stol(trim(val));
+                if (actual_bw != cfg.rf_bandwidth) {
+                    log_warning() << "RX RF bandwidth mismatch — requested " << cfg.rf_bandwidth
+                                << " Hz, got " << actual_bw << " Hz\n";
+                }
+            } catch (const std::exception& e) {
+                log_warning() << "could not parse RX RF bandwidth: " << val
+                              << " (" << e.what() << ")\n";
+            }
         }
 
         val = iio_attr_read_str(rx0, "gain_control_mode");
@@ -640,11 +670,18 @@ int run_capture(const CaptureConfig& cfg,
     log_info() << "Bandpass taps: " << bp_taps.size() << "\n";
 
     // --- Build flowgraph ---
-    // Wrap construction + connection + start in try/catch — GNU Radio blocks can throw
-    // on bad parameters, missing IIO devices, file I/O errors, etc.
+    // Retry loop handles stale IIO connections from previously crashed captures.
+    // When a capture process is killed by a signal, the IIO server (especially
+    // network-based like iio-emu) may take time to detect the dead TCP connection
+    // and free the connection slot. Retrying gives it time to recover.
+    // On local IIO (real hardware), the first attempt always succeeds.
     gr::top_block_sptr tb;
     gr::blocks::head::sptr iq_head, head;
 
+    const int MAX_BUILD_ATTEMPTS = 3;
+    const int BUILD_RETRY_DELAY_SEC = 5;
+
+    for (int attempt = 1; ; attempt++) {
     try {
         log_info() << "Building flowgraph...\n";
         tb = gr::make_top_block("capture_loop");
@@ -747,10 +784,24 @@ int run_capture(const CaptureConfig& cfg,
         log_info() << "Starting capture for " << cfg.duration << " seconds...\n";
 
         tb->start();
+        break;  // flowgraph started — exit retry loop
     } catch (const std::exception& e) {
-        log_error() << "FATAL: flowgraph build/start failed: " << e.what() << "\n";
-        return 1;
+        // Release partial resources (including any IIO contexts held by GNU Radio blocks)
+        tb.reset();
+        iq_head.reset();
+        head.reset();
+
+        if (attempt >= MAX_BUILD_ATTEMPTS) {
+            log_error() << "FATAL: flowgraph build/start failed after "
+                        << MAX_BUILD_ATTEMPTS << " attempts: " << e.what() << "\n";
+            return 1;
+        }
+        log_warning() << "Flowgraph attempt " << attempt << "/" << MAX_BUILD_ATTEMPTS
+                      << " failed: " << e.what()
+                      << " — retrying in " << BUILD_RETRY_DELAY_SEC << "s\n";
+        std::this_thread::sleep_for(std::chrono::seconds(BUILD_RETRY_DELAY_SEC));
     }
+    } // end retry loop
 
     auto start_time = std::chrono::steady_clock::now();
     int timeout_sec = cfg.duration * 2 + 10;
@@ -760,17 +811,31 @@ int run_capture(const CaptureConfig& cfg,
     while (g_running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        bool audio_done = head->nitems_written(0) >= (uint64_t)audio_samples;
+        auto elapsed = std::chrono::steady_clock::now() - start_time;
+        auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
+
         bool iq_done = iq_head->nitems_written(0) >= (uint64_t)iq_samples;
-        if (audio_done && iq_done) {
-            log_info() << "Capture complete (audio: " << head->nitems_written(0)
-                       << ", I/Q: " << iq_head->nitems_written(0) << " samples)\n";
+        if (iq_done) {
+            // Grace period: let the scheduler drain the I/Q pipeline
+            // (head → complex_to_interleaved_short → file_sink) before we
+            // call tb->stop().  Without this, in-flight buffer items could
+            // be lost, producing a slightly short sc16 file.
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            log_info() << "Capture complete (I/Q: " << iq_head->nitems_written(0)
+                       << "/" << iq_samples << ", audio: " << head->nitems_written(0)
+                       << "/" << audio_samples << " samples, " << elapsed_sec << "s)\n";
             break;
         }
 
-        auto elapsed = std::chrono::steady_clock::now() - start_time;
+        // Progress every 5 seconds
+        if (elapsed_sec > 0 && elapsed_sec % 5 == 0 &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() % 5000 < 100) {
+            log_info() << "Progress [" << elapsed_sec << "s]: I/Q "
+                       << iq_head->nitems_written(0) << "/" << iq_samples
+                       << ", audio " << head->nitems_written(0) << "/" << audio_samples << "\n";
+        }
+
         if (elapsed >= std::chrono::seconds(timeout_sec)) {
-            auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
             log_error() << "Timeout after " << elapsed_sec << " seconds"
                         << " (audio: " << head->nitems_written(0) << "/" << audio_samples
                         << ", I/Q: " << iq_head->nitems_written(0) << "/" << iq_samples << ")\n";
@@ -942,6 +1007,20 @@ int main(int argc, char* argv[]) {
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+
+    // Pin to CPU 0 if requested — serializes all GNU Radio scheduler threads
+    // onto one core to diagnose multi-threading race conditions.
+    if (cfg.single_core) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(0, &cpuset);
+        if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0) {
+            log_info() << "Pinned to CPU 0 (--single-core)\n";
+        } else {
+            log_warning() << "sched_setaffinity failed: " << strerror(errno)
+                          << " (continuing without CPU pinning)\n";
+        }
+    }
 
     // Cap duration to stay within downlink budget (sc16: 4 bytes per complex sample)
     // File is written at effective_rate (post-LPF decimation)

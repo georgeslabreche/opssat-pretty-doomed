@@ -28,6 +28,7 @@ services:
       - ./src:/app/src
       - ./Makefile:/app/Makefile
       - ./build:/app/build
+      - ./package:/app/package
       - ./run:/app/run
       - ./config.cfg:/app/config.cfg
       - ./toGround:/app/toGround

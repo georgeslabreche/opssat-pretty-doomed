@@ -154,6 +154,15 @@ while [ "$CAPTURE_NUM" -lt "$CAPTURES" ]; do
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Capture #${CAPTURE_NUM}/${CAPTURES}: Complete (status=$STATUS)" >> "$RUN_LOG"
 
     [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
+
+    # After a failure, pause before next capture to give the IIO server time
+    # to detect the dead TCP connection and free the connection slot.
+    # On local IIO (real hardware) this is harmless; on network IIO (emulator)
+    # a crashed capture leaves a stale TCP connection that blocks new ones.
+    if [ "$STATUS" -ne 0 ] && [ "$CAPTURE_NUM" -lt "$CAPTURES" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Waiting 5s for IIO cleanup after failure (status=$STATUS)..." >> "$RUN_LOG"
+        sleep 5
+    fi
 done
 
 # Read frequency from config for summary

@@ -73,6 +73,13 @@ for INPUT_FILE in "$INPUT_DIR"/*.wav; do
 
         PROCESSED=$((PROCESSED + 1))
         [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
+
+        # After a failure, pause before next file to give the IIO server time
+        # to detect the dead TCP connection and free the connection slot.
+        if [ "$STATUS" -ne 0 ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - Waiting 5s for IIO cleanup after failure (status=$STATUS)..." >> "$RUN_LOG"
+            sleep 5
+        fi
     fi
 done
 
