@@ -26,6 +26,7 @@ services:
       - sdr-emu
     volumes:
       - ./src:/app/src
+      - ../../../common:/app/common
       - ./Makefile:/app/Makefile
       - ./build:/app/build
       - ./package:/app/package

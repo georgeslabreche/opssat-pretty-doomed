@@ -8,6 +8,7 @@ PACKAGE_NAME = exp4023-sdr-capture-$(PACKAGE_VERSION)
 
 # GNU Radio libraries
 GNURADIO_PREFIX = /opt/gnuradio
+COMMON_CFLAGS = -I/app/common/include
 GNURADIO_CFLAGS = -I$(GNURADIO_PREFIX)/include
 GNURADIO_LIBS = -L$(GNURADIO_PREFIX)/lib \
 	-lgnuradio-runtime -lgnuradio-blocks -lgnuradio-filter \
@@ -27,7 +28,7 @@ SOURCES = $(SRCDIR)/capture_loop.cpp
 all: $(TARGET)
 
 $(TARGET): $(SOURCES) | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) $(SOURCES) -o $@ $(GNURADIO_LIBS) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SOURCES) -o $@ $(GNURADIO_LIBS) $(LDFLAGS)
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)

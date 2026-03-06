@@ -51,63 +51,13 @@
 #include <iio.h>
 #include <sndfile.h>
 
-// Global flags for signal handling (only volatile sig_atomic_t is async-signal-safe)
-volatile sig_atomic_t g_running = 1;
-volatile sig_atomic_t g_signal_received = 0;
+#include "pretty_log.h"
+#include "pretty_signal.h"
+#include "pretty_config.h"
+#include "pretty_iio.h"
+#include "pretty_audio.h"
 
-void signal_handler(int signum) {
-    g_signal_received = signum;
-    g_running = 0;
-}
-
-// Maps |x|≈1.0 (nominal fc32 magnitude) -> 8192.
-// Leaves ~12 dB headroom before int16 rails (±32767).
-constexpr float IQ_SCALE = 8192.0f;
-
-// Timestamped logging helpers — return a stream reference for << chaining
-static std::tm local_tm(std::time_t t) {
-    std::tm tm{};
-#if defined(_WIN32)
-    localtime_s(&tm, &t);
-#else
-    localtime_r(&t, &tm);
-#endif
-    return tm;
-}
-
-static std::ostream& log_info() {
-    auto now = std::chrono::system_clock::now();
-    auto t = std::chrono::system_clock::to_time_t(now);
-    auto tm = local_tm(t);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", &tm);
-    return std::cout << buf;
-}
-
-static std::ostream& log_warning() {
-    auto now = std::chrono::system_clock::now();
-    auto t = std::chrono::system_clock::to_time_t(now);
-    auto tm = local_tm(t);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", &tm);
-    return std::cerr << buf << "WARNING: ";
-}
-
-static std::ostream& log_error() {
-    auto now = std::chrono::system_clock::now();
-    auto t = std::chrono::system_clock::to_time_t(now);
-    auto tm = local_tm(t);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", &tm);
-    return std::cerr << buf;
-}
-
-static std::string trim(const std::string& s) {
-    size_t start = s.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
-    size_t end = s.find_last_not_of(" \t\r\n");
-    return s.substr(start, end - start + 1);
-}
+using namespace pretty;
 
 // Defaults are overridden by config file values (-c), then by command-line args.
 struct LoopbackConfig {
@@ -147,25 +97,10 @@ struct LoopbackConfig {
 };
 
 bool load_config(const std::string& path, LoopbackConfig& cfg) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        log_error() << "Could not open config file: " << path << "\n";
-        return false;
-    }
+    auto result = load_config_map(path);
+    if (!result.ok) return false;
 
-    std::string line;
-    int line_no = 0;
-    while (std::getline(file, line)) {
-        line_no++;
-        line = trim(line);
-        if (line.empty() || line[0] == '#') continue;
-
-        auto eq = line.find('=');
-        if (eq == std::string::npos) continue;
-
-        std::string key = trim(line.substr(0, eq));
-        std::string value = trim(line.substr(eq + 1));
-
+    for (const auto& [key, value] : result.values) {
         try {
             if (key == "frequency") cfg.frequency = std::stoull(value);
             else if (key == "sdr_rate") cfg.sdr_rate = std::stoul(value);
@@ -184,9 +119,9 @@ bool load_config(const std::string& path, LoopbackConfig& cfg) {
             else if (key == "min_readback") cfg.min_readback = (value == "true" || value == "1");
             else if (key == "single_core") cfg.single_core = (value == "true" || value == "1");
             else if (key == "rate_tolerance") cfg.rate_tolerance = std::stol(value);
-            else log_warning() << path << ":" << line_no << ": unknown config key: " << key << "\n";
+            else log_warning() << path << ": unknown config key: " << key << "\n";
         } catch (const std::exception& e) {
-            log_error() << path << ":" << line_no << ": parse error: " << key << "=" << value
+            log_error() << path << ": parse error: " << key << "=" << value
                         << " (" << e.what() << ")\n";
             return false;
         }
@@ -312,21 +247,6 @@ int parse_args(int argc, char* argv[], LoopbackConfig& cfg) {
     return 0;
 }
 
-// Derive .sc16 filename from a .wav filename
-std::string make_iq_filename(const std::string& wav_path) {
-    std::string iq_file = wav_path;
-    size_t dot_pos = iq_file.rfind('.');
-    size_t sep_pos = iq_file.find_last_of("/\\");
-    bool has_extension = (dot_pos != std::string::npos) &&
-                         (sep_pos == std::string::npos || dot_pos > sep_pos + 1);
-    if (has_extension) {
-        iq_file = iq_file.substr(0, dot_pos) + ".sc16";
-    } else {
-        iq_file += ".sc16";
-    }
-    return iq_file;
-}
-
 void log_config(const LoopbackConfig& cfg) {
     log_info() << "OPS-SAT PRETTY IIO Loopback Test\n";
     log_info() << "Input:       " << cfg.input_wav << "\n";
@@ -342,405 +262,6 @@ void log_config(const LoopbackConfig& cfg) {
     log_info() << "LPF cutoff:  " << cfg.lpf_cutoff << " Hz\n";
     log_info() << "LPF trans:   " << cfg.lpf_transition << " Hz\n";
     log_info() << "Bandpass:    " << cfg.bandpass_low << " - " << cfg.bandpass_high << " Hz\n";
-}
-
-// Safe IIO channel attribute read — returns empty string on failure.
-// iio_channel_attr_read() does not guarantee NUL-termination, so we
-// construct std::string from (buf, n) to avoid reading past the payload.
-static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
-    char buf[256];
-    ssize_t n = iio_channel_attr_read(ch, attr, buf, sizeof(buf));
-    if (n <= 0) return "";
-    if ((size_t)n >= sizeof(buf)) {
-        log_warning() << "IIO attr '" << attr << "' truncated (" << n << " bytes, buf=" << sizeof(buf) << ")\n";
-        buf[sizeof(buf) - 1] = '\0';
-        return std::string(buf, sizeof(buf) - 1);
-    }
-    // Strip trailing NUL bytes — iio_channel_attr_read() may include the
-    // NUL terminator in the returned byte count, which would create a
-    // std::string containing embedded NUL that breaks string comparisons.
-    while (n > 0 && buf[n - 1] == '\0') n--;
-    return std::string(buf, (size_t)n);
-}
-
-// Write AD9361 configuration via direct libiio calls.
-// The device_source/device_sink iio_param_vec_t mechanism does not reliably apply
-// attributes on all hardware/emulator configurations. Direct iio_channel_attr_write
-// calls (matching the OPS-SAT SDR experimenter code template) are authoritative.
-bool write_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
-    struct iio_channel* rx_lo = iio_device_find_channel(phy, "altvoltage0", true);
-    struct iio_channel* tx_lo = iio_device_find_channel(phy, "altvoltage1", true);
-    struct iio_channel* rx0 = iio_device_find_channel(phy, "voltage0", false);
-    struct iio_channel* tx0 = iio_device_find_channel(phy, "voltage0", true);
-    if (!rx_lo || !tx_lo || !rx0 || !tx0) {
-        log_error() << "FATAL: could not find required channels for config write\n";
-        return false;
-    }
-
-    int ret;
-    // RX LO
-    ret = iio_channel_attr_write_longlong(rx_lo, "frequency", (long long)cfg.frequency);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write RX LO frequency (ret=" << ret << ")\n";
-        return false;
-    }
-
-    // TX LO
-    ret = iio_channel_attr_write_longlong(tx_lo, "frequency", (long long)cfg.frequency);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write TX LO frequency (ret=" << ret << ")\n";
-        return false;
-    }
-
-    // RX sample rate + bandwidth + gain
-    ret = iio_channel_attr_write_longlong(rx0, "sampling_frequency", (long long)cfg.sdr_rate);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write RX sampling_frequency (ret=" << ret << ")\n";
-        return false;
-    }
-
-    ret = iio_channel_attr_write_longlong(rx0, "rf_bandwidth", (long long)cfg.rf_bandwidth);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write RX rf_bandwidth (ret=" << ret << ")\n";
-        return false;
-    }
-
-    ret = iio_channel_attr_write(rx0, "gain_control_mode", "manual");
-    if (ret < 0) {
-        log_error() << "FATAL: could not write gain_control_mode (ret=" << ret << ")\n";
-        return false;
-    }
-
-    ret = iio_channel_attr_write_double(rx0, "hardwaregain", cfg.rx_gain);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write RX hardwaregain (ret=" << ret << ")\n";
-        return false;
-    }
-
-    // TX sample rate + bandwidth + attenuation
-    ret = iio_channel_attr_write_longlong(tx0, "sampling_frequency", (long long)cfg.sdr_rate);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write TX sampling_frequency (ret=" << ret << ")\n";
-        return false;
-    }
-
-    ret = iio_channel_attr_write_longlong(tx0, "rf_bandwidth", (long long)cfg.rf_bandwidth);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write TX rf_bandwidth (ret=" << ret << ")\n";
-        return false;
-    }
-
-    ret = iio_channel_attr_write_double(tx0, "hardwaregain", -cfg.tx_attenuation);
-    if (ret < 0) {
-        log_error() << "FATAL: could not write TX hardwaregain (ret=" << ret << ")\n";
-        return false;
-    }
-
-    log_info() << "AD9361 RX+TX config written via libiio\n";
-    return true;
-}
-
-// Read back actual AD9361 configuration and warn if values differ from requested.
-// When strict=true, sample rate mismatch is fatal (returns false).
-// When strict=false (--min-readback), sample rate mismatch is a warning (returns true).
-bool readback_iio_config(struct iio_device* phy, const LoopbackConfig& cfg, bool strict) {
-    // RX LO frequency — always warn-only because the AD9361 PLL quantizes to the
-    // nearest achievable frequency (typically a few Hz off). This is normal and has
-    // no practical impact on reception. Sample rate mismatches, on the other hand,
-    // are fatal (when strict) because they affect file sizes and downlink budget.
-    struct iio_channel* rx_lo = iio_device_find_channel(phy, "altvoltage0", true);
-    if (rx_lo) {
-        std::string val = iio_attr_read_str(rx_lo, "frequency");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX LO readback: " << val << " Hz\n";
-            try {
-                long long actual_freq = std::stoll(trim(val));
-                if ((unsigned long long)actual_freq != cfg.frequency) {
-                    log_warning() << "RX LO mismatch — requested " << cfg.frequency
-                                << " Hz, got " << actual_freq << " Hz\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse RX LO frequency: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-    }
-
-    // TX LO frequency — same PLL quantization as RX LO, always warn-only.
-    struct iio_channel* tx_lo = iio_device_find_channel(phy, "altvoltage1", true);
-    if (tx_lo) {
-        std::string val = iio_attr_read_str(tx_lo, "frequency");
-        if (!val.empty()) {
-            log_info() << "AD9361 TX LO readback: " << val << " Hz\n";
-            try {
-                long long actual_freq = std::stoll(trim(val));
-                if ((unsigned long long)actual_freq != cfg.frequency) {
-                    log_warning() << "TX LO mismatch — requested " << cfg.frequency
-                                << " Hz, got " << actual_freq << " Hz\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse TX LO frequency: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-    }
-
-    // RX channel attributes (voltage0, input) — sample rate confirmation is mandatory
-    // for downlink budget correctness when strict=true.
-    struct iio_channel* rx0 = iio_device_find_channel(phy, "voltage0", false);
-    if (!rx0) {
-        log_error() << "FATAL: could not find RX channel voltage0 — "
-                    << "cannot confirm sample rate for budget correctness\n";
-        return false;
-    }
-    {
-        std::string val;
-
-        val = iio_attr_read_str(rx0, "sampling_frequency");
-        if (val.empty()) {
-            if (strict) {
-                log_error() << "FATAL: could not read sampling_frequency — "
-                            << "cannot confirm sample rate for budget correctness\n";
-                return false;
-            } else {
-                log_warning() << "could not read sampling_frequency (--min-readback, continuing)\n";
-            }
-        } else {
-            log_info() << "AD9361 sample rate readback: " << val << " Hz\n";
-            try {
-                long actual_rate = std::stol(trim(val));
-                // AD9361 may quantize the sample rate by a few Hz (e.g. 2399999
-                // vs 2400000).  Allow ±rate_tolerance Hz before treating it as a mismatch.
-                long rate_delta = std::abs(actual_rate - (long)cfg.sdr_rate);
-                if (rate_delta > cfg.rate_tolerance) {
-                    if (strict) {
-                        log_error() << "FATAL: sample rate mismatch — requested " << cfg.sdr_rate
-                                    << " Hz, got " << actual_rate
-                                    << " Hz (invalidates downlink budget and file size expectations)\n";
-                        return false;
-                    } else {
-                        log_warning() << "sample rate mismatch — requested " << cfg.sdr_rate
-                                    << " Hz, got " << actual_rate
-                                    << " Hz (--min-readback, continuing)\n";
-                    }
-                } else if (rate_delta > 0) {
-                    log_info() << "AD9361 sample rate readback: " << actual_rate
-                               << " Hz (within ±" << cfg.rate_tolerance << " Hz of requested " << cfg.sdr_rate << " Hz)\n";
-                }
-            } catch (const std::exception& e) {
-                if (strict) {
-                    log_error() << "FATAL: could not parse sampling_frequency '" << val
-                                << "' (" << e.what()
-                                << ") — cannot confirm sample rate for budget correctness\n";
-                    return false;
-                } else {
-                    log_warning() << "could not parse sampling_frequency '" << val
-                                << "' (" << e.what() << ") (--min-readback, continuing)\n";
-                }
-            }
-        }
-
-        val = iio_attr_read_str(rx0, "rf_bandwidth");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX RF bandwidth readback: " << val << " Hz\n";
-            try {
-                long actual_bw = std::stol(trim(val));
-                if ((unsigned long)actual_bw != cfg.rf_bandwidth) {
-                    log_warning() << "RX RF bandwidth mismatch — requested " << cfg.rf_bandwidth
-                                << " Hz, got " << actual_bw << " Hz\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse RX RF bandwidth: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-
-        val = iio_attr_read_str(rx0, "gain_control_mode");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX gain control mode: " << val << "\n";
-            std::string mode = trim(val);
-            if (mode != "manual") {
-                log_warning() << "gain control mode mismatch — requested manual, got " << mode << "\n";
-            }
-        }
-
-        val = iio_attr_read_str(rx0, "hardwaregain");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX hardware gain: " << val << "\n";
-            try {
-                double actual_gain = std::stod(trim(val));
-                if (std::abs(actual_gain - cfg.rx_gain) > 0.5) {
-                    log_warning() << "RX gain mismatch — requested " << cfg.rx_gain
-                                << " dB, got " << actual_gain << " dB\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse RX hardwaregain: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-
-        val = iio_attr_read_str(rx0, "rssi");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX RSSI: " << val << "\n";
-        }
-    }
-
-    // TX channel attributes (voltage0, output)
-    struct iio_channel* tx0 = iio_device_find_channel(phy, "voltage0", true);
-    if (tx0) {
-        std::string val;
-
-        val = iio_attr_read_str(tx0, "rf_bandwidth");
-        if (!val.empty()) {
-            log_info() << "AD9361 TX RF bandwidth readback: " << val << " Hz\n";
-            try {
-                long actual_bw = std::stol(trim(val));
-                if ((unsigned long)actual_bw != cfg.rf_bandwidth) {
-                    log_warning() << "TX RF bandwidth mismatch — requested " << cfg.rf_bandwidth
-                                << " Hz, got " << actual_bw << " Hz\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse TX RF bandwidth: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-
-        val = iio_attr_read_str(tx0, "hardwaregain");
-        if (!val.empty()) {
-            log_info() << "AD9361 TX hardware gain: " << val << "\n";
-            try {
-                double actual_atten = std::abs(std::stod(trim(val)));
-                if (std::abs(actual_atten - cfg.tx_attenuation) > 0.5) {
-                    log_warning() << "TX attenuation mismatch — requested " << cfg.tx_attenuation
-                                << " dB, got " << actual_atten << " dB\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse TX hardwaregain: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-    }
-
-    return true;
-}
-
-// RMS normalize a WAV file to target_dbfs (e.g. -20 dBFS -> target_rms = 0.1)
-bool rms_normalize(const std::string& wav_path, double target_dbfs) {
-    double target_rms = std::pow(10.0, target_dbfs / 20.0);
-
-    SF_INFO sf_info = {0};
-    SNDFILE* sf = sf_open(wav_path.c_str(), SFM_READ, &sf_info);
-    if (!sf) {
-        log_error() << "RMS normalize: Could not open " << wav_path << ": " << sf_strerror(NULL) << "\n";
-        return false;
-    }
-    if (sf_info.channels <= 0) {
-        log_error() << "RMS normalize: invalid channel count\n";
-        sf_close(sf);
-        return false;
-    }
-
-    std::vector<float> samples((size_t)sf_info.frames * (size_t)sf_info.channels);
-    sf_count_t read = sf_readf_float(sf, samples.data(), sf_info.frames);
-    sf_close(sf);
-
-    if (read <= 0) {
-        log_error() << "RMS normalize: No samples read from " << wav_path << "\n";
-        return false;
-    }
-    size_t valid = (size_t)read * (size_t)sf_info.channels;
-    samples.resize(valid);
-
-    // Compute RMS over actual read samples only
-    double sum_sq = 0.0;
-    for (size_t i = 0; i < valid; i++) {
-        sum_sq += (double)samples[i] * samples[i];
-    }
-    double rms = std::sqrt(sum_sq / valid);
-
-    if (rms < 1e-10) {
-        log_error() << "RMS normalize: Signal is silent, skipping normalization\n";
-        return true;
-    }
-
-    double scale = target_rms / rms;
-    log_info() << "RMS normalize: rms=" << rms << ", scale=" << scale
-               << ", target=" << target_dbfs << " dBFS\n";
-
-    for (size_t i = 0; i < samples.size(); i++) {
-        float s = samples[i] * (float)scale;
-        if (s > 1.0f) s = 1.0f;
-        else if (s < -1.0f) s = -1.0f;
-        samples[i] = s;
-    }
-
-    SF_INFO out_info = sf_info;
-    out_info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
-    SNDFILE* out = sf_open(wav_path.c_str(), SFM_WRITE, &out_info);
-    if (!out) {
-        log_error() << "RMS normalize: Could not write " << wav_path << ": " << sf_strerror(NULL) << "\n";
-        return false;
-    }
-    sf_writef_float(out, samples.data(), read);
-    sf_close(out);
-
-    return true;
-}
-
-// Check sc16 file for clipping and peak magnitude. Reads first and last
-// `check_seconds` worth of samples. Sets clip_rate and peak_abs (0-32768 scale).
-void check_sc16_quality(const std::string& path, unsigned long sample_rate,
-                        double& clip_rate, int& peak_abs, double check_seconds = 2.0) {
-    clip_rate = -1.0;
-    peak_abs = 0;
-
-    if (sample_rate == 0) return;
-
-    std::ifstream f(path, std::ios::binary | std::ios::ate);
-    if (!f.is_open()) return;
-
-    long long file_bytes = (long long)f.tellg();
-    if (file_bytes < 0) return;
-    if (file_bytes % 4 != 0)
-        log_warning() << "sc16 file not multiple of 4 bytes (truncated?)\n";
-    long long total_pairs = file_bytes / 4;  // 2 shorts per complex sample
-    if (total_pairs == 0) return;
-    long long check_pairs = (long long)(check_seconds * sample_rate);
-    if (check_pairs > total_pairs) check_pairs = total_pairs;
-
-    long long clipped = 0;
-    long long checked = 0;
-    std::vector<int16_t> buf(4096);
-
-    auto scan_region = [&](long long start_pair, long long num_pairs) {
-        f.clear();
-        f.seekg(start_pair * 4, std::ios::beg);
-        long long remaining = num_pairs * 2;  // number of int16 values
-        while (remaining > 0 && f.good()) {
-            long long to_read = std::min(remaining, (long long)buf.size());
-            f.read(reinterpret_cast<char*>(buf.data()), to_read * sizeof(int16_t));
-            long long got = f.gcount() / sizeof(int16_t);
-            if (got <= 0) break;
-            for (long long i = 0; i < got; i++) {
-                int abs_val = std::abs((int)buf[i]);
-                if (abs_val > peak_abs) peak_abs = abs_val;
-                if (buf[i] == 32767 || buf[i] == -32768) clipped++;
-            }
-            checked += got;
-            remaining -= got;
-        }
-    };
-
-    // Check first N seconds
-    scan_region(0, check_pairs);
-
-    // Check last N seconds (if file is long enough to not overlap)
-    if (total_pairs > check_pairs * 2) {
-        scan_region(total_pairs - check_pairs, check_pairs);
-    }
-
-    if (checked <= 0) return;  // keep clip_rate = -1.0
-    clip_rate = (double)clipped / checked;
 }
 
 // Loopback signal quality check: mean-centered normalized cross-correlation
@@ -1119,14 +640,27 @@ int run_loopback(const LoopbackConfig& cfg,
             iio_context_destroy(cfg_ctx);
             return 1;
         }
-        if (!write_iio_config(phy, cfg)) {
+        if (!write_iio_rx_config(phy, (long long)cfg.frequency, (long long)cfg.sdr_rate,
+                                 (long long)cfg.rf_bandwidth, cfg.rx_gain)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (!write_iio_tx_config(phy, (long long)cfg.frequency, (long long)cfg.sdr_rate,
+                                 (long long)cfg.rf_bandwidth, -cfg.tx_attenuation)) {
             iio_context_destroy(cfg_ctx);
             return 1;
         }
         if (cfg.min_readback) {
             log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
         }
-        if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
+        if (!readback_iio_rx_config(phy, (long long)cfg.frequency, (long long)cfg.sdr_rate,
+                                    (long long)cfg.rf_bandwidth, cfg.rx_gain,
+                                    cfg.rate_tolerance, !cfg.min_readback)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (!readback_iio_tx_config(phy, (long long)cfg.frequency,
+                                    (long long)cfg.rf_bandwidth, cfg.tx_attenuation)) {
             iio_context_destroy(cfg_ctx);
             return 1;
         }
@@ -1446,7 +980,7 @@ int run_loopback(const LoopbackConfig& cfg,
     // Check for I/Q clipping and peak magnitude (still useful on partial captures)
     double clip_rate;
     int peak_abs;
-    check_sc16_quality(iq_file, cfg.effective_rate, clip_rate, peak_abs);
+    check_sc16_quality(iq_file, (long long)cfg.effective_rate, clip_rate, peak_abs);
     if (clip_rate >= 0.0) {
         double peak_dbfs = (peak_abs > 0) ? 20.0 * std::log10((double)peak_abs / IQ_SCALE) : -999.0;
         log_info() << "sc16 peak: " << peak_abs << "/" << (int)IQ_SCALE

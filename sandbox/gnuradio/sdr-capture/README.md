@@ -16,6 +16,7 @@ AD9361 RX (1296 MHz, 2.4 MSPS)
 
 - Docker and Docker Compose
 - Pre-built GNU Radio + gr-iio libraries in `../build-libs-armv7/output/`
+- Shared headers in `common/` (repo root) — mounted into Docker at `/app/common`
 - QEMU ARM emulation for local testing
 
 ## Setup

@@ -17,6 +17,7 @@ input.wav -> Resample -> Scale (0.8) -> FM Mod -> AD9361 TX (2.4 MSPS)
 
 - Docker and Docker Compose
 - Pre-built GNU Radio + gr-iio libraries in `../build-libs-armv7/output/`
+- Shared headers in `common/` (repo root) — mounted into Docker at `/app/common`
 - QEMU ARM emulation for local testing
 
 ## Setup
