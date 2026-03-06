@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -O3 -std=c++17
 LDFLAGS = -Wl,-z,stack-size=8388608
 
 # Package version (change this for new releases)
-PACKAGE_VERSION = v7
+PACKAGE_VERSION = v8
 PACKAGE_NAME = exp4023-sdr-capture-$(PACKAGE_VERSION)
 
 # GNU Radio libraries

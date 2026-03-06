@@ -1,0 +1,39 @@
+# SDR emulator integration test (IIO config only — no TX/loopback)
+#
+# The emulator has no TX support, so full loopback testing is not possible.
+# This compose file is for testing IIO config write/readback only.
+#
+# Usage:
+#   docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+#   docker-compose -f docker-compose.emu-test.yml run --rm sdr-loopback make test-iio
+#   docker-compose -f docker-compose.emu-test.yml down
+
+services:
+  sdr-emu:
+    image: iio-emu:latest
+    container_name: sdr_emu
+    ports:
+      - "30431:30431"
+    volumes:
+      - ./emu-samples:/samples:ro
+    environment:
+      SAMPLE_FILE: "sdr_20210519_101920_1176450000_38400000_12.cs16"
+      DATA_SOURCE_TYPE: "file"
+
+  sdr-loopback:
+    build: .
+    container_name: gnuradio-sdr-loopback-emu
+    depends_on:
+      - sdr-emu
+    volumes:
+      - ./src:/app/src
+      - ../../../common:/app/common
+      - ./Makefile:/app/Makefile
+      - ./build:/app/build
+      - ./package:/app/package
+      - ./run:/app/run
+      - ./config.cfg:/app/config.cfg
+      - ./toGround:/app/toGround
+      - ../../../samples:/app/samples
+    working_dir: /app
+    tty: true

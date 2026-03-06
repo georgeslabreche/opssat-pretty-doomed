@@ -23,7 +23,7 @@ TARGET = $(BUILDDIR)/loopback_test
 
 SOURCES = $(SRCDIR)/loopback_test.cpp
 
-.PHONY: all clean test package-prepare package-samples package-tar
+.PHONY: all clean test test-iio package-prepare package-samples package-tar
 
 all: $(TARGET)
 
@@ -36,6 +36,14 @@ $(BUILDDIR):
 clean:
 	rm -rf $(BUILDDIR)
 	rm -rf toGround
+
+# Standalone IIO config write+readback test (no GNU Radio dependency)
+TEST_IIO = $(BUILDDIR)/test_iio_config
+$(TEST_IIO): /app/common/test/test_iio_config.cpp | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $< -o $@ -liio
+
+test-iio: $(TEST_IIO)
+	./$(TEST_IIO) ip:sdr-emu:30431
 
 # Test with sample file (uses config.cfg defaults)
 test: $(TARGET)

@@ -163,8 +163,9 @@ The RX I/Q head block reaching its expected sample count is the completion trigg
 
 ### Timeout
 
-- Timeout = 2x expected duration + 10 seconds
+- Timeout = 3x expected duration + 10 seconds
 - Helps detect loopback failures or SDR connection issues
+- The 3x multiplier accounts for IIO-over-network overhead (ip:10.0.0.1 on SEPP)
 
 ## Packaging for SEPP
 
@@ -209,6 +210,18 @@ Note: the RX/TX LO frequency readback is always a warning, never fatal. The AD93
 - QEMU user-mode ARM emulation (ARM32 on ARM64) can produce intermittent SIGFPE crashes unrelated to the experiment code. Full end-to-end testing requires native ARM hardware on the flatsat.
 
 See the [sdr-capture README](../sdr-capture/README.md#sdr-emulator-testing) for emulator setup instructions.
+
+### IIO Config Test (No GNU Radio)
+
+A standalone test verifies IIO config write/readback without GNU Radio, avoiding QEMU SIGFPE issues:
+
+```bash
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+docker-compose -f docker-compose.emu-test.yml run --rm sdr-loopback make test-iio
+docker-compose -f docker-compose.emu-test.yml down
+```
+
+This builds and runs `test_iio_config` from `common/test/`. It writes RX config (frequency, sample rate, bandwidth, gain) to the emulator and confirms readback matches. See [common/README.md](../../../common/README.md#test_iio_config) for details.
 
 ## Known Issues
 

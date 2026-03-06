@@ -452,8 +452,8 @@ int run_capture(const CaptureConfig& cfg,
     } // end retry loop
 
     auto start_time = std::chrono::steady_clock::now();
-    int timeout_sec = cfg.duration * 2 + 10;
-    log_info() << "Timeout:  " << timeout_sec << " seconds (2x duration + 10)\n";
+    int timeout_sec = cfg.duration * 3 + 10;
+    log_info() << "Timeout:  " << timeout_sec << " seconds (3x duration + 10)\n";
 
     bool timed_out = false;
     while (g_running) {
