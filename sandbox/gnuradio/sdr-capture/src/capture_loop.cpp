@@ -5,8 +5,8 @@
  * Captures FM-demodulated audio and sc16 I/Q from AD9361 SDR.
  *
  * DSP chain:
- *   IIO src (fc32, 200 kSPS)
- *     -> Complex LPF (85 kHz cutoff)
+ *   IIO src (fc32, sdr_rate e.g. 2.4 MSPS)
+ *     -> Decimating LPF (85 kHz cutoff, decim=12 -> 200 kSPS effective)
  *       +-> head -> complex_to_interleaved_short -> file_sink (.sc16)
  *       +-> FM demod -> rational_resampler (200k->16k)
  *           -> bandpass (300-3400 Hz) -> head -> wav_sink
@@ -24,7 +24,9 @@
 #include <atomic>
 #include <cmath>
 #include <csignal>
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <vector>
 
@@ -32,83 +34,42 @@
 #include <gnuradio/blocks/wavfile_sink.h>
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/head.h>
+#include <gnuradio/blocks/short_to_float.h>
+#include <gnuradio/blocks/float_to_complex.h>
 #include <gnuradio/blocks/complex_to_interleaved_short.h>
 #include <gnuradio/analog/quadrature_demod_cf.h>
 #include <gnuradio/filter/rational_resampler.h>
 #include <gnuradio/filter/fir_filter_blk.h>
 #include <gnuradio/filter/firdes.h>
-#include <gnuradio/iio/fmcomms2_source.h>
+#include <gnuradio/iio/device_source.h>
 #include <numeric>  // for std::gcd
+
+#include <sched.h>
 
 #include <iio.h>
 #include <sndfile.h>
 
-// Global flags for signal handling (only volatile sig_atomic_t is async-signal-safe)
-volatile sig_atomic_t g_running = 1;
-volatile sig_atomic_t g_signal_received = 0;
+#include "pretty_log.h"
+#include "pretty_signal.h"
+#include "pretty_config.h"
+#include "pretty_iio.h"
+#include "pretty_audio.h"
 
-void signal_handler(int signum) {
-    g_signal_received = signum;
-    g_running = 0;
-}
-
-// Maps |x|≈1.0 (nominal fc32 magnitude) -> 8192.
-// Leaves ~12 dB headroom before int16 rails (±32767).
-constexpr float IQ_SCALE = 8192.0f;
-
-// Timestamped logging helpers — return a stream reference for << chaining
-static std::tm local_tm(std::time_t t) {
-    std::tm tm{};
-#if defined(_WIN32)
-    localtime_s(&tm, &t);
-#else
-    localtime_r(&t, &tm);
-#endif
-    return tm;
-}
-
-static std::ostream& log_info() {
-    auto now = std::chrono::system_clock::now();
-    auto t = std::chrono::system_clock::to_time_t(now);
-    auto tm = local_tm(t);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", &tm);
-    return std::cout << buf;
-}
-
-static std::ostream& log_warning() {
-    auto now = std::chrono::system_clock::now();
-    auto t = std::chrono::system_clock::to_time_t(now);
-    auto tm = local_tm(t);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", &tm);
-    return std::cerr << buf << "WARNING: ";
-}
-
-static std::ostream& log_error() {
-    auto now = std::chrono::system_clock::now();
-    auto t = std::chrono::system_clock::to_time_t(now);
-    auto tm = local_tm(t);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", &tm);
-    return std::cerr << buf;
-}
-
-static std::string trim(const std::string& s) {
-    size_t start = s.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
-    size_t end = s.find_last_not_of(" \t\r\n");
-    return s.substr(start, end - start + 1);
-}
+using namespace pretty;
 
 // Defaults are overridden by config file values (-c), then by command-line args.
 struct CaptureConfig {
-    // SDR
+    // SDR hardware
     long long frequency = 1296000000;  // overridden by config: frequency
-    long sample_rate = 200000;         // overridden by config: sample_rate
+    long sdr_rate = 2400000;           // overridden by config: sdr_rate (AD9361 hardware rate)
+    int decimation = 12;               // overridden by config: decimation (LPF decimation factor)
+    long rf_bandwidth = 200000;        // overridden by config: rf_bandwidth (AD9361 analog filter)
     double gain = 50.0;               // overridden by config: gain
     double fm_deviation = 5000.0;     // overridden by config: fm_deviation
     std::string uri = "local:";       // overridden by config: uri
+
+    // Derived (set after parsing)
+    long effective_rate = 200000;      // sdr_rate / decimation
 
     // Capture
     int duration = 20;                // overridden by config: duration
@@ -125,31 +86,23 @@ struct CaptureConfig {
 
     // Output
     std::string output_wav = "capture.wav";
+
+    // Testing / diagnostics
+    bool min_readback = false;          // --min-readback: downgrade sample rate check to warning (emulator)
+    bool single_core = false;           // --single-core: pin process to CPU 0 (diagnose threading issues)
+    long rate_tolerance = 10;           // max Hz offset for sample rate readback before fatal (AD9361 PLL quantization)
 };
 
 bool load_config(const std::string& path, CaptureConfig& cfg) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        log_error() << "Could not open config file: " << path << "\n";
-        return false;
-    }
+    auto result = load_config_map(path);
+    if (!result.ok) return false;
 
-    std::string line;
-    int line_no = 0;
-    while (std::getline(file, line)) {
-        line_no++;
-        line = trim(line);
-        if (line.empty() || line[0] == '#') continue;
-
-        auto eq = line.find('=');
-        if (eq == std::string::npos) continue;
-
-        std::string key = trim(line.substr(0, eq));
-        std::string value = trim(line.substr(eq + 1));
-
+    for (const auto& [key, value] : result.values) {
         try {
             if (key == "frequency") cfg.frequency = std::stoll(value);
-            else if (key == "sample_rate") cfg.sample_rate = std::stol(value);
+            else if (key == "sdr_rate") cfg.sdr_rate = std::stol(value);
+            else if (key == "decimation") cfg.decimation = std::stoi(value);
+            else if (key == "rf_bandwidth") cfg.rf_bandwidth = std::stol(value);
             else if (key == "gain") cfg.gain = std::stod(value);
             else if (key == "fm_deviation") cfg.fm_deviation = std::stod(value);
             else if (key == "uri") cfg.uri = value;
@@ -160,9 +113,13 @@ bool load_config(const std::string& path, CaptureConfig& cfg) {
             else if (key == "bandpass_high") cfg.bandpass_high = std::stod(value);
             else if (key == "lpf_cutoff") cfg.lpf_cutoff = std::stod(value);
             else if (key == "lpf_transition") cfg.lpf_transition = std::stod(value);
-            else log_warning() << path << ":" << line_no << ": unknown config key: " << key << "\n";
+            else if (key == "min_readback") cfg.min_readback = (value == "true" || value == "1");
+            else if (key == "single_core") cfg.single_core = (value == "true" || value == "1");
+            else if (key == "rate_tolerance") cfg.rate_tolerance = std::stol(value);
+            else if (key == "captures") { /* consumed by run script */ }
+            else log_warning() << path << ": unknown config key: " << key << "\n";
         } catch (const std::exception& e) {
-            log_error() << path << ":" << line_no << ": parse error: " << key << "=" << value
+            log_error() << path << ": parse error: " << key << "=" << value
                         << " (" << e.what() << ")\n";
             return false;
         }
@@ -181,9 +138,10 @@ void print_usage(const char* prog) {
               << "  -d, --duration  Capture duration in seconds (default: 20)\n"
               << "  -u, --uri       IIO URI (default: local:)\n"
               << "  -f, --freq      Frequency in Hz (default: 1296000000)\n"
-              << "  -s, --rate      Sample rate (default: 200000)\n"
               << "  -g, --gain      RX gain in dB (default: 50)\n"
               << "  -e, --deviation FM deviation in Hz (default: 5000)\n"
+              << "      --min-readback  Minimal readback: downgrade sample rate check to warning (emulator)\n"
+              << "      --single-core   Pin process to CPU 0 (diagnose multi-threading crashes)\n"
               << "  -h, --help      Show this help\n";
 }
 
@@ -220,8 +178,6 @@ int parse_args(int argc, char* argv[], CaptureConfig& cfg) {
             cfg.uri = argv[++i];
         } else if ((arg == "-f" || arg == "--freq") && i + 1 < argc) {
             cfg.frequency = std::stoll(argv[++i]);
-        } else if ((arg == "-s" || arg == "--rate") && i + 1 < argc) {
-            cfg.sample_rate = std::stol(argv[++i]);
         } else if ((arg == "-g" || arg == "--gain") && i + 1 < argc) {
             cfg.gain = std::stod(argv[++i]);
         } else if ((arg == "-e" || arg == "--deviation") && i + 1 < argc) {
@@ -230,6 +186,10 @@ int parse_args(int argc, char* argv[], CaptureConfig& cfg) {
                 log_error() << "FM deviation must be > 0\n";
                 return 1;
             }
+        } else if (arg == "--min-readback") {
+            cfg.min_readback = true;
+        } else if (arg == "--single-core") {
+            cfg.single_core = true;
         } else if (arg == "-h" || arg == "--help") {
             print_usage(argv[0]);
             return 2;
@@ -245,8 +205,34 @@ int parse_args(int argc, char* argv[], CaptureConfig& cfg) {
         log_error() << "Duration must be > 0\n";
         return 1;
     }
-    if (cfg.sample_rate <= 0) {
-        log_error() << "Sample rate must be > 0\n";
+    if (cfg.sdr_rate <= 0) {
+        log_error() << "sdr_rate must be > 0\n";
+        return 1;
+    }
+    if (cfg.decimation <= 0) {
+        log_error() << "decimation must be > 0\n";
+        return 1;
+    }
+    if (cfg.sdr_rate % cfg.decimation != 0) {
+        log_error() << "sdr_rate (" << cfg.sdr_rate << ") must be divisible by decimation ("
+                    << cfg.decimation << ")\n";
+        return 1;
+    }
+    cfg.effective_rate = cfg.sdr_rate / cfg.decimation;
+    if (cfg.effective_rate <= 0) {
+        log_error() << "effective_rate (sdr_rate/decimation) must be > 0\n";
+        return 1;
+    }
+    // AD9361 sampling_frequency_Hz limits: 2,083,000 - 61,440,000 Hz
+    if (cfg.sdr_rate < 2083000 || cfg.sdr_rate > 61440000) {
+        log_error() << "sdr_rate " << cfg.sdr_rate
+                    << " Hz out of AD9361 range (2,083,000 - 61,440,000 Hz)\n";
+        return 1;
+    }
+    // AD9361 rf_bandwidth_Hz limits: 200,000 - 56,000,000 Hz
+    if (cfg.rf_bandwidth < 200000 || cfg.rf_bandwidth > 56000000) {
+        log_error() << "rf_bandwidth " << cfg.rf_bandwidth
+                    << " Hz out of AD9361 range (200,000 - 56,000,000 Hz)\n";
         return 1;
     }
     if (cfg.max_iq_mb <= 0) {
@@ -261,21 +247,6 @@ int parse_args(int argc, char* argv[], CaptureConfig& cfg) {
     return 0;
 }
 
-// Derive .sc16 filename from a .wav filename
-std::string make_iq_filename(const std::string& wav_path) {
-    std::string iq_file = wav_path;
-    size_t dot_pos = iq_file.rfind('.');
-    size_t sep_pos = iq_file.find_last_of("/\\");
-    bool has_extension = (dot_pos != std::string::npos) &&
-                         (sep_pos == std::string::npos || dot_pos > sep_pos + 1);
-    if (has_extension) {
-        iq_file = iq_file.substr(0, dot_pos) + ".sc16";
-    } else {
-        iq_file += ".sc16";
-    }
-    return iq_file;
-}
-
 void log_config(const CaptureConfig& cfg, const std::string& iq_file,
                 long long audio_samples, long long iq_samples) {
     log_info() << "OPS-SAT PRETTY SDR RF Capture\n";
@@ -283,7 +254,10 @@ void log_config(const CaptureConfig& cfg, const std::string& iq_file,
     log_info() << "I/Q file:    " << iq_file << "\n";
     log_info() << "URI:         " << cfg.uri << "\n";
     log_info() << "Frequency:   " << cfg.frequency / 1e6 << " MHz\n";
-    log_info() << "Rate:        " << cfg.sample_rate << " Hz\n";
+    log_info() << "SDR rate:    " << cfg.sdr_rate << " Hz (AD9361 hardware)\n";
+    log_info() << "Decimation:  " << cfg.decimation << "x\n";
+    log_info() << "Eff. rate:   " << cfg.effective_rate << " Hz (post-LPF)\n";
+    log_info() << "RF BW:       " << cfg.rf_bandwidth << " Hz\n";
     log_info() << "Audio rate:  " << cfg.audio_rate << " Hz\n";
     log_info() << "Gain:        " << cfg.gain << " dB\n";
     log_info() << "FM Dev:      " << cfg.fm_deviation << " Hz\n";
@@ -296,257 +270,25 @@ void log_config(const CaptureConfig& cfg, const std::string& iq_file,
     log_info() << "Expected .sc16:  " << (double)iq_samples * 4.0 / (1024.0 * 1024.0) << " MiB\n";
 }
 
-// Safe IIO channel attribute read — returns empty string on failure.
-// iio_channel_attr_read() does not guarantee NUL-termination, so we
-// construct std::string from (buf, n) to avoid reading past the payload.
-static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
-    char buf[256];
-    ssize_t n = iio_channel_attr_read(ch, attr, buf, sizeof(buf));
-    if (n <= 0) return "";
-    if ((size_t)n >= sizeof(buf)) {
-        log_warning() << "IIO attr '" << attr << "' truncated (" << n << " bytes, buf=" << sizeof(buf) << ")\n";
-        // Accept truncated prefix — numeric attrs like sampling_frequency fit in 256 bytes,
-        // so truncation here is unexpected but the prefix is still useful for parsing/logging.
-        buf[sizeof(buf) - 1] = '\0';
-        return std::string(buf, sizeof(buf) - 1);
-    }
-    return std::string(buf, (size_t)n);
-}
-
-// Read back actual AD9361 configuration and warn if values differ from requested.
-// Returns false if sample rate mismatch detected (fatal for downlink budget correctness).
-bool readback_iio_config(struct iio_device* phy, const CaptureConfig& cfg) {
-    // RX LO frequency
-    struct iio_channel* rx_lo = iio_device_find_channel(phy, "altvoltage0", true);
-    if (rx_lo) {
-        std::string val = iio_attr_read_str(rx_lo, "frequency");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX LO readback: " << val << " Hz\n";
-            try {
-                long long actual_freq = std::stoll(trim(val));
-                if (actual_freq != cfg.frequency) {
-                    log_warning() << "RX LO mismatch — requested " << cfg.frequency
-                                << " Hz, got " << actual_freq << " Hz\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse RX LO frequency: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-    }
-
-    // RX channel attributes (voltage0, input) — sample rate confirmation is mandatory
-    // for downlink budget correctness. All failure modes are fatal.
-    struct iio_channel* rx0 = iio_device_find_channel(phy, "voltage0", false);
-    if (!rx0) {
-        log_error() << "FATAL: could not find RX channel voltage0 — "
-                    << "cannot confirm sample rate for budget correctness\n";
-        return false;
-    }
-    {
-        std::string val;
-
-        val = iio_attr_read_str(rx0, "sampling_frequency");
-        if (val.empty()) {
-            log_error() << "FATAL: could not read sampling_frequency — "
-                        << "cannot confirm sample rate for budget correctness\n";
-            return false;
-        }
-        log_info() << "AD9361 sample rate readback: " << val << " Hz\n";
-        try {
-            long actual_rate = std::stol(trim(val));
-            if (actual_rate != cfg.sample_rate) {
-                log_error() << "FATAL: sample rate mismatch — requested " << cfg.sample_rate
-                            << " Hz, got " << actual_rate
-                            << " Hz (invalidates downlink budget and file size expectations)\n";
-                return false;
-            }
-        } catch (const std::exception& e) {
-            log_error() << "FATAL: could not parse sampling_frequency '" << val
-                        << "' (" << e.what()
-                        << ") — cannot confirm sample rate for budget correctness\n";
-            return false;
-        }
-
-        val = iio_attr_read_str(rx0, "rf_bandwidth");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX RF bandwidth readback: " << val << " Hz\n";
-        }
-
-        val = iio_attr_read_str(rx0, "gain_control_mode");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX gain control mode: " << val << "\n";
-            std::string mode = trim(val);
-            if (mode != "manual") {
-                log_warning() << "gain control mode mismatch — requested manual, got " << mode << "\n";
-            }
-        }
-
-        val = iio_attr_read_str(rx0, "hardwaregain");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX hardware gain: " << val << "\n";
-            try {
-                double actual_gain = std::stod(trim(val));
-                if (std::abs(actual_gain - cfg.gain) > 0.5) {
-                    log_warning() << "RX gain mismatch — requested " << cfg.gain
-                                << " dB, got " << actual_gain << " dB\n";
-                }
-            } catch (const std::exception& e) {
-                log_warning() << "could not parse hardwaregain: " << val
-                              << " (" << e.what() << ")\n";
-            }
-        }
-
-        val = iio_attr_read_str(rx0, "rssi");
-        if (!val.empty()) {
-            log_info() << "AD9361 RX RSSI: " << val << "\n";
-        }
-    }
-
-    return true;
-}
-
-// Check sc16 file for clipping and peak magnitude. Reads first and last
-// `check_seconds` worth of samples. Sets clip_rate and peak_abs (0-32768 scale).
-void check_sc16_quality(const std::string& path, long sample_rate,
-                        double& clip_rate, int& peak_abs, double check_seconds = 2.0) {
-    clip_rate = -1.0;
-    peak_abs = 0;
-
-    if (sample_rate <= 0) return;
-
-    std::ifstream f(path, std::ios::binary | std::ios::ate);
-    if (!f.is_open()) return;
-
-    long long file_bytes = (long long)f.tellg();
-    if (file_bytes < 0) return;
-    if (file_bytes % 4 != 0)
-        log_warning() << "sc16 file not multiple of 4 bytes (truncated?)\n";
-    long long total_pairs = file_bytes / 4;  // 2 shorts per complex sample
-    if (total_pairs == 0) return;
-    long long check_pairs = (long long)(check_seconds * sample_rate);
-    if (check_pairs > total_pairs) check_pairs = total_pairs;
-
-    long long clipped = 0;
-    long long checked = 0;
-    std::vector<int16_t> buf(4096);
-
-    auto scan_region = [&](long long start_pair, long long num_pairs) {
-        f.clear();
-        f.seekg(start_pair * 4, std::ios::beg);
-        long long remaining = num_pairs * 2;  // number of int16 values
-        while (remaining > 0 && f.good()) {
-            long long to_read = std::min(remaining, (long long)buf.size());
-            f.read(reinterpret_cast<char*>(buf.data()), to_read * sizeof(int16_t));
-            long long got = f.gcount() / sizeof(int16_t);
-            if (got <= 0) break;
-            for (long long i = 0; i < got; i++) {
-                int abs_val = std::abs((int)buf[i]);
-                if (abs_val > peak_abs) peak_abs = abs_val;
-                if (buf[i] == 32767 || buf[i] == -32768) clipped++;
-            }
-            checked += got;
-            remaining -= got;
-        }
-    };
-
-    // Check first N seconds
-    scan_region(0, check_pairs);
-
-    // Check last N seconds (if file is long enough to not overlap)
-    if (total_pairs > check_pairs * 2) {
-        scan_region(total_pairs - check_pairs, check_pairs);
-    }
-
-    if (checked <= 0) return;  // keep clip_rate = -1.0
-    clip_rate = (double)clipped / checked;
-}
-
-// RMS normalize a WAV file to target_dbfs (e.g. -20 dBFS -> target_rms = 0.1)
-bool rms_normalize(const std::string& wav_path, double target_dbfs) {
-    double target_rms = std::pow(10.0, target_dbfs / 20.0);
-
-    SF_INFO sf_info = {0};
-    SNDFILE* sf = sf_open(wav_path.c_str(), SFM_READ, &sf_info);
-    if (!sf) {
-        log_error() << "RMS normalize: Could not open " << wav_path << ": " << sf_strerror(NULL) << "\n";
-        return false;
-    }
-    if (sf_info.channels <= 0) {
-        log_error() << "RMS normalize: invalid channel count\n";
-        sf_close(sf);
-        return false;
-    }
-
-    // Read all samples
-    std::vector<float> samples((size_t)sf_info.frames * (size_t)sf_info.channels);
-    sf_count_t read = sf_readf_float(sf, samples.data(), sf_info.frames);
-    sf_close(sf);
-
-    if (read <= 0) {
-        log_error() << "RMS normalize: No samples read from " << wav_path << "\n";
-        return false;
-    }
-    size_t valid = (size_t)read * (size_t)sf_info.channels;
-    samples.resize(valid);
-
-    // Compute RMS over actual read samples only
-    double sum_sq = 0.0;
-    for (size_t i = 0; i < valid; i++) {
-        sum_sq += (double)samples[i] * samples[i];
-    }
-    double rms = std::sqrt(sum_sq / valid);
-
-    if (rms < 1e-10) {
-        log_error() << "RMS normalize: Signal is silent, skipping normalization\n";
-        return true;
-    }
-
-    // Scale to target RMS
-    double scale = target_rms / rms;
-    log_info() << "RMS normalize: rms=" << rms << ", scale=" << scale
-               << ", target=" << target_dbfs << " dBFS\n";
-
-    for (size_t i = 0; i < samples.size(); i++) {
-        float s = samples[i] * (float)scale;
-        // Soft-clip at +/-1.0
-        if (s > 1.0f) s = 1.0f;
-        else if (s < -1.0f) s = -1.0f;
-        samples[i] = s;
-    }
-
-    // Rewrite WAV
-    SF_INFO out_info = sf_info;
-    out_info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
-    SNDFILE* out = sf_open(wav_path.c_str(), SFM_WRITE, &out_info);
-    if (!out) {
-        log_error() << "RMS normalize: Could not write " << wav_path << ": " << sf_strerror(NULL) << "\n";
-        return false;
-    }
-    sf_writef_float(out, samples.data(), read);
-    sf_close(out);
-
-    return true;
-}
-
 // Build GNU Radio flowgraph, run capture, then post-process audio.
-// interp/decim are the GCD-reduced resampler ratio (sample_rate -> audio_rate).
-int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
+// interp/decim are the GCD-reduced resampler ratio (effective_rate -> audio_rate).
+int run_capture(const CaptureConfig& cfg,
                 const std::string& iq_file,
                 long long audio_samples, long long iq_samples,
                 unsigned long interpolation, unsigned long decimation) {
-    if (cfg.sample_rate <= 0 || cfg.audio_rate <= 0) {
-        log_error() << "Invalid rates: sample_rate and audio_rate must be > 0\n";
+    if (cfg.effective_rate <= 0 || cfg.audio_rate <= 0) {
+        log_error() << "Invalid rates: effective_rate and audio_rate must be > 0\n";
         return 1;
     }
 
-    log_info() << "Resample: " << cfg.sample_rate << " -> " << cfg.audio_rate
+    log_info() << "Resample: " << cfg.effective_rate << " -> " << cfg.audio_rate
                << " (interp=" << interpolation << ", decim=" << decimation << ")\n";
 
     // Validate DSP parameters before designing filter taps
-    if (cfg.lpf_cutoff <= 0 || cfg.lpf_cutoff >= cfg.sample_rate / 2.0) {
+    // LPF cutoff is validated against sdr_rate (LPF input rate before decimation)
+    if (cfg.lpf_cutoff <= 0 || cfg.lpf_cutoff >= cfg.sdr_rate / 2.0) {
         log_error() << "LPF cutoff " << cfg.lpf_cutoff << " Hz out of range (0, "
-                    << cfg.sample_rate / 2.0 << " Hz)\n";
+                    << cfg.sdr_rate / 2.0 << " Hz)\n";
         return 1;
     }
     if (cfg.lpf_transition <= 0) {
@@ -560,12 +302,13 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
         return 1;
     }
 
-    // Design LPF taps (complex bandpass, low-pass around DC)
+    // Design LPF taps at sdr_rate (input rate before decimation)
     std::vector<float> lpf_taps = gr::filter::firdes::low_pass(
-        1.0, cfg.sample_rate, cfg.lpf_cutoff, cfg.lpf_transition,
+        1.0, cfg.sdr_rate, cfg.lpf_cutoff, cfg.lpf_transition,
         gr::fft::window::WIN_HAMMING
     );
-    log_info() << "LPF taps: " << lpf_taps.size() << "\n";
+    log_info() << "LPF taps: " << lpf_taps.size()
+               << " (designed at " << cfg.sdr_rate << " Hz, decim=" << cfg.decimation << ")\n";
 
     // Design audio bandpass taps
     std::vector<float> bp_taps = gr::filter::firdes::band_pass(
@@ -574,46 +317,90 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
     );
     log_info() << "Bandpass taps: " << bp_taps.size() << "\n";
 
-    if (!phy) {
-        log_error() << "No ad9361-phy device for readback\n";
-        return 1;
-    }
-    if (!readback_iio_config(phy, cfg)) {
-        return 1;
+    // --- Configure AD9361 via libiio ---
+    // Write all attributes before building the flowgraph. The device_source
+    // iio_param_vec_t mechanism does not reliably apply attributes on the
+    // flatsat (regression from fmcomms2_source migration). Direct libiio
+    // writes match the OPS-SAT SDR experimenter code template approach.
+    {
+        struct iio_context* cfg_ctx = iio_create_context_from_uri(cfg.uri.c_str());
+        if (!cfg_ctx) {
+            log_error() << "Could not connect to IIO for config at " << cfg.uri << "\n";
+            return 1;
+        }
+        struct iio_device* phy = iio_context_find_device(cfg_ctx, "ad9361-phy");
+        if (!phy) {
+            log_error() << "No ad9361-phy device for config\n";
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (!write_iio_rx_config(phy, cfg.frequency, (long long)cfg.sdr_rate,
+                                 (long long)cfg.rf_bandwidth, cfg.gain)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (cfg.min_readback) {
+            log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
+        }
+        if (!readback_iio_rx_config(phy, cfg.frequency, (long long)cfg.sdr_rate,
+                                    (long long)cfg.rf_bandwidth, cfg.gain,
+                                    cfg.rate_tolerance, !cfg.min_readback)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        iio_context_destroy(cfg_ctx);
     }
 
     // --- Build flowgraph ---
-    // Wrap construction + connection + start in try/catch — GNU Radio blocks can throw
-    // on bad parameters, missing IIO devices, file I/O errors, etc.
+    // Retry loop handles stale IIO connections from previously crashed captures.
+    // When a capture process is killed by a signal, the IIO server (especially
+    // network-based like iio-emu) may take time to detect the dead TCP connection
+    // and free the connection slot. Retrying gives it time to recover.
+    // On local IIO (real hardware), the first attempt always succeeds.
     gr::top_block_sptr tb;
     gr::blocks::head::sptr iq_head, head;
 
+    const int MAX_BUILD_ATTEMPTS = 3;
+    const int BUILD_RETRY_DELAY_SEC = 5;
+
+    for (int attempt = 1; ; attempt++) {
     try {
         log_info() << "Building flowgraph...\n";
         tb = gr::make_top_block("capture_loop");
 
-        std::vector<bool> rx_ch_en = {true, false};
+        // IIO RX source — uses device_source directly instead of
+        // fmcomms2_source_fc32 to avoid the overflow-check thread that
+        // crashes when FPGA register reads are unsupported (the thread
+        // throws std::runtime_error -> std::terminate).
+        // AD9361 attributes are written via direct libiio calls in
+        // write_iio_rx_config() before the build loop — device_source's
+        // iio_param_vec_t mechanism does not reliably apply them.
+        gr::iio::iio_param_vec_t no_params;
+        std::vector<std::string> iio_channels = {"voltage0", "voltage1"};
+        auto iio_src = gr::iio::device_source::make(
+            cfg.uri, "cf-ad9361-lpc", iio_channels, "ad9361-phy",
+            no_params, 0x8000);
 
-        // IIO RX source
-        auto iio_src = gr::iio::fmcomms2_source_fc32::make(cfg.uri, rx_ch_en, 0x8000);
-        iio_src->set_frequency(cfg.frequency);
-        iio_src->set_samplerate(cfg.sample_rate);
-        iio_src->set_gain_mode(0, "manual");
-        iio_src->set_gain(0, cfg.gain);
-        iio_src->set_quadrature(true);
-        iio_src->set_rfdc(true);
-        iio_src->set_bbdc(true);
-        iio_src->set_filter_params("auto", "", 0, 0);
+        // Convert device_source shorts to gr_complex.
+        // device_source outputs int16 per IIO channel (voltage0=I, voltage1=Q).
+        // AD9361 ADC is 12-bit: divide by 2048.0 to normalize to ~+/-1.0
+        // (same conversion that fmcomms2_source_fc32::work() performs internally).
+        auto i_s2f  = gr::blocks::short_to_float::make(1, 2048.0f);
+        auto q_s2f  = gr::blocks::short_to_float::make(1, 2048.0f);
+        auto to_fc32 = gr::blocks::float_to_complex::make(1);
 
-        // DSP blocks
-        auto lpf       = gr::filter::fir_filter_ccf::make(1, lpf_taps);
+        // DSP blocks — LPF decimates from sdr_rate to effective_rate
+        auto lpf       = gr::filter::fir_filter_ccf::make(cfg.decimation, lpf_taps);
         auto to_short  = gr::blocks::complex_to_interleaved_short::make(false, IQ_SCALE);
         iq_head        = gr::blocks::head::make(sizeof(gr_complex), iq_samples);
-        // iq_samples counts complex samples; sink writes 2 int16 per sample (I,Q) => 4 bytes/sample
+        // iq_samples counts complex samples at effective_rate (post-LPF);
+        // sink writes 2 int16 per sample (I,Q) => 4 bytes/sample
         auto iq_sink   = gr::blocks::file_sink::make(sizeof(short), iq_file.c_str(), false);
+        // FM demod operates at effective_rate (post-LPF output)
         auto fm_demod  = gr::analog::quadrature_demod_cf::make(
-            cfg.sample_rate / (2.0 * M_PI * cfg.fm_deviation)
+            cfg.effective_rate / (2.0 * M_PI * cfg.fm_deviation)
         );
+        // Resample from effective_rate to audio_rate
         auto resampler = gr::filter::rational_resampler_fff::make(interpolation, decimation);
         auto bandpass  = gr::filter::fir_filter_fff::make(1, bp_taps);
         head           = gr::blocks::head::make(sizeof(float), audio_samples);
@@ -622,8 +409,12 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
             gr::blocks::FORMAT_WAV, gr::blocks::FORMAT_PCM_16
         );
 
-        // Connect: IIO src -> LPF -> (I/Q branch + audio branch)
-        tb->connect(iio_src, 0, lpf, 0);
+        // Connect: IIO src (shorts) -> fc32 conversion -> LPF -> branches
+        tb->connect(iio_src, 0, i_s2f, 0);
+        tb->connect(iio_src, 1, q_s2f, 0);
+        tb->connect(i_s2f, 0, to_fc32, 0);
+        tb->connect(q_s2f, 0, to_fc32, 1);
+        tb->connect(to_fc32, 0, lpf, 0);
 
         // Branch 1: LPF -> head -> sc16 conversion -> file_sink (.sc16)
         tb->connect(lpf, 0, iq_head, 0);
@@ -639,31 +430,60 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
 
         // --- Start ---
         log_info() << "Starting capture for " << cfg.duration << " seconds...\n";
+
         tb->start();
+        break;  // flowgraph started — exit retry loop
     } catch (const std::exception& e) {
-        log_error() << "FATAL: flowgraph build/start failed: " << e.what() << "\n";
-        return 1;
+        // Release partial resources (including any IIO contexts held by GNU Radio blocks)
+        tb.reset();
+        iq_head.reset();
+        head.reset();
+
+        if (attempt >= MAX_BUILD_ATTEMPTS) {
+            log_error() << "FATAL: flowgraph build/start failed after "
+                        << MAX_BUILD_ATTEMPTS << " attempts: " << e.what() << "\n";
+            return 1;
+        }
+        log_warning() << "Flowgraph attempt " << attempt << "/" << MAX_BUILD_ATTEMPTS
+                      << " failed: " << e.what()
+                      << " — retrying in " << BUILD_RETRY_DELAY_SEC << "s\n";
+        std::this_thread::sleep_for(std::chrono::seconds(BUILD_RETRY_DELAY_SEC));
     }
+    } // end retry loop
 
     auto start_time = std::chrono::steady_clock::now();
-    int timeout_sec = cfg.duration * 2 + 10;
-    log_info() << "Timeout:  " << timeout_sec << " seconds (2x duration + 10)\n";
+    int timeout_sec = cfg.duration * 3 + 10;
+    log_info() << "Timeout:  " << timeout_sec << " seconds (3x duration + 10)\n";
 
     bool timed_out = false;
     while (g_running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        bool audio_done = head->nitems_written(0) >= (uint64_t)audio_samples;
+        auto elapsed = std::chrono::steady_clock::now() - start_time;
+        auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
+
         bool iq_done = iq_head->nitems_written(0) >= (uint64_t)iq_samples;
-        if (audio_done && iq_done) {
-            log_info() << "Capture complete (audio: " << head->nitems_written(0)
-                       << ", I/Q: " << iq_head->nitems_written(0) << " samples)\n";
+        if (iq_done) {
+            // Grace period: let the scheduler drain the I/Q pipeline
+            // (head -> complex_to_interleaved_short -> file_sink) before we
+            // call tb->stop().  Without this, in-flight buffer items could
+            // be lost, producing a slightly short sc16 file.
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            log_info() << "Capture complete (I/Q: " << iq_head->nitems_written(0)
+                       << "/" << iq_samples << ", audio: " << head->nitems_written(0)
+                       << "/" << audio_samples << " samples, " << elapsed_sec << "s)\n";
             break;
         }
 
-        auto elapsed = std::chrono::steady_clock::now() - start_time;
+        // Progress every 5 seconds
+        if (elapsed_sec > 0 && elapsed_sec % 5 == 0 &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() % 5000 < 100) {
+            log_info() << "Progress [" << elapsed_sec << "s]: I/Q "
+                       << iq_head->nitems_written(0) << "/" << iq_samples
+                       << ", audio " << head->nitems_written(0) << "/" << audio_samples << "\n";
+        }
+
         if (elapsed >= std::chrono::seconds(timeout_sec)) {
-            auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
             log_error() << "Timeout after " << elapsed_sec << " seconds"
                         << " (audio: " << head->nitems_written(0) << "/" << audio_samples
                         << ", I/Q: " << iq_head->nitems_written(0) << "/" << iq_samples << ")\n";
@@ -766,7 +586,7 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
                                   << " not a multiple of 4 bytes (truncated write?)\n";
                 }
                 long long actual_samples = actual_bytes / 4;
-                double actual_duration = (double)actual_samples / cfg.sample_rate;
+                double actual_duration = (double)actual_samples / cfg.effective_rate;
                 if (early_stop) {
                     // On early stop, just report what's on disk — don't compare to expected
                     log_info() << "sc16 file: " << actual_bytes << " bytes, "
@@ -802,12 +622,12 @@ int run_capture(const CaptureConfig& cfg, struct iio_device* phy,
     // Check for I/Q clipping and peak magnitude (still useful on partial captures)
     double clip_rate;
     int peak_abs;
-    check_sc16_quality(iq_file, cfg.sample_rate, clip_rate, peak_abs);
+    check_sc16_quality(iq_file, (long long)cfg.effective_rate, clip_rate, peak_abs);
     if (clip_rate >= 0.0) {
         double peak_dbfs = (peak_abs > 0) ? 20.0 * std::log10((double)peak_abs / IQ_SCALE) : -999.0;
         log_info() << "sc16 peak: " << peak_abs << "/" << (int)IQ_SCALE
                    << " (" << peak_dbfs << " dBFS@IQ_SCALE)\n";
-        log_info() << "sc16 rail hit rate: " << (clip_rate * 100.0) << "% (per int16, ±32767)\n";
+        log_info() << "sc16 rail hit rate: " << (clip_rate * 100.0) << "% (per int16, +/-32767)\n";
         if (clip_rate > 0.01) {
             log_warning() << "sc16 rail hit rate " << (clip_rate * 100.0)
                         << "% exceeds 1% — RX may be saturating (reduce gain)\n";
@@ -836,12 +656,27 @@ int main(int argc, char* argv[]) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
+    // Pin to CPU 0 if requested — serializes all GNU Radio scheduler threads
+    // onto one core to diagnose multi-threading race conditions.
+    if (cfg.single_core) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(0, &cpuset);
+        if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0) {
+            log_info() << "Pinned to CPU 0 (--single-core)\n";
+        } else {
+            log_warning() << "sched_setaffinity failed: " << strerror(errno)
+                          << " (continuing without CPU pinning)\n";
+        }
+    }
+
     // Cap duration to stay within downlink budget (sc16: 4 bytes per complex sample)
+    // File is written at effective_rate (post-LPF decimation)
     const long long max_iq_bytes = (long long)cfg.max_iq_mb * 1024LL * 1024;
-    int max_duration = (int)(max_iq_bytes / ((long long)cfg.sample_rate * 4LL));
+    int max_duration = (int)(max_iq_bytes / ((long long)cfg.effective_rate * 4LL));
     log_info() << "Capture cap:  " << max_duration << "s ("
                << cfg.max_iq_mb << " MiB @ "
-               << cfg.sample_rate << " SPS sc16)\n";
+               << cfg.effective_rate << " SPS sc16)\n";
     if (cfg.duration > max_duration) {
         log_warning() << "duration " << cfg.duration << "s exceeds cap, truncating\n";
         cfg.duration = max_duration;
@@ -852,16 +687,17 @@ int main(int argc, char* argv[]) {
     }
     log_info() << "Effective duration: " << cfg.duration << " sec\n";
 
-    long long iq_samples = (long long)cfg.duration * (long long)cfg.sample_rate;
+    // I/Q samples counted at effective_rate (post-LPF output rate)
+    long long iq_samples = (long long)cfg.duration * (long long)cfg.effective_rate;
     // Use actual resampler ratio (interp/decim via GCD) for exact integer math.
-    // Divide before multiply to avoid overflow in the intermediate product.
-    unsigned long gcd_rates = std::gcd((unsigned long)cfg.sample_rate, (unsigned long)cfg.audio_rate);
+    // Resampler operates on effective_rate -> audio_rate.
+    unsigned long gcd_rates = std::gcd((unsigned long)cfg.effective_rate, (unsigned long)cfg.audio_rate);
     unsigned long interp = cfg.audio_rate / gcd_rates;
-    unsigned long decim = cfg.sample_rate / gcd_rates;
+    unsigned long decim = cfg.effective_rate / gcd_rates;
     // Sanity cap: absurd ratios produce huge FIR filter tap counts and blow memory
     if (interp > 1000 || decim > 1000) {
         log_error() << "Resampler ratio " << interp << "/" << decim
-                    << " too large (sample_rate=" << cfg.sample_rate
+                    << " too large (effective_rate=" << cfg.effective_rate
                     << ", audio_rate=" << cfg.audio_rate
                     << ") — choose rates with a reasonable GCD\n";
         return 1;
@@ -881,29 +717,13 @@ int main(int argc, char* argv[]) {
 
     log_config(cfg, iq_file, audio_samples, iq_samples);
 
-    // Create IIO context once, reuse for readback and throughout capture
-    log_info() << "Connecting to IIO context...\n";
-    struct iio_context* ctx = iio_create_context_from_uri(cfg.uri.c_str());
-    if (!ctx) {
-        log_error() << "Could not connect to IIO context at " << cfg.uri << "\n";
-        return 1;
-    }
-
-    struct iio_device* phy = iio_context_find_device(ctx, "ad9361-phy");
-    if (!phy) {
-        log_error() << "Could not find ad9361-phy device\n";
-        iio_context_destroy(ctx);
-        return 1;
-    }
-
     int rc;
     try {
-        rc = run_capture(cfg, phy, iq_file, audio_samples, iq_samples, interp, decim);
+        rc = run_capture(cfg, iq_file, audio_samples, iq_samples, interp, decim);
     } catch (const std::exception& e) {
         log_error() << e.what() << "\n";
         rc = 1;
     }
 
-    iio_context_destroy(ctx);
     return rc;
 }

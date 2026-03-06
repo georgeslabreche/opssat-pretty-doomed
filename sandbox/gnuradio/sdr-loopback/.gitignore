@@ -1,6 +1,7 @@
 build/
-io/
+input/
 package/
 toGround/
 libs-gnuradio/
+artifacts/
 *.o

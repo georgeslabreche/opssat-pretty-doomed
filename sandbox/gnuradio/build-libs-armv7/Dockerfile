@@ -50,7 +50,7 @@ RUN git clone --depth 1 --branch ${LIBIIO_VERSION} \
     cp /build/libiio/iio.h /usr/include/ && \
     ln -sf /usr/lib/libiio.so.0 /usr/lib/libiio.so
 
-# Build libad9361-iio (required for fmcomms2 blocks in gr-iio)
+# Build libad9361-iio (required by gr-iio for AD9361 parameter handling)
 ARG LIBAD9361_VERSION=v0.3
 RUN git clone --depth 1 --branch ${LIBAD9361_VERSION} \
     https://github.com/analogdevicesinc/libad9361-iio.git /build/libad9361-iio
@@ -109,7 +109,7 @@ RUN mkdir -p /output/lib /output/include && \
     # Include VOLK library (required runtime dependency)
     cp -P /usr/lib/libvolk*.so* /output/lib/ && \
     cp -r /usr/include/volk /output/include/ && \
-    # Include libad9361 (required for fmcomms2 blocks)
+    # Include libad9361 (required by gr-iio for AD9361 parameter handling)
     cp -P /usr/lib/libad9361*.so* /output/lib/ && \
     cp /usr/include/ad9361.h /output/include/
 

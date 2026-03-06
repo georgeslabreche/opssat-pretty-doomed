@@ -1,12 +1,14 @@
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
+LDFLAGS = -Wl,-z,stack-size=8388608
 
 # Package version (change this for new releases)
-PACKAGE_VERSION = v1
+PACKAGE_VERSION = v3
 PACKAGE_NAME = exp4023-sdr-loopback-$(PACKAGE_VERSION)
 
 # GNU Radio libraries
 GNURADIO_PREFIX = /opt/gnuradio
+COMMON_CFLAGS = -I/app/common/include
 GNURADIO_CFLAGS = -I$(GNURADIO_PREFIX)/include
 GNURADIO_LIBS = -L$(GNURADIO_PREFIX)/lib \
 	-lgnuradio-runtime -lgnuradio-blocks -lgnuradio-filter \
@@ -21,12 +23,12 @@ TARGET = $(BUILDDIR)/loopback_test
 
 SOURCES = $(SRCDIR)/loopback_test.cpp
 
-.PHONY: all clean test package-prepare package-samples package-tar
+.PHONY: all clean test test-iio package-prepare package-samples package-tar
 
 all: $(TARGET)
 
 $(TARGET): $(SOURCES) | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) $(SOURCES) -o $@ $(GNURADIO_LIBS)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SOURCES) -o $@ $(GNURADIO_LIBS) $(LDFLAGS)
 
 $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
@@ -34,6 +36,14 @@ $(BUILDDIR):
 clean:
 	rm -rf $(BUILDDIR)
 	rm -rf toGround
+
+# Standalone IIO config write+readback test (no GNU Radio dependency)
+TEST_IIO = $(BUILDDIR)/test_iio_config
+$(TEST_IIO): /app/common/test/test_iio_config.cpp | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $< -o $@ -liio
+
+test-iio: $(TEST_IIO)
+	./$(TEST_IIO) ip:sdr-emu:30431
 
 # Test with sample file (uses config.cfg defaults)
 test: $(TARGET)
