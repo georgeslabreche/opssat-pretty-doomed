@@ -179,7 +179,7 @@ docker-compose run --rm sdr-capture make package-prepare
 make package-tar
 ```
 
-Creates `package/exp4023-sdr-capture-v6.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
+Creates `package/exp4023-sdr-capture-v7.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
 
 ### Bundled Libraries
 
