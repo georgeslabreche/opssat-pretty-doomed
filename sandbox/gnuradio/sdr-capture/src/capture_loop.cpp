@@ -370,6 +370,53 @@ static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
     return std::string(buf, (size_t)n);
 }
 
+// Write AD9361 configuration via direct libiio calls.
+// The device_source iio_param_vec_t mechanism does not reliably apply attributes
+// on all hardware/emulator configurations. Direct iio_channel_attr_write calls
+// (matching the OPS-SAT SDR experimenter code template) are authoritative.
+bool write_iio_config(struct iio_device* phy, const CaptureConfig& cfg) {
+    struct iio_channel* rx_lo = iio_device_find_channel(phy, "altvoltage0", true);
+    struct iio_channel* rx0 = iio_device_find_channel(phy, "voltage0", false);
+    if (!rx_lo || !rx0) {
+        log_error() << "FATAL: could not find RX LO or voltage0 channel for config write\n";
+        return false;
+    }
+
+    int ret;
+    ret = iio_channel_attr_write_longlong(rx_lo, "frequency", (long long)cfg.frequency);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write RX LO frequency (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write_longlong(rx0, "sampling_frequency", (long long)cfg.sdr_rate);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write sampling_frequency (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write_longlong(rx0, "rf_bandwidth", (long long)cfg.rf_bandwidth);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write rf_bandwidth (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write(rx0, "gain_control_mode", "manual");
+    if (ret < 0) {
+        log_error() << "FATAL: could not write gain_control_mode (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write_double(rx0, "hardwaregain", cfg.gain);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write hardwaregain (ret=" << ret << ")\n";
+        return false;
+    }
+
+    log_info() << "AD9361 RX config written via libiio\n";
+    return true;
+}
+
 // Read back actual AD9361 configuration and warn if values differ from requested.
 // When strict=true, sample rate mismatch is fatal (returns false).
 // When strict=false (--min-readback), sample rate mismatch is a warning (returns true).
@@ -669,6 +716,37 @@ int run_capture(const CaptureConfig& cfg,
     );
     log_info() << "Bandpass taps: " << bp_taps.size() << "\n";
 
+    // --- Configure AD9361 via libiio ---
+    // Write all attributes before building the flowgraph. The device_source
+    // iio_param_vec_t mechanism does not reliably apply attributes on the
+    // flatsat (regression from fmcomms2_source migration). Direct libiio
+    // writes match the OPS-SAT SDR experimenter code template approach.
+    {
+        struct iio_context* cfg_ctx = iio_create_context_from_uri(cfg.uri.c_str());
+        if (!cfg_ctx) {
+            log_error() << "Could not connect to IIO for config at " << cfg.uri << "\n";
+            return 1;
+        }
+        struct iio_device* phy = iio_context_find_device(cfg_ctx, "ad9361-phy");
+        if (!phy) {
+            log_error() << "No ad9361-phy device for config\n";
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (!write_iio_config(phy, cfg)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (cfg.min_readback) {
+            log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
+        }
+        if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        iio_context_destroy(cfg_ctx);
+    }
+
     // --- Build flowgraph ---
     // Retry loop handles stale IIO connections from previously crashed captures.
     // When a capture process is killed by a signal, the IIO server (especially
@@ -690,48 +768,14 @@ int run_capture(const CaptureConfig& cfg,
         // fmcomms2_source_fc32 to avoid the overflow-check thread that
         // crashes when FPGA register reads are unsupported (the thread
         // throws std::runtime_error → std::terminate).
-        gr::iio::iio_param_vec_t ad9361_params;
-        ad9361_params.emplace_back("out_altvoltage0_RX_LO_frequency",
-                                   static_cast<unsigned long long>(cfg.frequency));
-        ad9361_params.emplace_back("in_voltage0_sampling_frequency",
-                                   static_cast<unsigned long>(cfg.sdr_rate));
-        ad9361_params.emplace_back("in_voltage0_rf_bandwidth",
-                                   static_cast<unsigned long>(cfg.rf_bandwidth));
-        ad9361_params.emplace_back("in_voltage0_gain_control_mode=manual");
-        ad9361_params.emplace_back("in_voltage0_hardwaregain", cfg.gain);
-        ad9361_params.emplace_back("in_voltage_quadrature_tracking_en", 1);
-        ad9361_params.emplace_back("in_voltage_rf_dc_offset_tracking_en", 1);
-        ad9361_params.emplace_back("in_voltage_bb_dc_offset_tracking_en", 1);
-
+        // AD9361 attributes are written via direct libiio calls in
+        // write_iio_config() before the build loop — device_source's
+        // iio_param_vec_t mechanism does not reliably apply them.
+        gr::iio::iio_param_vec_t no_params;
         std::vector<std::string> iio_channels = {"voltage0", "voltage1"};
         auto iio_src = gr::iio::device_source::make(
             cfg.uri, "cf-ad9361-lpc", iio_channels, "ad9361-phy",
-            ad9361_params, 0x8000);
-
-        // Readback validation with a temporary IIO context.
-        // Destroyed before tb->start() so only GNU Radio's internal context(s)
-        // exist during flowgraph execution.
-        {
-            struct iio_context* rb_ctx = iio_create_context_from_uri(cfg.uri.c_str());
-            if (!rb_ctx) {
-                log_error() << "Could not connect to IIO for readback at " << cfg.uri << "\n";
-                return 1;
-            }
-            struct iio_device* phy = iio_context_find_device(rb_ctx, "ad9361-phy");
-            if (!phy) {
-                log_error() << "No ad9361-phy device for readback\n";
-                iio_context_destroy(rb_ctx);
-                return 1;
-            }
-            if (cfg.min_readback) {
-                log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
-            }
-            if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
-                iio_context_destroy(rb_ctx);
-                return 1;
-            }
-            iio_context_destroy(rb_ctx);
-        }
+            no_params, 0x8000);
 
         // Convert device_source shorts to gr_complex.
         // device_source outputs int16 per IIO channel (voltage0=I, voltage1=Q).

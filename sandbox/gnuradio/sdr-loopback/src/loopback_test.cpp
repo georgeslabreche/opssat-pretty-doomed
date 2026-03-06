@@ -363,6 +363,83 @@ static std::string iio_attr_read_str(struct iio_channel* ch, const char* attr) {
     return std::string(buf, (size_t)n);
 }
 
+// Write AD9361 configuration via direct libiio calls.
+// The device_source/device_sink iio_param_vec_t mechanism does not reliably apply
+// attributes on all hardware/emulator configurations. Direct iio_channel_attr_write
+// calls (matching the OPS-SAT SDR experimenter code template) are authoritative.
+bool write_iio_config(struct iio_device* phy, const LoopbackConfig& cfg) {
+    struct iio_channel* rx_lo = iio_device_find_channel(phy, "altvoltage0", true);
+    struct iio_channel* tx_lo = iio_device_find_channel(phy, "altvoltage1", true);
+    struct iio_channel* rx0 = iio_device_find_channel(phy, "voltage0", false);
+    struct iio_channel* tx0 = iio_device_find_channel(phy, "voltage0", true);
+    if (!rx_lo || !tx_lo || !rx0 || !tx0) {
+        log_error() << "FATAL: could not find required channels for config write\n";
+        return false;
+    }
+
+    int ret;
+    // RX LO
+    ret = iio_channel_attr_write_longlong(rx_lo, "frequency", (long long)cfg.frequency);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write RX LO frequency (ret=" << ret << ")\n";
+        return false;
+    }
+
+    // TX LO
+    ret = iio_channel_attr_write_longlong(tx_lo, "frequency", (long long)cfg.frequency);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write TX LO frequency (ret=" << ret << ")\n";
+        return false;
+    }
+
+    // RX sample rate + bandwidth + gain
+    ret = iio_channel_attr_write_longlong(rx0, "sampling_frequency", (long long)cfg.sdr_rate);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write RX sampling_frequency (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write_longlong(rx0, "rf_bandwidth", (long long)cfg.rf_bandwidth);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write RX rf_bandwidth (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write(rx0, "gain_control_mode", "manual");
+    if (ret < 0) {
+        log_error() << "FATAL: could not write gain_control_mode (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write_double(rx0, "hardwaregain", cfg.rx_gain);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write RX hardwaregain (ret=" << ret << ")\n";
+        return false;
+    }
+
+    // TX sample rate + bandwidth + attenuation
+    ret = iio_channel_attr_write_longlong(tx0, "sampling_frequency", (long long)cfg.sdr_rate);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write TX sampling_frequency (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write_longlong(tx0, "rf_bandwidth", (long long)cfg.rf_bandwidth);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write TX rf_bandwidth (ret=" << ret << ")\n";
+        return false;
+    }
+
+    ret = iio_channel_attr_write_double(tx0, "hardwaregain", -cfg.tx_attenuation);
+    if (ret < 0) {
+        log_error() << "FATAL: could not write TX hardwaregain (ret=" << ret << ")\n";
+        return false;
+    }
+
+    log_info() << "AD9361 RX+TX config written via libiio\n";
+    return true;
+}
+
 // Read back actual AD9361 configuration and warn if values differ from requested.
 // When strict=true, sample rate mismatch is fatal (returns false).
 // When strict=false (--min-readback), sample rate mismatch is a warning (returns true).
@@ -1025,6 +1102,37 @@ int run_loopback(const LoopbackConfig& cfg,
     );
     log_info() << "Bandpass taps: " << bp_taps.size() << "\n";
 
+    // --- Configure AD9361 via libiio ---
+    // Write all attributes before building the flowgraph. The device_source/
+    // device_sink iio_param_vec_t mechanism does not reliably apply attributes
+    // on the flatsat (regression from fmcomms2_source/sink migration). Direct
+    // libiio writes match the OPS-SAT SDR experimenter code template approach.
+    {
+        struct iio_context* cfg_ctx = iio_create_context_from_uri(cfg.uri.c_str());
+        if (!cfg_ctx) {
+            log_error() << "Could not connect to IIO for config at " << cfg.uri << "\n";
+            return 1;
+        }
+        struct iio_device* phy = iio_context_find_device(cfg_ctx, "ad9361-phy");
+        if (!phy) {
+            log_error() << "No ad9361-phy device for config\n";
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (!write_iio_config(phy, cfg)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        if (cfg.min_readback) {
+            log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
+        }
+        if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
+            iio_context_destroy(cfg_ctx);
+            return 1;
+        }
+        iio_context_destroy(cfg_ctx);
+    }
+
     // --- Build flowgraph ---
     // Retry loop handles stale IIO connections from previously crashed runs.
     // When a process is killed by a signal, the IIO server (especially
@@ -1054,19 +1162,13 @@ int run_loopback(const LoopbackConfig& cfg,
         // TX IIO sink — uses device_sink directly instead of fmcomms2_sink_fc32
         // to avoid the underflow-check thread that crashes when FPGA register
         // reads are unsupported (throws from std::thread → std::terminate).
-        gr::iio::iio_param_vec_t tx_params;
-        tx_params.emplace_back("out_altvoltage1_TX_LO_frequency",
-                               static_cast<unsigned long long>(cfg.frequency));
-        tx_params.emplace_back("out_voltage_sampling_frequency",
-                               static_cast<unsigned long>(cfg.sdr_rate));
-        tx_params.emplace_back("out_voltage_rf_bandwidth",
-                               static_cast<unsigned long>(cfg.rf_bandwidth));
-        tx_params.emplace_back("out_voltage0_hardwaregain", -cfg.tx_attenuation);
-
+        // AD9361 attributes are written via direct libiio calls in
+        // write_iio_config() before the build loop.
+        gr::iio::iio_param_vec_t no_tx_params;
         std::vector<std::string> tx_channels = {"voltage0", "voltage1"};
         auto iio_sink = gr::iio::device_sink::make(
             cfg.uri, "cf-ad9361-dds-core-lpc", tx_channels, "ad9361-phy",
-            tx_params, 0x8000, 0, false);
+            no_tx_params, 0x8000, 0, false);
 
         // TX format conversion: gr_complex → float I/Q → int16
         // fmcomms2_sink_fc32 internally multiplies by 32768.0
@@ -1074,24 +1176,14 @@ int run_loopback(const LoopbackConfig& cfg,
         auto tx_r_to_s16 = gr::blocks::float_to_short::make(1, 32768.0f);
         auto tx_i_to_s16 = gr::blocks::float_to_short::make(1, 32768.0f);
 
-        // RX IIO source — same device_source approach as sdr-capture
-        gr::iio::iio_param_vec_t rx_params;
-        rx_params.emplace_back("out_altvoltage0_RX_LO_frequency",
-                               static_cast<unsigned long long>(cfg.frequency));
-        rx_params.emplace_back("in_voltage0_sampling_frequency",
-                               static_cast<unsigned long>(cfg.sdr_rate));
-        rx_params.emplace_back("in_voltage0_rf_bandwidth",
-                               static_cast<unsigned long>(cfg.rf_bandwidth));
-        rx_params.emplace_back("in_voltage0_gain_control_mode=manual");
-        rx_params.emplace_back("in_voltage0_hardwaregain", cfg.rx_gain);
-        rx_params.emplace_back("in_voltage_quadrature_tracking_en", 1);
-        rx_params.emplace_back("in_voltage_rf_dc_offset_tracking_en", 1);
-        rx_params.emplace_back("in_voltage_bb_dc_offset_tracking_en", 1);
-
+        // RX IIO source — same device_source approach as sdr-capture.
+        // AD9361 attributes are written via direct libiio calls in
+        // write_iio_config() before the build loop.
+        gr::iio::iio_param_vec_t no_rx_params;
         std::vector<std::string> rx_channels = {"voltage0", "voltage1"};
         auto iio_src = gr::iio::device_source::make(
             cfg.uri, "cf-ad9361-lpc", rx_channels, "ad9361-phy",
-            rx_params, 0x8000);
+            no_rx_params, 0x8000);
 
         // RX format conversion: int16 → float → gr_complex
         // AD9361 ADC is 12-bit: divide by 2048.0 to normalize to ≈±1.0
@@ -1099,28 +1191,7 @@ int run_loopback(const LoopbackConfig& cfg,
         auto q_s2f   = gr::blocks::short_to_float::make(1, 2048.0f);
         auto to_fc32 = gr::blocks::float_to_complex::make(1);
 
-        // Readback validation with a temporary IIO context.
-        {
-            struct iio_context* rb_ctx = iio_create_context_from_uri(cfg.uri.c_str());
-            if (!rb_ctx) {
-                log_error() << "Could not connect to IIO for readback at " << cfg.uri << "\n";
-                return 1;
-            }
-            struct iio_device* phy = iio_context_find_device(rb_ctx, "ad9361-phy");
-            if (!phy) {
-                log_error() << "No ad9361-phy device for readback\n";
-                iio_context_destroy(rb_ctx);
-                return 1;
-            }
-            if (cfg.min_readback) {
-                log_info() << "Minimal readback mode (--min-readback): sample rate mismatch is non-fatal\n";
-            }
-            if (!readback_iio_config(phy, cfg, !cfg.min_readback)) {
-                iio_context_destroy(rb_ctx);
-                return 1;
-            }
-            iio_context_destroy(rb_ctx);
-        }
+        // Config write + readback now happens before the build loop.
 
         // RX DSP blocks — LPF decimates from sdr_rate to effective_rate
         auto lpf         = gr::filter::fir_filter_ccf::make(cfg.decimation, lpf_taps);
