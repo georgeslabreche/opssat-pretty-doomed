@@ -39,12 +39,46 @@ volumes:
 
 ## Tests
 
-`test/test_iio_config.cpp` - Standalone IIO config write/readback test (no GNU Radio dependency). Connects directly to an IIO device via URI.
+### test_iio_config
 
+Standalone IIO config write/readback test. Connects directly to an IIO device, writes RX configuration, and verifies the readback matches. No GNU Radio dependency — avoids the QEMU SIGFPE issues that occur with GNU Radio filter design on emulated ARM.
+
+**Via Makefile target** (recommended — builds and runs in one step):
+
+```bash
+# Start the SDR emulator
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+
+# Build and run the test
+docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture make test-iio
+
+# Clean up
+docker-compose -f docker-compose.emu-test.yml down
 ```
-g++ -Wall -O3 -std=c++17 -I../../common/include test_iio_config.cpp -o test_iio_config -liio
-./test_iio_config ip:sdr-emu:30431
+
+**Manual build and run:**
+
+```bash
+# Build inside Docker
+docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
+  g++ -Wall -O3 -std=c++17 -I/app/common/include \
+  /app/common/test/test_iio_config.cpp -o build/test_iio_config -liio
+
+# Run with defaults (1296 MHz, 2.4 MSPS, 200 kHz BW, 50 dB gain)
+docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
+  ./build/test_iio_config ip:sdr-emu:30431
+
+# Run with custom parameters
+docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
+  ./build/test_iio_config ip:sdr-emu:30431 1176450000 3000000 300000 40
 ```
+
+**What it tests:**
+1. Reads back emulator defaults (expect mismatches — emulator starts with sample file parameters)
+2. Writes the requested RX config via `write_iio_rx_config()`
+3. Reads back in strict mode via `readback_iio_rx_config()` — all values must match
+
+Exit code 0 = PASS, 1 = FAIL.
 
 ## Dependencies
 

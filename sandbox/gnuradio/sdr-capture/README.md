@@ -226,6 +226,18 @@ The emulator accepts parameter writes (visible in its logs) but does not update 
 
 Note: the RX LO frequency readback is always a warning, never fatal. The AD9361 PLL quantizes to the nearest achievable frequency based on its reference clock dividers, so a small offset (typically a few Hz) is normal and has no practical impact on reception. The sample rate readback also allows a small tolerance (`rate_tolerance`, default ±10 Hz) for the same reason — the AD9361 may quantize the sample rate by a few Hz (e.g. 2,399,999 vs 2,400,000). Offsets beyond the tolerance are fatal when strict (default on EM/FlatSat) or a warning when `min_readback=true` (emulator).
 
+### IIO Config Test (No GNU Radio)
+
+A standalone test verifies IIO config write/readback without GNU Radio, avoiding QEMU SIGFPE issues:
+
+```bash
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture make test-iio
+docker-compose -f docker-compose.emu-test.yml down
+```
+
+This builds and runs `test_iio_config` from `common/test/`. It writes RX config (frequency, sample rate, bandwidth, gain) to the emulator and confirms readback matches. See [common/README.md](../../../common/README.md#test_iio_config) for details.
+
 ### Emulator Limitations
 
 - The emulator accepts SDR setting writes but does not reflect them in readback attributes (e.g. `sampling_frequency`). The `min_readback` config key (or `--min-readback` CLI flag) downgrades the sample rate check to a warning so the experiment can proceed.
