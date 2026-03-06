@@ -265,6 +265,8 @@ The captured IQ samples can be processed with GNU Radio:
 2. **Named Pipe**: Create a FIFO and stream directly to GNU Radio
 3. **gr-iio**: Use the [gr-iio](https://github.com/analogdevicesinc/gr-iio) blocks for direct AD9361 integration
 
+> **Note:** The gr-iio `fmcomms2_source_fc32` and `fmcomms2_sink_fc32` blocks assume the FPGA has the Analog Devices [AXI AD9361 IP core](https://wiki.analog.com/resources/fpga/docs/axi_ad9361) reference HDL design. They spawn background threads that read FPGA status register `0x80000088` (`REG_UI_STATUS`) via `iio_device_reg_read()`, and crash (`std::terminate`) if the read fails. On platforms without the ADI reference FPGA bitstream, use `device_source` / `device_sink` instead. See [sdr-capture Known Issues](sdr-capture/README.md#known-issues) for details.
+
 ```bash
 # Create named pipe for streaming to GNU Radio
 mkfifo /tmp/iq_pipe
@@ -308,6 +310,17 @@ The 23 cm band is particularly suitable given the patch antennas are tuned to 1.
 | iiopp C++ Bindings | https://github.com/analogdevicesinc/libiio/tree/main/bindings/cpp |
 | iiopp-enum.cpp Example | https://github.com/analogdevicesinc/libiio/blob/main/bindings/cpp/examples/iiopp-enum.cpp |
 | iiopp.h API Reference | https://codedocs.xyz/analogdevicesinc/libiio/iiopp_8h.html |
+
+### gr-iio
+
+| Title | Link |
+|-------|------|
+| gr-iio GitHub Repository (ADI) | https://github.com/analogdevicesinc/gr-iio |
+| ADI gr-iio Wiki | https://wiki.analog.com/resources/tools-software/linux-software/gnuradio |
+| GREP-0017: gr-iio in GNU Radio | https://github.com/gnuradio/greps/blob/main/grep-0017-iio.md |
+| fmcomms2_source_impl.cc (overflow thread) | https://github.com/analogdevicesinc/gr-iio/blob/master/lib/fmcomms2_source_impl.cc |
+| AXI AD9361 IP Core Register Map | https://wiki.analog.com/resources/fpga/docs/axi_ad9361 |
+| Generic AXI ADC IP Core (HDL docs) | https://analogdevicesinc.github.io/hdl/user_guide/ip_cores/axi_adc/index.html |
 
 ### OPS-SAT
 

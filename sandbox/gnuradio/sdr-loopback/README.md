@@ -1,13 +1,13 @@
 # SDR Loopback Test for OPS-SAT PRETTY SEPP
 
-Validates AD9361 SDR integration using internal loopback mode. TX routes internally to RX with no RF emission. Outputs both FM-demodulated audio and raw I/Q data. Follows [CAPTURE.md](../CAPTURE.md) guidelines: sc16 I/Q format, 200 kSPS, channelization LPF, audio bandpass, RMS normalization. Includes signal quality validation via normalized cross-correlation between input and output audio.
+Validates AD9361 SDR integration using internal loopback mode. TX routes internally to RX with no RF emission. Outputs both FM-demodulated audio and raw I/Q data. Follows [CAPTURE.md](../CAPTURE.md) guidelines: sc16 I/Q format, 2.4 MSPS hardware with 12x software decimation to 200 kSPS effective, channelization LPF, audio bandpass, RMS normalization. Includes signal quality validation via normalized cross-correlation between input and output audio.
 
 ## Pipeline
 
 ```
-input.wav -> Resample -> Scale (0.8) -> FM Mod -> AD9361 TX
-  -> [loopback] -> AD9361 RX (200 kSPS)
-    -> Complex LPF (85 kHz cutoff)
+input.wav -> Resample -> Scale (0.8) -> FM Mod -> AD9361 TX (2.4 MSPS)
+  -> [loopback] -> AD9361 RX (2.4 MSPS)
+    -> Decimating LPF (85 kHz cutoff, 12x -> 200 kSPS)
       +-> head -> sc16 conversion -> File (.sc16)
       +-> FM Demod -> Resample (16 kHz) -> Bandpass (300-3400 Hz)
           -> head -> WAV -> RMS Normalize (-20 dBFS)
@@ -17,6 +17,7 @@ input.wav -> Resample -> Scale (0.8) -> FM Mod -> AD9361 TX
 
 - Docker and Docker Compose
 - Pre-built GNU Radio + gr-iio libraries in `../build-libs-armv7/output/`
+- Shared headers in `common/` (repo root) — mounted into Docker at `/app/common`
 - QEMU ARM emulation for local testing
 
 ## Setup
@@ -48,6 +49,8 @@ docker-compose run --rm sdr-loopback make
 
 ## Running
 
+Input WAV files must be mono, 16-bit PCM. Place them in the `input/` directory.
+
 ### Development (Docker)
 
 ```bash
@@ -74,8 +77,9 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | `frequency` | 1296000000 | Center frequency (Hz) |
-| `sample_rate` | 200000 | SDR sample rate (Hz) |
-| `bandwidth` | 200000 | RF bandwidth (Hz) |
+| `sdr_rate` | 2400000 | AD9361 hardware sample rate (Hz) |
+| `decimation` | 12 | LPF decimation factor (effective rate = sdr_rate / decimation) |
+| `rf_bandwidth` | 200000 | AD9361 analog RF bandwidth (Hz) |
 | `gain` | 50 | RX gain (dB) |
 | `tx_attenuation` | 10.0 | TX attenuation (dB) |
 | `fm_deviation` | 5000 | FM deviation (Hz) |
@@ -86,8 +90,15 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `bandpass_high` | 3400 | Audio bandpass high cutoff (Hz) |
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
+| `rate_tolerance` | 10 | Max Hz offset for sample rate readback before fatal (AD9361 PLL quantization) |
+| `single_core` | false | Pin process to CPU 0 (diagnose threading issues) |
+| `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
-`max_iq_mb` caps the capture duration derived from the input WAV length. At 200 kSPS, `max_iq_mb=20` allows up to ~26s of I/Q data. If the input WAV exceeds this, the capture is truncated to protect downlink bandwidth.
+`sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
+
+`decimation=1` is technically valid (no decimation — the LPF runs but does not downsample). At `sdr_rate=2400000` with `decimation=1`, the effective rate would be 2.4 MSPS, producing ~192 MB of I/Q data for 20 seconds. The `max_iq_mb` budget cap truncates the capture duration to protect downlink bandwidth, so this is self-correcting but wasteful.
+
+`max_iq_mb` caps the capture duration derived from the input WAV length. At 200 kSPS effective rate (2.4 MSPS / 12), `max_iq_mb=20` allows up to ~26s of I/Q data. If the input WAV exceeds this, the capture is truncated to protect downlink bandwidth.
 
 ### Command Line Options (loopback_test)
 
@@ -98,8 +109,13 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `-o, --output` | Output WAV file path | output.wav |
 | `-u, --uri` | IIO URI | local: |
 | `-f, --freq` | Frequency in Hz | 1296000000 |
-| `-s, --rate` | SDR sample rate in Hz | 200000 |
 | `-d, --deviation` | FM deviation in Hz | 5000 |
+| `--min-readback` | Minimal readback: downgrade sample rate check to warning (emulator) | false |
+| `--single-core` | Pin process to CPU 0 (diagnose threading issues) | false |
+
+### Run Script
+
+The `run` script takes no arguments. It processes all `.wav` files in `input/`, running one loopback test per file. Output files are prefixed with `captured_` in the run directory.
 
 ## Output
 
@@ -108,15 +124,15 @@ Each execution creates a new run directory in `toGround/`. The script processes 
 ```
 toGround/
 └── run-000001/
+    ├── run.log
     ├── captured_georges_opssat_clean.wav    # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
     ├── captured_georges_opssat_clean.sc16   # Raw I/Q data (interleaved int16, 4 bytes/sample)
-    ├── loopback.log
     └── summary.txt
 ```
 
 ### I/Q File Format
 
-The `.sc16` file contains raw I/Q samples at the SDR sample rate (200 kSPS):
+The `.sc16` file contains raw I/Q samples at the effective rate (200 kSPS after decimation):
 - Format: Interleaved int16 (I, Q, I, Q, ...)
 - 4 bytes per sample (2 bytes I + 2 bytes Q)
 - Compatible with GNU Radio, inspectrum, baudline, etc.
@@ -126,8 +142,9 @@ The `.sc16` file contains raw I/Q samples at the SDR sample rate (200 kSPS):
 | Parameter | Value |
 |-----------|-------|
 | Frequency | 1296 MHz (23cm amateur band) |
-| Sample Rate | 200 kSPS |
-| Bandwidth | 200 kHz |
+| Hardware Sample Rate | 2.4 MSPS |
+| Decimation | 12x (200 kSPS effective) |
+| RF Bandwidth | 200 kHz |
 | FM Deviation | 5 kHz (NBFM) |
 | TX Attenuation | 10 dB |
 | RX Gain | 50 dB (manual mode) |
@@ -148,12 +165,13 @@ After capture, the test computes normalized cross-correlation between input and 
 
 ### Completion Condition
 
-All three paths (TX, RX audio, RX I/Q) must reach their expected sample counts. TX stalling while RX produces noise is detected as a timeout, not a false success.
+The RX I/Q head block reaching its expected sample count is the completion trigger. The audio path may fall slightly short due to filter group delay (resampler + bandpass) when the I/Q head completes — this is normal and does not affect the output. A 500ms grace period after I/Q completion lets the scheduler drain in-flight buffer items before stopping the flowgraph. TX stalling while RX produces noise is detected as a timeout, not a false success.
 
 ### Timeout
 
-- Timeout = 2x expected duration + 10 seconds
+- Timeout = 3x expected duration + 10 seconds
 - Helps detect loopback failures or SDR connection issues
+- The 3x multiplier accounts for IIO-over-network overhead (ip:10.0.0.1 on SEPP)
 
 ## Packaging for SEPP
 
@@ -166,7 +184,7 @@ make package-samples
 make package-tar
 ```
 
-Creates `package/exp4023-sdr-loopback-v1.tar.gz` (~10 MB).
+Creates `package/exp4023-sdr-loopback-v3.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
 
 ### Bundled Libraries
 
@@ -180,3 +198,37 @@ The package includes all required dependencies:
 ### Included Sample Files
 
 - `input/georges_opssat_clean.wav` - Test voice sample ("PRETTY, Play DOOM")
+
+## SDR Emulator Testing
+
+An SDR emulator is available for testing the IIO data path without real hardware. The emulator acts as a libiio network context that replays a recorded sample file. It is file-readback only: setting changes (frequency, sample rate, bandwidth) are accepted but do not affect the data returned.
+
+The emulator Docker image (`sdr_emu.tar`) and sample file are not included in this repository due to size. Request them from the OPS-SAT mission control team.
+
+For emulator testing, uncomment the `uri` and `min_readback` lines at the bottom of `config.cfg` (or pass `--uri` and `--min-readback` on the command line). The emulator accepts parameter writes but does not update the `sampling_frequency` readback attribute; `--min-readback` downgrades the sample rate check from fatal to a warning while all other readbacks still run.
+
+Note: the RX/TX LO frequency readback is always a warning, never fatal. The AD9361 PLL quantizes to the nearest achievable frequency based on its reference clock dividers, so a small offset (typically a few Hz) is normal and has no practical impact on reception. The sample rate readback also allows a small tolerance (`rate_tolerance`, default ±10 Hz) for the same reason — the AD9361 may quantize the sample rate by a few Hz (e.g. 2,399,999 vs 2,400,000). Offsets beyond the tolerance are fatal when strict (default on EM/FlatSat) or a warning when `min_readback=true` (emulator).
+
+### Emulator Limitations
+
+- The emulator has no TX support, so it cannot be used for loopback testing (TX -> RX). The loopback test requires real AD9361 hardware on the flatsat.
+- The emulator accepts SDR setting writes but does not reflect them in readback attributes (e.g. `sampling_frequency`). The `min_readback` config key (or `--min-readback` CLI flag) downgrades the sample rate check to a warning.
+- QEMU user-mode ARM emulation (ARM32 on ARM64) can produce intermittent SIGFPE crashes unrelated to the experiment code. Full end-to-end testing requires native ARM hardware on the flatsat.
+
+See the [sdr-capture README](../sdr-capture/README.md#sdr-emulator-testing) for emulator setup instructions.
+
+### IIO Config Test (No GNU Radio)
+
+A standalone test verifies IIO config write/readback without GNU Radio, avoiding QEMU SIGFPE issues:
+
+```bash
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+docker-compose -f docker-compose.emu-test.yml run --rm sdr-loopback make test-iio
+docker-compose -f docker-compose.emu-test.yml down
+```
+
+This builds and runs `test_iio_config` from `common/test/`. It writes RX config (frequency, sample rate, bandwidth, gain) to the emulator and confirms readback matches. See [common/README.md](../../../common/README.md#test_iio_config) for details.
+
+## Known Issues
+
+See [sdr-capture Known Issues](../sdr-capture/README.md#known-issues) for the `fmcomms2_source_fc32` / `fmcomms2_sink_fc32` FPGA register crash and the `device_source` / `device_sink` fix. The same issue and fix apply to this loopback test (both source and sink).
