@@ -91,6 +91,7 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
 | `rate_tolerance` | 10 | Max Hz offset for sample rate readback before fatal (AD9361 PLL quantization) |
+| `single_core` | false | Pin process to CPU 0 (diagnose threading issues) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
@@ -110,6 +111,11 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `-f, --freq` | Frequency in Hz | 1296000000 |
 | `-d, --deviation` | FM deviation in Hz | 5000 |
 | `--min-readback` | Minimal readback: downgrade sample rate check to warning (emulator) | false |
+| `--single-core` | Pin process to CPU 0 (diagnose threading issues) | false |
+
+### Run Script
+
+The `run` script takes no arguments. It processes all `.wav` files in `input/`, running one loopback test per file. Output files are prefixed with `captured_` in the run directory.
 
 ## Output
 

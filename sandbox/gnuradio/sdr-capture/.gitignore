@@ -1,4 +1,5 @@
 build/
+input/
 package/
 toGround/
 libs-gnuradio/

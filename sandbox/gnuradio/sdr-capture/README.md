@@ -90,7 +90,7 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `fm_deviation` | 5000 | FM deviation (Hz) |
 | `uri` | local: | IIO URI |
 | `duration` | 20 | Capture duration per capture (seconds) |
-| `captures` | 30 | Number of sequential captures (30 x 20s = 10 min) |
+| `captures` | 3 | Number of sequential captures |
 | `max_iq_mb` | 20 | Max I/Q file size in MiB (caps duration) |
 | `audio_rate` | 16000 | Output audio sample rate (Hz) |
 | `bandpass_low` | 300 | Audio bandpass low cutoff (Hz) |
@@ -98,13 +98,14 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
 | `rate_tolerance` | 10 | Max Hz offset for sample rate readback before fatal (AD9361 PLL quantization) |
+| `single_core` | false | Pin process to CPU 0 (diagnose threading issues) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
 
 `decimation=1` is technically valid (no decimation — the LPF runs but does not downsample). At `sdr_rate=2400000` with `decimation=1`, the effective rate would be 2.4 MSPS, producing ~192 MB of I/Q data for 20 seconds. The `max_iq_mb` budget cap truncates the capture duration to protect downlink bandwidth, so this is self-correcting but wasteful.
 
-`duration` and `max_iq_mb` act as independent limits per capture — the shorter of the two wins. At 200 kSPS effective rate (2.4 MSPS / 12), `max_iq_mb=20` allows up to ~26s of I/Q data. With `duration=20`, the duration is the active constraint. If `duration` is raised above ~26s, the budget cap truncates it to protect downlink bandwidth. `captures` controls how many sequential captures to run (default 30 x 20s = 10 minutes total).
+`duration` and `max_iq_mb` act as independent limits per capture — the shorter of the two wins. At 200 kSPS effective rate (2.4 MSPS / 12), `max_iq_mb=20` allows up to ~26s of I/Q data. With `duration=20`, the duration is the active constraint. If `duration` is raised above ~26s, the budget cap truncates it to protect downlink bandwidth. `captures` controls how many sequential captures to run.
 
 ### Run Script Options
 
@@ -127,6 +128,7 @@ The `run` script reads `captures` and `duration` from `config.cfg` and accepts o
 | `-g, --gain` | RX gain in dB | 50 |
 | `-e, --deviation` | FM deviation in Hz | 5000 |
 | `--min-readback` | Minimal readback: downgrade sample rate check to warning (emulator) | false |
+| `--single-core` | Pin process to CPU 0 (diagnose threading issues) | false |
 
 ## Output
 

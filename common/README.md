@@ -14,7 +14,7 @@ Header-only C++17 library shared across PRETTY experiment apps (sdr-capture, sdr
 
 ## Usage
 
-Include from consuming apps with `-I/app/common/include` (Docker) or `-I../../common/include` (host).
+Include from consuming apps with `-I/app/common/include` (Docker) or `-I../../../common/include` (host).
 
 All symbols are in the `pretty` namespace. Consuming apps use `using namespace pretty;` for backward compatibility with unqualified names.
 

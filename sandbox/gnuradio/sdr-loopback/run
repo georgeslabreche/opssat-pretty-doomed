@@ -19,8 +19,13 @@ else
     export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs"
 fi
 
+CONFIG_FILE="${SCRIPT_DIR}/config.cfg"
 INPUT_DIR="${SCRIPT_DIR}/input"
 TOGROUND_DIR="${SCRIPT_DIR}/toGround"
+
+# Preflight checks
+[ -x "${SCRIPT_DIR}/loopback_test" ] || { echo "Error: loopback_test not found or not executable" >&2; exit 1; }
+[ -f "$CONFIG_FILE" ] || { echo "Error: missing $CONFIG_FILE" >&2; exit 1; }
 
 # Create toGround directory if it doesn't exist
 mkdir -p "$TOGROUND_DIR"
@@ -63,7 +68,7 @@ for INPUT_FILE in "$INPUT_DIR"/*.wav; do
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Processing: $FILENAME" >> "$RUN_LOG"
 
         "${SCRIPT_DIR}/loopback_test" \
-            --config "${SCRIPT_DIR}/config.cfg" \
+            --config "$CONFIG_FILE" \
             --input "$INPUT_FILE" \
             --output "$OUTPUT_FILE" \
             >> "$RUN_LOG" 2>&1
@@ -86,6 +91,10 @@ done
 # Log completion
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files ($FAILURES failed)" >> "$RUN_LOG"
 
+# Read frequency from config for summary
+FREQ=$(grep -E '^frequency=' "$CONFIG_FILE" | tail -1 | cut -d= -f2 | tr -d ' \t\r')
+[ -n "$FREQ" ] || FREQ="(unknown)"
+
 # Create summary file
 {
     echo "OPSSAT PRETTY SDR Loopback Test Results"
@@ -93,7 +102,7 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files ($FAILURES faile
     echo "Run ID: $RUNID"
     echo "Mode: AD9361 internal loopback (TX -> RX)"
     echo "Modulation: FM (5 kHz deviation)"
-    echo "Frequency: 1.2 GHz"
+    echo "Frequency: $FREQ Hz"
     echo "Files processed: $PROCESSED"
     echo "Failures: $FAILURES"
     echo ""
