@@ -1,6 +1,6 @@
 # tools/ — Ground-side visualization for OPS-SAT PRETTY
 
-Python tools for post-downlink analysis of SDR capture and loopback artifacts. Produces SVG plots, signal statistics, and self-contained HTML reports.
+Python tools for post-downlink analysis of SDR capture and loopback artifacts. Produces SVG plots, signal statistics, self-contained HTML reports, and realtime PSD evolution animations with audio.
 
 ## Setup
 
@@ -22,6 +22,7 @@ tools/
     ├── plot_loopback.py  # Loopback TX/RX comparison
     ├── compare_psd.py    # Multi-capture PSD overlay
     ├── report.py         # Batch HTML report generator
+    ├── animate_psd.py    # Realtime PSD evolution animation
     └── output_dir.py     # Shared output directory helper
 ```
 
@@ -40,6 +41,7 @@ output/
 │   │   ├── constellation.svg
 │   │   ├── audio_spectrogram.svg
 │   │   ├── audio_waveform.svg
+│   │   ├── psd_evolution.mp4
 │   │   └── iq_stats.json
 │   ├── capture-002/
 │   │   └── ...
@@ -52,6 +54,7 @@ output/
     ├── constellation.svg
     ├── audio_spectrogram.svg
     ├── audio_waveform.svg
+    ├── psd_evolution.mp4
     ├── loopback_overlay.svg
     ├── loopback_correlation.svg
     └── iq_stats.json
@@ -83,6 +86,7 @@ docker-compose run --rm tools src/report.py \
 | `<capture-NNN>/spectrogram.svg` | Per-capture spectrogram |
 | `<capture-NNN>/psd.svg` | Per-capture PSD |
 | `<capture-NNN>/constellation.svg` | Per-capture I/Q constellation |
+| `<capture-NNN>/psd_evolution.mp4` | Realtime PSD animation with audio soundtrack |
 | `<capture-NNN>/iq_stats.json` | Per-capture signal statistics |
 
 Quality badges:
@@ -143,6 +147,27 @@ docker-compose run --rm tools src/plot_loopback.py <input.wav> <output.wav> --ou
 | `loopback_overlay.svg` | Input vs output waveforms (aligned) |
 | `loopback_correlation.svg` | Cross-correlation vs lag (±100 ms) |
 
+### animate_psd.py — PSD evolution animation
+
+Realtime MP4 video with two synchronized panels: a spectrogram progressively revealed left-to-right and an animated PSD curve. Auto-detects sibling WAV files and muxes the demodulated audio as a soundtrack.
+
+```bash
+docker-compose run --rm tools src/animate_psd.py <file.sc16> --sample-rate 200000 --output-dir /output
+
+# Explicit audio file
+docker-compose run --rm tools src/animate_psd.py <file.sc16> --sample-rate 200000 --audio demod.wav --output-dir /output
+```
+
+| Output | Description |
+|--------|-------------|
+| `psd_evolution.mp4` | Realtime video (duration matches capture) with audio |
+
+Options:
+- `--sample-rate` — Sample rate in Hz (default: 200000)
+- `--output-dir` — Output directory (default: same as input file)
+- `--fft-size` — FFT size for PSD computation (default: 4096)
+- `--audio` — Path to WAV file for soundtrack (default: auto-detect sibling .wav)
+
 ### compare_psd.py — Multi-capture PSD overlay
 
 Compares PSD curves from multiple sc16 files on a single plot.
@@ -186,6 +211,11 @@ docker-compose run --rm tools src/plot_iq.py \
 # PSD comparison across captures
 docker-compose run --rm tools src/compare_psd.py \
   /data/capture-artifacts/pack-4023_1772797685/chg/toGround/run-000001/capture-*/capture.sc16 \
+  --sample-rate 200000 --output-dir /output
+
+# PSD evolution animation (realtime, with audio)
+docker-compose run --rm tools src/animate_psd.py \
+  /data/capture-artifacts/pack-4023_1772797685/chg/toGround/run-000001/capture-001/capture.sc16 \
   --sample-rate 200000 --output-dir /output
 ```
 
