@@ -15,6 +15,7 @@ GNURADIO_LIBS = -L$(GNURADIO_PREFIX)/lib \
 	-lgnuradio-fft -lgnuradio-pmt -lgnuradio-analog \
 	-lgnuradio-iio \
 	-lvolk -liio -lad9361 \
+	-lfftw3f \
 	-lfmt -lsndfile -lboost_system -lboost_filesystem -lpthread
 
 SRCDIR = src
