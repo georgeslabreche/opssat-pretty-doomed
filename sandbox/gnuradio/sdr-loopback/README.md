@@ -125,8 +125,9 @@ Each execution creates a new run directory in `toGround/`. The script processes 
 toGround/
 └── run-000001/
     ├── run.log
-    ├── captured_georges_opssat_clean.wav    # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
-    ├── captured_georges_opssat_clean.sc16   # Raw I/Q data (interleaved int16, 4 bytes/sample)
+    ├── captured_georges_opssat_clean.wav                  # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
+    ├── captured_georges_opssat_clean.sc16                 # Raw I/Q data (interleaved int16, 4 bytes/sample)
+    ├── spectrogram.bmp                                    # Spectrogram thumbnail (1024x256, ~768 KB)
     └── summary.txt
 ```
 

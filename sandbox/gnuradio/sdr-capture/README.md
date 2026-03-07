@@ -139,12 +139,14 @@ toGround/
 └── run-000001/
     ├── run.log
     ├── capture-001/
-    │   ├── capture.wav      # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
-    │   ├── capture.sc16     # Raw I/Q data (interleaved int16, 4 bytes/sample)
+    │   ├── capture.wav                  # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
+    │   ├── capture.sc16                 # Raw I/Q data (interleaved int16, 4 bytes/sample)
+    │   ├── spectrogram.bmp              # Spectrogram thumbnail (1024x256, ~768 KB)
     │   └── capture.log
     ├── capture-002/
     │   ├── capture.wav
     │   ├── capture.sc16
+    │   ├── spectrogram.bmp
     │   └── capture.log
     ├── ...
     └── summary.txt

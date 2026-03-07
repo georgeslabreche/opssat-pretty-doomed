@@ -11,6 +11,7 @@ Header-only C++17 library shared across PRETTY experiment apps (sdr-capture, sdr
 | `pretty_config.h` | KEY=VALUE config file parser (`load_config_map`) |
 | `pretty_iio.h` | AD9361 IIO config write/readback (`write_iio_rx_config`, `write_iio_tx_config`, `readback_iio_rx_config`, `readback_iio_tx_config`) |
 | `pretty_audio.h` | Audio/IQ utilities (`rms_normalize`, `check_sc16_quality`, `make_iq_filename`, `IQ_SCALE`) |
+| `pretty_spectrogram.h` | Spectrogram BMP generator for sc16 I/Q files (`generate_spectrogram`, `make_spectrogram_filename`) |
 
 ## Usage
 
@@ -24,6 +25,7 @@ All symbols are in the `pretty` namespace. Consuming apps use `using namespace p
 #include "pretty_config.h"
 #include "pretty_iio.h"
 #include "pretty_audio.h"
+#include "pretty_spectrogram.h"
 
 using namespace pretty;
 ```
@@ -80,8 +82,26 @@ docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
 
 Exit code 0 = PASS, 1 = FAIL.
 
+### test_spectrogram
+
+Standalone spectrogram generator test. Reads an sc16 I/Q file and produces a BMP spectrogram thumbnail. No GNU Radio or IIO dependency — only FFTW3.
+
+```bash
+# Build inside Docker (from sdr-capture)
+docker-compose run --rm sdr-capture \
+  g++ -Wall -O3 -std=c++17 -I/app/common/include \
+  /app/common/test/test_spectrogram.cpp -o build/test_spectrogram -lfftw3f
+
+# Run against an sc16 file (sample_rate in Hz)
+docker-compose run --rm sdr-capture \
+  ./build/test_spectrogram toGround/capture.sc16 2400000
+```
+
+Produces `spectrogram.bmp` in the same directory as the input file. Output is a 1024x256 BMP (~768 KB) with time on the x-axis and frequency (-fs/2 to +fs/2) on the y-axis.
+
 ## Dependencies
 
 - `pretty_log.h`, `pretty_signal.h`, `pretty_config.h`: standard library only
 - `pretty_iio.h`: libiio (`<iio.h>`)
 - `pretty_audio.h`: libsndfile (`<sndfile.h>`)
+- `pretty_spectrogram.h`: FFTW3 single-precision (`<fftw3.h>`, link with `-lfftw3f`)
