@@ -1,0 +1,10 @@
+services:
+  tools:
+    build: .
+    volumes:
+      - .:/app
+      - ../sandbox/gnuradio/sdr-capture/artifacts:/data/capture-artifacts:ro
+      - ../sandbox/gnuradio/sdr-loopback/toGround:/data/loopback-artifacts:ro
+      - ../samples:/data/samples:ro
+      - ./output:/output
+    working_dir: /app
