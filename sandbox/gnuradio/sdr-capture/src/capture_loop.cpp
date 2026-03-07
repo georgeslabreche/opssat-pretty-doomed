@@ -54,6 +54,7 @@
 #include "pretty_config.h"
 #include "pretty_iio.h"
 #include "pretty_audio.h"
+#include "pretty_spectrogram.h"
 
 using namespace pretty;
 
@@ -631,6 +632,14 @@ int run_capture(const CaptureConfig& cfg,
         if (clip_rate > 0.01) {
             log_warning() << "sc16 rail hit rate " << (clip_rate * 100.0)
                         << "% exceeds 1% — RX may be saturating (reduce gain)\n";
+        }
+    }
+
+    // Generate spectrogram thumbnail for downlink triage
+    {
+        std::string spec_file = make_spectrogram_filename(iq_file);
+        if (!generate_spectrogram(iq_file, spec_file, (long long)cfg.effective_rate)) {
+            log_warning() << "spectrogram generation failed\n";
         }
     }
 
