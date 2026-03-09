@@ -128,7 +128,7 @@ def process_capture_dir(capture_dir, sample_rate, output_dir):
 
         parts.append('<div class="plots">')
         parts.append(plot_spectrogram(iq, sample_rate, save_path=os.path.join(svg_dir, "spectrogram.svg")))
-        parts.append(plot_psd(freqs, psd_db, stats, save_path=os.path.join(svg_dir, "psd.svg")))
+        parts.append(plot_psd(freqs, psd_db, stats=stats, save_path=os.path.join(svg_dir, "psd.svg")))
         parts.append('</div>')
         parts.append('<div class="side-by-side">')
         parts.append(plot_constellation(iq, save_path=os.path.join(svg_dir, "constellation.svg")))
@@ -243,7 +243,7 @@ def build_loopback_report(run_dir, sample_rate, output_dir, input_wav=None):
         content_parts.append('</div>')
         content_parts.append('<div class="plots">')
         content_parts.append(plot_spectrogram(iq, sample_rate, save_path=os.path.join(output_dir, "spectrogram.svg")))
-        content_parts.append(plot_psd(freqs, psd_db, stats, save_path=os.path.join(output_dir, "psd.svg")))
+        content_parts.append(plot_psd(freqs, psd_db, stats=stats, save_path=os.path.join(output_dir, "psd.svg")))
         content_parts.append('</div>')
         content_parts.append('<div class="side-by-side">')
         content_parts.append(plot_constellation(iq, save_path=os.path.join(output_dir, "constellation.svg")))
