@@ -500,10 +500,10 @@ static void restore_loopback(const std::string& uri, const std::string& prev_loo
         iio_context_destroy(ctx);
         return;
     }
-    int ret = iio_device_attr_write(phy, "loopback", prev_loopback.c_str());
+    int ret = iio_device_debug_attr_write(phy, "loopback", prev_loopback.c_str());
     if (ret < 0) {
         log_warning() << "restore failed (ret=" << ret << "), trying '0'\n";
-        iio_device_attr_write(phy, "loopback", "0");
+        iio_device_debug_attr_write(phy, "loopback", "0");
     }
     iio_context_destroy(ctx);
 }
@@ -1092,9 +1092,9 @@ int main(int argc, char* argv[]) {
         // Save current loopback value for restore on exit
         {
             char lb_buf[64];
-            ssize_t rb = iio_device_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
+            ssize_t rb = iio_device_debug_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
             if (rb <= 0) {
-                log_warning() << "Could not read loopback attribute, will restore to '0'\n";
+                log_warning() << "Could not read loopback debug attribute, will restore to '0'\n";
             } else if ((size_t)rb >= sizeof(lb_buf)) {
                 log_warning() << "Loopback attr truncated (" << rb << " bytes, buf="
                               << sizeof(lb_buf) << "), will restore to '0'\n";
@@ -1104,8 +1104,8 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        log_info() << "Enabling loopback mode (writing '1' to loopback attr)...\n";
-        int ret = iio_device_attr_write(phy, "loopback", "1");
+        log_info() << "Enabling loopback mode (writing '1' to loopback debug attr)...\n";
+        int ret = iio_device_debug_attr_write(phy, "loopback", "1");
         if (ret < 0) {
             log_error() << "FATAL: could not enable loopback (ret=" << ret
                         << "). Loopback validation requires working loopback mode.\n";
@@ -1117,9 +1117,9 @@ int main(int argc, char* argv[]) {
         // Read back loopback attribute to confirm actual mode
         {
             char lb_buf[64];
-            ssize_t rb = iio_device_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
+            ssize_t rb = iio_device_debug_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
             if (rb <= 0) {
-                log_error() << "FATAL: could not read back loopback attribute — "
+                log_error() << "FATAL: could not read back loopback debug attribute — "
                             << "cannot confirm loopback is active\n";
                 iio_context_destroy(ctx);
                 return 1;
