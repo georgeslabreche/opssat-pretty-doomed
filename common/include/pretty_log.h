@@ -51,10 +51,15 @@ inline std::ostream& log_error() {
 }
 
 inline std::string trim(const std::string& s) {
-    size_t start = s.find_first_not_of(" \t\r\n");
+    // Strip trailing NUL bytes first (libiio includes NUL in byte count)
+    size_t len = s.size();
+    while (len > 0 && s[len - 1] == '\0') --len;
+    std::string stripped = s.substr(0, len);
+    const std::string ws(" \t\r\n");
+    size_t start = stripped.find_first_not_of(ws);
     if (start == std::string::npos) return "";
-    size_t end = s.find_last_not_of(" \t\r\n");
-    return s.substr(start, end - start + 1);
+    size_t end = stripped.find_last_not_of(ws);
+    return stripped.substr(start, end - start + 1);
 }
 
 } // namespace pretty

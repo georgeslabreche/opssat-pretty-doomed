@@ -82,6 +82,41 @@ docker-compose -f docker-compose.emu-test.yml run --rm sdr-capture \
 
 Exit code 0 = PASS, 1 = FAIL.
 
+### test_log
+
+Unit tests for `pretty_log.h`. No external dependencies — standard library only.
+
+```bash
+# Build and run inside Docker
+docker-compose run --rm sdr-loopback sh -c \
+  "g++ -Wall -O2 -std=c++17 -I/app/common/include -I/app/common/test \
+   /app/common/test/test_log.cpp -o /app/build/test_log \
+   && /app/build/test_log"
+```
+
+**What it tests:**
+- `trim()` — whitespace stripping, trailing NUL byte handling (the v4 EM failure scenario), internal space preservation
+- `local_tm()` — cross-platform local time conversion
+
+Exit code 0 = all passed, 1 = at least one failure.
+
+### test_config
+
+Unit tests for `pretty_config.h`. No external dependencies — standard library only.
+
+```bash
+# Build and run inside Docker
+docker-compose run --rm sdr-loopback sh -c \
+  "g++ -Wall -O2 -std=c++17 -I/app/common/include -I/app/common/test \
+   /app/common/test/test_config.cpp -o /app/build/test_config \
+   && /app/build/test_config"
+```
+
+**What it tests:**
+- `load_config_map()` — basic parsing, comments, blank lines, whitespace trimming, duplicate keys, missing files, values containing `=`
+
+Exit code 0 = all passed, 1 = at least one failure.
+
 ### test_spectrogram
 
 Standalone spectrogram generator test. Reads an sc16 I/Q file and produces a BMP spectrogram thumbnail. No GNU Radio or IIO dependency — only FFTW3.
