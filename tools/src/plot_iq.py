@@ -20,7 +20,7 @@ import sys
 
 from output_dir import resolve_output_dir
 from iq import read_sc16, compute_psd, compute_signal_stats, format_stats
-from plots import plot_spectrogram, plot_psd, plot_constellation, plot_waveform
+from plots import plot_spectrogram, plot_psd, plot_constellation, plot_waveform, plot_iq_amplitude
 
 
 def main():
@@ -72,6 +72,8 @@ def main():
     print(f"  {save('constellation.svg')}")
     plot_waveform(iq, args.sample_rate, save_path=save("waveform.svg"))
     print(f"  {save('waveform.svg')}")
+    plot_iq_amplitude(iq, args.sample_rate, save_path=save("iq_amplitude.svg"))
+    print(f"  {save('iq_amplitude.svg')}")
 
     return 0
 

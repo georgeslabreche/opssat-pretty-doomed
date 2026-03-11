@@ -92,6 +92,7 @@ struct CaptureConfig {
     bool min_readback = false;          // --min-readback: downgrade sample rate check to warning (emulator)
     bool single_core = false;           // --single-core: pin process to CPU 0 (diagnose threading issues)
     long rate_tolerance = 10;           // max Hz offset for sample rate readback before fatal (AD9361 PLL quantization)
+    int timeout_multiplier = 5;         // config: timeout_multiplier — timeout = duration * N + 10 (default 5 for ARM CPU headroom)
 };
 
 bool load_config(const std::string& path, CaptureConfig& cfg) {
@@ -117,6 +118,7 @@ bool load_config(const std::string& path, CaptureConfig& cfg) {
             else if (key == "min_readback") cfg.min_readback = (value == "true" || value == "1");
             else if (key == "single_core") cfg.single_core = (value == "true" || value == "1");
             else if (key == "rate_tolerance") cfg.rate_tolerance = std::stol(value);
+            else if (key == "timeout_multiplier") cfg.timeout_multiplier = std::stoi(value);
             else if (key == "captures") { /* consumed by run script */ }
             else log_warning() << path << ": unknown config key: " << key << "\n";
         } catch (const std::exception& e) {
@@ -453,8 +455,9 @@ int run_capture(const CaptureConfig& cfg,
     } // end retry loop
 
     auto start_time = std::chrono::steady_clock::now();
-    int timeout_sec = cfg.duration * 3 + 10;
-    log_info() << "Timeout:  " << timeout_sec << " seconds (3x duration + 10)\n";
+    int timeout_sec = cfg.duration * cfg.timeout_multiplier + 10;
+    log_info() << "Timeout:  " << timeout_sec << " seconds ("
+               << cfg.timeout_multiplier << "x duration + 10)\n";
 
     bool timed_out = false;
     while (g_running) {
@@ -632,6 +635,35 @@ int run_capture(const CaptureConfig& cfg,
         if (clip_rate > 0.01) {
             log_warning() << "sc16 rail hit rate " << (clip_rate * 100.0)
                         << "% exceeds 1% — RX may be saturating (reduce gain)\n";
+        }
+    }
+
+    // I/Q diagnostic statistics: RMS, DC offset, min/max, zero fraction
+    {
+        Sc16Stats iq_stats = analyze_sc16(iq_file);
+        if (iq_stats.valid) {
+            double rms_i_db = (iq_stats.rms_i > 0) ? 20.0 * std::log10(iq_stats.rms_i / IQ_SCALE) : -999.0;
+            double rms_q_db = (iq_stats.rms_q > 0) ? 20.0 * std::log10(iq_stats.rms_q / IQ_SCALE) : -999.0;
+            log_info() << "IQ diag:  " << iq_stats.samples << " samples analyzed\n";
+            log_info() << "IQ RMS:   I=" << iq_stats.rms_i << " (" << rms_i_db << " dBFS)"
+                       << "  Q=" << iq_stats.rms_q << " (" << rms_q_db << " dBFS)\n";
+            log_info() << "IQ DC:    I=" << iq_stats.mean_i << "  Q=" << iq_stats.mean_q << "\n";
+            log_info() << "IQ range: I=[" << iq_stats.min_i << "," << iq_stats.max_i << "]"
+                       << "  Q=[" << iq_stats.min_q << "," << iq_stats.max_q << "]\n";
+            double zero_pct_i = 100.0 * iq_stats.zero_i / iq_stats.samples;
+            double zero_pct_q = 100.0 * iq_stats.zero_q / iq_stats.samples;
+            log_info() << "IQ zeros: I=" << zero_pct_i << "%  Q=" << zero_pct_q << "%\n";
+
+            if (iq_stats.rms_i < 1.0 && iq_stats.rms_q < 1.0) {
+                log_warning() << "IQ signal appears dead (RMS < 1 on both channels)\n";
+            }
+            if (iq_stats.rms_i > 1.0 && iq_stats.rms_q > 1.0) {
+                double balance_db = std::abs(rms_i_db - rms_q_db);
+                if (balance_db > 6.0) {
+                    log_warning() << "IQ imbalance: " << balance_db
+                                  << " dB between I and Q channels\n";
+                }
+            }
         }
     }
 

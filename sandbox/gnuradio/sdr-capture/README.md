@@ -98,6 +98,7 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
 | `rate_tolerance` | 10 | Max Hz offset for sample rate readback before fatal (AD9361 PLL quantization) |
+| `timeout_multiplier` | 5 | Timeout = duration * N + 10 seconds (default 5 for ARM CPU headroom) |
 | `single_core` | false | Pin process to CPU 0 (diagnose threading issues) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 

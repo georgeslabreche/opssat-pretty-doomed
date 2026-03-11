@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -O3 -std=c++17
 LDFLAGS = -Wl,-z,stack-size=8388608
 
 # Package version (change this for new releases)
-PACKAGE_VERSION = v5
+PACKAGE_VERSION = v6
 PACKAGE_NAME = exp4023-sdr-loopback-$(PACKAGE_VERSION)
 
 # GNU Radio libraries
@@ -24,7 +24,7 @@ TARGET = $(BUILDDIR)/loopback_test
 
 SOURCES = $(SRCDIR)/loopback_test.cpp
 
-.PHONY: all clean test test-iio package-prepare package-samples package-tar
+.PHONY: all clean test test-iio test-file-loopback package-prepare package-samples package-tar
 
 all: $(TARGET)
 
@@ -50,6 +50,15 @@ test-iio: $(TEST_IIO)
 test: $(TARGET)
 	mkdir -p toGround/run-000001
 	./$(TARGET) -c config.cfg -i input/georges_opssat_clean.wav -o toGround/run-000001/captured.wav
+	@echo "Output: toGround/run-000001/captured.wav"
+	@echo "I/Q:    toGround/run-000001/captured.sc16"
+	@ls -lh toGround/run-000001/captured.wav toGround/run-000001/captured.sc16 2>/dev/null
+
+# File-based loopback test: full FM mod/demod DSP chain without IIO hardware
+test-file-loopback: $(TARGET)
+	mkdir -p input toGround/run-000001
+	cp -n /app/samples/georges/georges_opssat_clean.wav input/ 2>/dev/null || true
+	./$(TARGET) -c config.file-loopback.cfg -i input/georges_opssat_clean.wav -o toGround/run-000001/captured.wav
 	@echo "Output: toGround/run-000001/captured.wav"
 	@echo "I/Q:    toGround/run-000001/captured.sc16"
 	@ls -lh toGround/run-000001/captured.wav toGround/run-000001/captured.sc16 2>/dev/null

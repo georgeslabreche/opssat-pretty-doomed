@@ -91,6 +91,8 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
 | `rate_tolerance` | 10 | Max Hz offset for sample rate readback before fatal (AD9361 PLL quantization) |
+| `timeout_multiplier` | 5 | Timeout = duration * N + 10 seconds (default 5 for ARM CPU headroom) |
+| `iio_buffer_size` | 32768 | IIO DMA buffer size in samples per channel (tune to reduce TX/RX contention) |
 | `single_core` | false | Pin process to CPU 0 (diagnose threading issues) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 
@@ -115,20 +117,33 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 
 ### Run Script
 
-The `run` script takes no arguments. It processes all `.wav` files in `input/`, running one loopback test per file. Output files are prefixed with `captured_` in the run directory.
+The `run` script takes no arguments. It executes a series of diagnostic runs defined in the `RUNS` variable at the top of the script. Each run processes all `.wav` files in `input/` with a different configuration.
+
+The `RUNS` variable uses a `label:override1,override2,...` format. Overrides are appended to the base `config.cfg` (last value wins). If `RUNS` is empty, a single run with the default config is executed.
+
+Default diagnostic schedule:
+1. **full-chain** — all flowgraph blocks enabled, default IIO buffer (32768 samples)
+2. **rx-only** — TX disabled, captures whatever RX sees with no TX active
+3. **buf-65536** — same as full-chain with doubled IIO buffer size (65536 samples)
 
 ## Output
 
-Each execution creates a new run directory in `toGround/`. The script processes all WAV files in `input/`, prefixing each output with `captured_`:
+Each run creates its own directory in `toGround/` with a copy of the effective config, log, summary, and output files:
 
 ```
 toGround/
-└── run-000001/
-    ├── run.log
-    ├── captured_georges_opssat_clean.wav                  # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
-    ├── captured_georges_opssat_clean.sc16                 # Raw I/Q data (interleaved int16, 4 bytes/sample)
-    ├── spectrogram.bmp                                    # Spectrogram thumbnail (1024x256, ~768 KB)
-    └── summary.txt
+├── experiment.log                                         # Top-level experiment log
+├── run-000001/                                            # full-chain
+│   ├── config.cfg                                         # Effective config (base + overrides)
+│   ├── run.log
+│   ├── summary.txt
+│   ├── captured_georges_opssat_clean.wav                  # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
+│   ├── captured_georges_opssat_clean.sc16                 # Raw I/Q data (interleaved int16, 4 bytes/sample)
+│   └── spectrogram.bmp                                    # Spectrogram thumbnail (1024x256, ~768 KB)
+├── run-000002/                                            # rx-only
+│   └── ...
+└── run-000003/                                            # buf-65536
+    └── ...
 ```
 
 ### I/Q File Format
@@ -170,9 +185,10 @@ The RX I/Q head block reaching its expected sample count is the completion trigg
 
 ### Timeout
 
-- Timeout = 3x expected duration + 10 seconds
+- Timeout = `timeout_multiplier` * expected duration + 10 seconds (default multiplier: 5)
 - Helps detect loopback failures or SDR connection issues
-- The 3x multiplier accounts for IIO-over-network overhead (ip:10.0.0.1 on SEPP)
+- The default 5x multiplier provides headroom for the EM's ARM CPU, which processes RX at ~40-80k SPS vs the expected 200k SPS
+- Configurable via `timeout_multiplier` in config.cfg
 
 ## Packaging for SEPP
 
@@ -185,7 +201,7 @@ make package-samples
 make package-tar
 ```
 
-Creates `package/exp4023-sdr-loopback-v3.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
+Creates `package/exp4023-sdr-loopback-v6.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
 
 ### Bundled Libraries
 
@@ -231,5 +247,11 @@ docker-compose -f docker-compose.emu-test.yml down
 This builds and runs `test_iio_config` from `common/test/`. It writes RX config (frequency, sample rate, bandwidth, gain) to the emulator and confirms readback matches. See [common/README.md](../../../common/README.md#test_iio_config) for details.
 
 ## Known Issues
+
+### Q Channel Dropout (v5)
+
+Running `device_source` (RX) and `device_sink` (TX) simultaneously causes Q channel data loss on the EM. The v5 sc16 file shows 59% of Q samples are exactly zero while I is healthy (0.02% zeros). The dropout worsens over time: Q alternates between live and dead in the first ~10 seconds, then dies completely for the remainder of the capture. This does not occur in sdr-capture (RX only, no `device_sink`). Suspected cause: IIO DMA buffer contention between TX and RX streaming. Under investigation via configurable `iio_buffer_size` and diagnostic runs.
+
+### FPGA Register Crash
 
 See [sdr-capture Known Issues](../sdr-capture/README.md#known-issues) for the `fmcomms2_source_fc32` / `fmcomms2_sink_fc32` FPGA register crash and the `device_source` / `device_sink` fix. The same issue and fix apply to this loopback test (both source and sink).

@@ -83,6 +83,7 @@ def render_animation(iq, sample_rate, save_path, audio_path=None, fft_size=4096)
     ax_spec.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x / 1e3:.0f}"))
     ax_spec.set_ylabel("Frequency (kHz)")
     ax_spec.set_title("PSD Evolution")
+    ax_spec.set_xlabel("Time (s)")
     ax_spec.set_xlim(0, duration)
 
     # White overlay covering the "future" — coordinates in seconds
