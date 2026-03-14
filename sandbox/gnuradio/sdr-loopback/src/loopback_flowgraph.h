@@ -283,21 +283,29 @@ inline int run_file_loopback(const LoopbackConfig& cfg,
     }
 
     // Loopback quality validation
-    double lag_ms = 0.0;
-    double correlation = loopback_quality_check(cfg.input_wav, cfg.output_wav, lag_ms);
-    if (correlation < 0.0) {
-        log_warning() << "could not compute loopback quality metric\n";
+    // In staggered/cyclic TX modes, correlation is not meaningful:
+    // staggered shifts audio by tx_startup_delay (exceeds ±100ms search window),
+    // cyclic loops a single DMA buffer (~13ms) so output doesn't resemble input.
+    if (cfg.tx_mode != "default") {
+        log_info() << "Skipping quality check (tx_mode=" << cfg.tx_mode
+                   << " — correlation not meaningful)\n";
     } else {
-        log_info() << "Loopback quality: correlation=" << correlation
-                   << ", lag=" << lag_ms << " ms\n";
-        if (correlation < 0.3) {
-            log_error() << "FAIL: loopback correlation " << correlation
-                        << " < 0.3 — DSP chain output does not resemble input\n";
-            hard_fail = true;
-        } else if (correlation < 0.7) {
-            log_warning() << "loopback correlation " << correlation << " < 0.7 — marginal\n";
+        double lag_ms = 0.0;
+        double correlation = loopback_quality_check(cfg.input_wav, cfg.output_wav, lag_ms);
+        if (correlation < 0.0) {
+            log_warning() << "could not compute loopback quality metric\n";
         } else {
-            log_info() << "Loopback PASS: correlation " << correlation << " >= 0.7\n";
+            log_info() << "Loopback quality: correlation=" << correlation
+                       << ", lag=" << lag_ms << " ms\n";
+            if (correlation < 0.3) {
+                log_error() << "FAIL: loopback correlation " << correlation
+                            << " < 0.3 — DSP chain output does not resemble input\n";
+                hard_fail = true;
+            } else if (correlation < 0.7) {
+                log_warning() << "loopback correlation " << correlation << " < 0.7 — marginal\n";
+            } else {
+                log_info() << "Loopback PASS: correlation " << correlation << " >= 0.7\n";
+            }
         }
     }
 
@@ -892,7 +900,13 @@ inline int run_loopback(const LoopbackConfig& cfg,
     }
 
     // Loopback signal quality validation: cross-correlate input and output audio
-    if (!early_stop) {
+    // Skipped in staggered/cyclic TX modes (see comment in run_file_loopback).
+    if (early_stop) {
+        log_warning() << "skipping loopback quality check (partial capture)\n";
+    } else if (cfg.tx_mode != "default") {
+        log_info() << "Skipping quality check (tx_mode=" << cfg.tx_mode
+                   << " — correlation not meaningful)\n";
+    } else {
         double lag_ms = 0.0;
         double correlation = loopback_quality_check(cfg.input_wav, cfg.output_wav, lag_ms);
         if (correlation < 0.0) {
@@ -912,8 +926,6 @@ inline int run_loopback(const LoopbackConfig& cfg,
                 log_info() << "Loopback PASS: correlation " << correlation << " >= 0.7\n";
             }
         }
-    } else {
-        log_warning() << "skipping loopback quality check (partial capture)\n";
     }
 
     log_info() << "NOTE: SDR at " << cfg.sdr_rate / 1000 << " kSPS, decimation "

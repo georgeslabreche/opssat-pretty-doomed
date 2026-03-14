@@ -67,7 +67,8 @@ struct LoopbackConfig {
 
     // TX execution mode: controls how TX interacts with RX streaming
     //   "default"   — TX and RX start simultaneously (current behavior)
-    //   "staggered" — prepend silence to TX so RX streams first
+    //   "staggered" — TX DMA starts with RX but sends silence first, then audio after delay
+    //                  (tests whether TX content vs TX DMA activity causes Q dropout)
     //   "cyclic"    — TX loops a single DMA buffer (no continuous CPU refill)
     std::string tx_mode = "default";    // config: tx_mode
     int tx_startup_delay = 2;           // config: tx_startup_delay — seconds of TX silence before audio (staggered mode)

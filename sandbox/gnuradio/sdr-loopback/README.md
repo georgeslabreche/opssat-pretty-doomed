@@ -97,7 +97,7 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
 | `enable_spectrogram` | true | Generate spectrogram BMP from captured I/Q data |
 | `enable_constellation` | true | Generate I/Q constellation BMP (detects Q channel dropout) |
-| `tx_mode` | default | TX execution mode: `default` (simultaneous), `staggered` (RX first), `cyclic` (DMA loop) |
+| `tx_mode` | default | TX execution mode: `default` (simultaneous), `staggered` (TX DMA active but sends silence first), `cyclic` (DMA loop) |
 | `tx_startup_delay` | 2 | Seconds of TX silence before audio begins (staggered mode only) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
@@ -127,7 +127,7 @@ The `RUNS` variable uses a `label:override1,override2,...` format. Overrides are
 
 Default diagnostic schedule (investigating Q channel dropout):
 1. **default** — TX and RX start simultaneously (baseline, reproduces v5/v6 Q dropout)
-2. **staggered** — RX streams 3s before TX audio begins (tests startup race condition)
+2. **staggered** — TX DMA active but sends 3s silence before audio (tests TX content vs TX DMA activity)
 3. **cyclic** — TX loops a single DMA buffer instead of continuous streaming (tests DMA contention)
 
 ## Output

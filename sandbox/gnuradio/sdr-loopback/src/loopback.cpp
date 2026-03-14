@@ -217,8 +217,9 @@ int main(int argc, char* argv[]) {
     // Truncating here would risk starving the resampler due to filter group delay.
     // The full (already duration-capped) input is passed; any excess is simply unused.
 
-    // Staggered mode: prepend silence to TX audio so RX streams before TX begins.
-    // This tests whether the Q dropout is a TX/RX startup race condition.
+    // Staggered mode: prepend silence to TX audio. TX DMA starts simultaneously
+    // with RX but sends zeros first. Tests whether Q dropout is caused by TX
+    // content (modulated signal) vs TX DMA activity alone.
     if (cfg.tx_mode == "staggered" && cfg.enable_tx && cfg.tx_startup_delay > 0) {
         long long silence_samples = (long long)input_audio_rate * cfg.tx_startup_delay;
         log_info() << "Staggered TX: prepending " << silence_samples
