@@ -1,30 +1,14 @@
-/*
- * loopback_test.cpp - GNU Radio IIO Loopback Test for OPS-SAT PRETTY
- *
- * Validates AD9361 SDR integration using internal loopback mode.
- * TX: WAV file -> resample -> FM mod -> AD9361 TX (sdr_rate e.g. 2.4 MSPS)
- * RX: AD9361 RX (sdr_rate) -> Decimating LPF (decim=12 -> 200 kSPS effective)
- *     -> sc16 I/Q + FM demod -> bandpass -> 16 kHz WAV
- *
- * Loopback mode routes TX internally to RX (no RF emission).
- *
- * Usage: loopback_test -i input.wav -o output.wav [-c config.cfg]
- */
+#ifndef LOOPBACK_FLOWGRAPH_H
+#define LOOPBACK_FLOWGRAPH_H
 
-#include <algorithm>
-#include <iostream>
 #include <fstream>
-#include <string>
 #include <chrono>
 #include <thread>
-#include <atomic>
 #include <cmath>
-#include <cerrno>
-#include <csignal>
-#include <cstdlib>
-#include <cstring>
-#include <ctime>
+#include <numeric>
 #include <vector>
+#include <string>
+#include <atomic>
 
 #include <gnuradio/top_block.h>
 #include <gnuradio/blocks/vector_source.h>
@@ -45,519 +29,26 @@
 #include <gnuradio/filter/firdes.h>
 #include <gnuradio/iio/device_source.h>
 #include <gnuradio/iio/device_sink.h>
-#include <numeric>  // for std::gcd
-
-#include <sched.h>
 
 #include <iio.h>
 #include <sndfile.h>
 
 #include "pretty_log.h"
 #include "pretty_signal.h"
-#include "pretty_config.h"
 #include "pretty_iio.h"
 #include "pretty_audio.h"
 #include "pretty_spectrogram.h"
+#include "pretty_constellation.h"
+#include "loopback_config.h"
+#include "loopback_quality.h"
+#include "loopback_iio.h"
 
 using namespace pretty;
-
-// AD9361 hardware limits
-static constexpr unsigned long AD9361_SAMPLE_RATE_MIN = 2083000;    // Hz
-static constexpr unsigned long AD9361_SAMPLE_RATE_MAX = 61440000;   // Hz
-static constexpr unsigned long AD9361_RF_BANDWIDTH_MIN = 200000;    // Hz
-static constexpr unsigned long AD9361_RF_BANDWIDTH_MAX = 56000000;  // Hz
-
-// Defaults are overridden by config file values (-c), then by command-line args.
-struct LoopbackConfig {
-    // SDR hardware
-    unsigned long long frequency = 1296000000;  // overridden by config: frequency
-    unsigned long sdr_rate = 2400000;           // overridden by config: sdr_rate (AD9361 hardware rate)
-    int decimation = 12;                        // overridden by config: decimation (LPF decimation factor)
-    unsigned long rf_bandwidth = 200000;        // overridden by config: rf_bandwidth (AD9361 analog filter)
-    double fm_deviation = 5000.0;              // overridden by config: fm_deviation
-    double tx_attenuation = 10.0;              // overridden by config: tx_attenuation
-    double rx_gain = 50.0;                     // overridden by config: gain
-    std::string uri = "local:";                // overridden by config: uri
-
-    // Derived (set after parsing)
-    unsigned long effective_rate = 200000;      // sdr_rate / decimation
-
-    // Downlink budget
-    int max_iq_mb = 20;                       // overridden by config: max_iq_mb
-
-    // Audio
-    int audio_rate = 16000;                    // overridden by config: audio_rate
-    double bandpass_low = 300.0;               // overridden by config: bandpass_low
-    double bandpass_high = 3400.0;             // overridden by config: bandpass_high
-
-    // LPF
-    double lpf_cutoff = 85000.0;              // overridden by config: lpf_cutoff
-    double lpf_transition = 15000.0;          // overridden by config: lpf_transition
-
-    // I/O
-    std::string input_wav;
-    std::string output_wav = "output.wav";
-
-    // Testing / diagnostics
-    bool min_readback = false;          // --min-readback: downgrade sample rate check to warning (emulator)
-    bool single_core = false;           // --single-core: pin process to CPU 0 (diagnose threading issues)
-    long rate_tolerance = 10;           // max Hz offset for sample rate readback before fatal (AD9361 PLL quantization)
-    int timeout_multiplier = 5;         // config: timeout_multiplier — timeout = duration * N + 10 (default 5 for ARM CPU headroom)
-    int iio_buffer_size = 0x8000;       // config: iio_buffer_size — IIO DMA buffer size (samples per channel)
-    bool use_file_loopback = false;     // config: use_file_loopback — bypass IIO, test DSP chain with file I/O
-    std::string loopback_file = "loopback_iq.raw";  // config: loopback_file — intermediate gr_complex file
-
-    // Feature flags — toggle flowgraph blocks for isolation testing on the EM
-    bool enable_tx = true;              // config: enable_tx — disable to capture RX-only (no TX path)
-    bool enable_fm_mod = true;          // config: enable_fm_mod — disable to send raw audio as I/Q
-    bool enable_fm_demod = true;        // config: enable_fm_demod — disable to skip FM demodulation
-    bool enable_lpf = true;             // config: enable_lpf — disable to skip LPF decimation
-    bool enable_resampler_tx = true;    // config: enable_resampler_tx — disable TX resampler
-    bool enable_resampler_rx = true;    // config: enable_resampler_rx — disable RX resampler
-    bool enable_bandpass = true;        // config: enable_bandpass — disable bandpass filter
-};
-
-bool load_config(const std::string& path, LoopbackConfig& cfg) {
-    auto result = load_config_map(path);
-    if (!result.ok) return false;
-
-    for (const auto& [key, value] : result.values) {
-        try {
-            if (key == "frequency") cfg.frequency = std::stoull(value);
-            else if (key == "sdr_rate") cfg.sdr_rate = std::stoul(value);
-            else if (key == "decimation") cfg.decimation = std::stoi(value);
-            else if (key == "rf_bandwidth") cfg.rf_bandwidth = std::stoul(value);
-            else if (key == "gain") cfg.rx_gain = std::stod(value);
-            else if (key == "tx_attenuation") cfg.tx_attenuation = std::stod(value);
-            else if (key == "fm_deviation") cfg.fm_deviation = std::stod(value);
-            else if (key == "uri") cfg.uri = value;
-            else if (key == "max_iq_mb") cfg.max_iq_mb = std::stoi(value);
-            else if (key == "audio_rate") cfg.audio_rate = std::stoi(value);
-            else if (key == "bandpass_low") cfg.bandpass_low = std::stod(value);
-            else if (key == "bandpass_high") cfg.bandpass_high = std::stod(value);
-            else if (key == "lpf_cutoff") cfg.lpf_cutoff = std::stod(value);
-            else if (key == "lpf_transition") cfg.lpf_transition = std::stod(value);
-            else if (key == "min_readback") cfg.min_readback = (value == "true" || value == "1");
-            else if (key == "single_core") cfg.single_core = (value == "true" || value == "1");
-            else if (key == "rate_tolerance") cfg.rate_tolerance = std::stol(value);
-            else if (key == "timeout_multiplier") cfg.timeout_multiplier = std::stoi(value);
-            else if (key == "iio_buffer_size") cfg.iio_buffer_size = std::stoi(value);
-            else if (key == "use_file_loopback") cfg.use_file_loopback = (value == "true" || value == "1");
-            else if (key == "loopback_file") cfg.loopback_file = value;
-            else if (key == "enable_tx") cfg.enable_tx = (value == "true" || value == "1");
-            else if (key == "enable_fm_mod") cfg.enable_fm_mod = (value == "true" || value == "1");
-            else if (key == "enable_fm_demod") cfg.enable_fm_demod = (value == "true" || value == "1");
-            else if (key == "enable_lpf") cfg.enable_lpf = (value == "true" || value == "1");
-            else if (key == "enable_resampler_tx") cfg.enable_resampler_tx = (value == "true" || value == "1");
-            else if (key == "enable_resampler_rx") cfg.enable_resampler_rx = (value == "true" || value == "1");
-            else if (key == "enable_bandpass") cfg.enable_bandpass = (value == "true" || value == "1");
-            else log_warning() << path << ": unknown config key: " << key << "\n";
-        } catch (const std::exception& e) {
-            log_error() << path << ": parse error: " << key << "=" << value
-                        << " (" << e.what() << ")\n";
-            return false;
-        }
-    }
-
-    return true;
-}
-
-void print_usage(const char* prog) {
-    std::cout << "OPS-SAT IIO Loopback Test\n"
-              << "=========================\n\n"
-              << "Usage: " << prog << " [options]\n\n"
-              << "Options:\n"
-              << "  -c, --config    Config file path (KEY=VALUE format)\n"
-              << "  -i, --input     Input WAV file (required)\n"
-              << "  -o, --output    Output WAV file (default: output.wav)\n"
-              << "  -u, --uri       IIO URI (default: local:)\n"
-              << "  -f, --freq      Frequency in Hz (default: 1296000000)\n"
-              << "  -d, --deviation FM deviation in Hz (default: 5000)\n"
-              << "      --min-readback  Minimal readback: downgrade sample rate check to warning (emulator)\n"
-              << "      --single-core   Pin process to CPU 0 (diagnose multi-threading crashes)\n"
-              << "  -h, --help      Show this help\n";
-}
-
-// Parse config file (-c) then command-line overrides. Returns 0 on success,
-// 1 on error, 2 if --help was requested (caller should exit 0).
-int parse_args(int argc, char* argv[], LoopbackConfig& cfg) {
-    std::string config_path;
-
-    // First pass: find config file
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-        if ((arg == "-c" || arg == "--config") && i + 1 < argc) {
-            config_path = argv[++i];
-        }
-    }
-
-    // Load config file if specified
-    if (!config_path.empty()) {
-        if (!load_config(config_path, cfg)) {
-            return 1;
-        }
-    }
-
-    // Second pass: command-line overrides
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-        if ((arg == "-c" || arg == "--config") && i + 1 < argc) {
-            i++;  // already handled
-        } else if ((arg == "-i" || arg == "--input") && i + 1 < argc) {
-            cfg.input_wav = argv[++i];
-        } else if ((arg == "-o" || arg == "--output") && i + 1 < argc) {
-            cfg.output_wav = argv[++i];
-        } else if ((arg == "-u" || arg == "--uri") && i + 1 < argc) {
-            cfg.uri = argv[++i];
-        } else if ((arg == "-f" || arg == "--freq") && i + 1 < argc) {
-            cfg.frequency = std::stoull(argv[++i]);
-        } else if ((arg == "-d" || arg == "--deviation") && i + 1 < argc) {
-            cfg.fm_deviation = std::stod(argv[++i]);
-            if (cfg.fm_deviation <= 0) {
-                log_error() << "FM deviation must be > 0\n";
-                return 1;
-            }
-        } else if (arg == "--min-readback") {
-            cfg.min_readback = true;
-        } else if (arg == "--single-core") {
-            cfg.single_core = true;
-        } else if (arg == "-h" || arg == "--help") {
-            print_usage(argv[0]);
-            return 2;
-        } else if (arg[0] == '-') {
-            log_error() << "Unknown option: " << arg << "\n";
-            print_usage(argv[0]);
-            return 1;
-        }
-    }
-
-    // Validate
-    if (cfg.input_wav.empty()) {
-        log_error() << "Input WAV file required\n";
-        print_usage(argv[0]);
-        return 1;
-    }
-    if (cfg.sdr_rate == 0) {
-        log_error() << "sdr_rate must be > 0\n";
-        return 1;
-    }
-    if (cfg.decimation <= 0) {
-        log_error() << "decimation must be > 0\n";
-        return 1;
-    }
-    if (cfg.sdr_rate % cfg.decimation != 0) {
-        log_error() << "sdr_rate (" << cfg.sdr_rate << ") must be divisible by decimation ("
-                    << cfg.decimation << ")\n";
-        return 1;
-    }
-    cfg.effective_rate = cfg.sdr_rate / cfg.decimation;
-    if (cfg.effective_rate == 0) {
-        log_error() << "effective_rate (sdr_rate/decimation) must be > 0\n";
-        return 1;
-    }
-    // AD9361 hardware range checks (skip in file loopback mode — no real hardware)
-    if (!cfg.use_file_loopback) {
-        if (cfg.sdr_rate < AD9361_SAMPLE_RATE_MIN || cfg.sdr_rate > AD9361_SAMPLE_RATE_MAX) {
-            log_error() << "sdr_rate " << cfg.sdr_rate << " Hz out of AD9361 range ("
-                        << AD9361_SAMPLE_RATE_MIN << " - " << AD9361_SAMPLE_RATE_MAX << " Hz)\n";
-            return 1;
-        }
-        if (cfg.rf_bandwidth < AD9361_RF_BANDWIDTH_MIN || cfg.rf_bandwidth > AD9361_RF_BANDWIDTH_MAX) {
-            log_error() << "rf_bandwidth " << cfg.rf_bandwidth << " Hz out of AD9361 range ("
-                        << AD9361_RF_BANDWIDTH_MIN << " - " << AD9361_RF_BANDWIDTH_MAX << " Hz)\n";
-            return 1;
-        }
-    }
-    if (cfg.max_iq_mb <= 0) {
-        log_error() << "max_iq_mb must be > 0\n";
-        return 1;
-    }
-    if (cfg.audio_rate <= 0) {
-        log_error() << "audio_rate must be > 0\n";
-        return 1;
-    }
-
-    return 0;
-}
-
-void log_config(const LoopbackConfig& cfg) {
-    log_info() << "OPS-SAT PRETTY IIO Loopback Test\n";
-    log_info() << "Input:       " << cfg.input_wav << "\n";
-    log_info() << "Output:      " << cfg.output_wav << "\n";
-    if (cfg.use_file_loopback) {
-        log_info() << "Mode:        FILE LOOPBACK (no IIO hardware)\n";
-        log_info() << "Loopback:    " << cfg.loopback_file << "\n";
-    } else {
-        log_info() << "URI:         " << cfg.uri << "\n";
-    }
-    log_info() << "Frequency:   " << cfg.frequency / 1e6 << " MHz\n";
-    log_info() << "SDR rate:    " << cfg.sdr_rate << " Hz (AD9361 hardware)\n";
-    log_info() << "Decimation:  " << cfg.decimation << "x\n";
-    log_info() << "Eff. rate:   " << cfg.effective_rate << " Hz (post-LPF)\n";
-    log_info() << "RF BW:       " << cfg.rf_bandwidth << " Hz\n";
-    log_info() << "Audio rate:  " << cfg.audio_rate << " Hz\n";
-    log_info() << "FM Dev:      " << cfg.fm_deviation << " Hz\n";
-    log_info() << "LPF cutoff:  " << cfg.lpf_cutoff << " Hz\n";
-    log_info() << "LPF trans:   " << cfg.lpf_transition << " Hz\n";
-    log_info() << "Bandpass:    " << cfg.bandpass_low << " - " << cfg.bandpass_high << " Hz\n";
-    log_info() << "IIO buf:     " << cfg.iio_buffer_size << " samples\n";
-    // Log any disabled feature flags
-    if (!cfg.enable_tx) log_info() << "FLAG:        enable_tx=false (TX path disabled)\n";
-    if (!cfg.enable_fm_mod) log_info() << "FLAG:        enable_fm_mod=false\n";
-    if (!cfg.enable_fm_demod) log_info() << "FLAG:        enable_fm_demod=false\n";
-    if (!cfg.enable_lpf) log_info() << "FLAG:        enable_lpf=false\n";
-    if (!cfg.enable_resampler_tx) log_info() << "FLAG:        enable_resampler_tx=false\n";
-    if (!cfg.enable_resampler_rx) log_info() << "FLAG:        enable_resampler_rx=false\n";
-    if (!cfg.enable_bandpass) log_info() << "FLAG:        enable_bandpass=false\n";
-}
-
-// Loopback signal quality check: mean-centered normalized cross-correlation
-// between input and output WAV over a fixed window (first 3 seconds).
-// Resamples input to output rate via linear interpolation if rates differ.
-// Uses max(|corr|) to handle polarity flips from the demod chain.
-// Returns peak |correlation| (0.0 = uncorrelated, 1.0 = identical).
-// Sets best_lag_ms to the alignment offset in milliseconds.
-double loopback_quality_check(const std::string& input_wav, const std::string& output_wav,
-                              double& best_lag_ms) {
-    best_lag_ms = 0.0;
-    const double WINDOW_SEC = 3.0;  // fixed window to keep O(N*lags) bounded on ARM
-
-    // Read input WAV
-    SF_INFO in_info = {0};
-    SNDFILE* in_sf = sf_open(input_wav.c_str(), SFM_READ, &in_info);
-    if (!in_sf) {
-        log_warning() << "Quality check: could not open input WAV: " << sf_strerror(NULL) << "\n";
-        return -1.0;
-    }
-    std::vector<float> in_samples(in_info.frames);
-    sf_count_t in_read = sf_readf_float(in_sf, in_samples.data(), in_info.frames);
-    sf_close(in_sf);
-    if (in_read <= 0) {
-        log_warning() << "Quality check: no frames read from input WAV\n";
-        return -1.0;
-    }
-    in_samples.resize((size_t)in_read);
-
-    // Read output WAV
-    SF_INFO out_info = {0};
-    SNDFILE* out_sf = sf_open(output_wav.c_str(), SFM_READ, &out_info);
-    if (!out_sf) {
-        log_warning() << "Quality check: could not open output WAV: " << sf_strerror(NULL) << "\n";
-        return -1.0;
-    }
-    std::vector<float> out_samples(out_info.frames);
-    sf_count_t out_read = sf_readf_float(out_sf, out_samples.data(), out_info.frames);
-    sf_close(out_sf);
-    if (out_read <= 0) {
-        log_warning() << "Quality check: no frames read from output WAV\n";
-        return -1.0;
-    }
-    out_samples.resize((size_t)out_read);
-
-    if (out_info.samplerate <= 0) {
-        log_warning() << "Quality check: invalid output sample rate\n";
-        return -1.0;
-    }
-
-    // Resample input to output rate if different (linear interpolation)
-    std::vector<float> resampled;
-    if (in_info.samplerate != out_info.samplerate && in_info.samplerate > 0) {
-        double ratio = (double)out_info.samplerate / in_info.samplerate;
-        size_t new_len = (size_t)(in_samples.size() * ratio);
-        if (new_len == 0) {
-            log_warning() << "Quality check: resampled length is 0\n";
-            return -1.0;
-        }
-        resampled.resize(new_len);
-        for (size_t i = 0; i < new_len; i++) {
-            double src_idx = i / ratio;
-            size_t idx0 = (size_t)src_idx;
-            double frac = src_idx - idx0;
-            if (idx0 + 1 < in_samples.size()) {
-                resampled[i] = (float)((1.0 - frac) * in_samples[idx0] + frac * in_samples[idx0 + 1]);
-            } else if (idx0 < in_samples.size()) {
-                resampled[i] = in_samples[idx0];
-            }
-        }
-        log_info() << "Quality check: resampled input " << in_info.samplerate
-                   << " -> " << out_info.samplerate << " Hz (" << resampled.size() << " samples)\n";
-    }
-
-    // Use resampled input if rate conversion was needed, otherwise original
-    const std::vector<float>& ref = resampled.empty() ? in_samples : resampled;
-
-    // Cap to fixed window (first WINDOW_SEC seconds) to bound CPU on constrained targets
-    size_t window_samples = (out_info.samplerate > 0)
-        ? (size_t)(WINDOW_SEC * out_info.samplerate) : ref.size();
-
-    // Search window: ±0.1 seconds at output rate (handles FM demod group delay)
-    int max_lag = out_info.samplerate / 10;
-    // Cap max_lag to 1/4 of shortest input to preserve useful overlap
-    {
-        size_t shortest = std::min({ref.size(), out_samples.size(), window_samples});
-        if (max_lag > (int)shortest / 4) max_lag = (int)shortest / 4;
-    }
-    if (max_lag <= 0) return -1.0;
-
-    // Compute overlap_len directly from both vectors and lag window.
-    // Worst-case out index: out_start_max + overlap_len - 1 = 2*max_lag + overlap_len - 1.
-    // Require: 2*max_lag + overlap_len <= out_samples.size()
-    // Also:    overlap_len <= ref.size()
-    // Also:    overlap_len <= window_samples
-    if (out_samples.size() <= (size_t)(2 * max_lag)) return -1.0;
-    size_t overlap_len = std::min({
-        out_samples.size() - (size_t)(2 * max_lag),
-        ref.size(),
-        window_samples
-    });
-    if (overlap_len < 100) {
-        log_warning() << "Quality check: overlap too short (" << overlap_len << " samples) for correlation\n";
-        return -1.0;
-    }
-    log_info() << "Quality check: overlap=" << overlap_len << " samples ("
-               << (double)overlap_len / out_info.samplerate << "s), max_lag=±"
-               << max_lag << "\n";
-
-    // Mean-center reference signal over the overlap window to remove DC offset
-    // (FM demod can introduce DC bias). Reference window is fixed at [0..overlap_len).
-    double ref_mean = 0.0;
-    for (size_t i = 0; i < overlap_len; i++) {
-        ref_mean += ref[i];
-    }
-    ref_mean /= overlap_len;
-
-    // Compute energy of mean-centered reference (constant across all lags)
-    double ref_energy = 0.0;
-    for (size_t i = 0; i < overlap_len; i++) {
-        double v = ref[i] - ref_mean;
-        ref_energy += v * v;
-    }
-    if (ref_energy < 1e-20) {
-        log_warning() << "Quality check: reference signal is silent after DC removal\n";
-        return -1.0;
-    }
-
-    double best_corr = 0.0;
-    int best_lag = 0;
-
-    for (int lag = -max_lag; lag <= max_lag; lag++) {
-        // For each lag, correlate ref[0..overlap_len) with out[out_start..out_start+overlap_len)
-        int out_start = max_lag + lag;
-
-        // Compute output mean over the actual correlated window (not a fixed offset)
-        double out_mean = 0.0;
-        for (size_t i = 0; i < overlap_len; i++) {
-            out_mean += out_samples[out_start + (int)i];
-        }
-        out_mean /= overlap_len;
-
-        double sum = 0.0;
-        double out_energy = 0.0;
-        for (size_t i = 0; i < overlap_len; i++) {
-            double r = ref[i] - ref_mean;
-            double o = out_samples[out_start + (int)i] - out_mean;
-            sum += r * o;
-            out_energy += o * o;
-        }
-
-        if (out_energy < 1e-20) continue;
-        double corr = sum / std::sqrt(ref_energy * out_energy);
-        // Use |corr| to handle polarity flips from demod chain
-        if (std::abs(corr) > std::abs(best_corr)) {
-            best_corr = corr;
-            best_lag = lag;
-        }
-    }
-
-    best_lag_ms = (out_info.samplerate > 0)
-        ? (double)best_lag * 1000.0 / out_info.samplerate : 0.0;
-
-    return std::abs(best_corr);
-}
-
-// Read input WAV file via libsndfile. Returns duration in seconds, or -1 on error.
-// Loads all samples into `samples` as float (deterministic type, no GNU Radio version dependency).
-double read_input_wav(const std::string& path, int& audio_rate, long long& frame_count,
-                      std::vector<float>& samples) {
-    SF_INFO sf_info = {0};
-    SNDFILE* sf = sf_open(path.c_str(), SFM_READ, &sf_info);
-    if (!sf) {
-        log_error() << "Could not open WAV file: " << path << "\n";
-        log_error() << "Reason: " << sf_strerror(NULL) << "\n";
-        return -1.0;
-    }
-
-    audio_rate = sf_info.samplerate;
-    frame_count = sf_info.frames;
-    int channels = sf_info.channels;
-    int format = sf_info.format;
-
-    if (channels > 1) {
-        sf_close(sf);
-        log_error() << "Input file has " << channels << " channels — must be mono\n";
-        return -1.0;
-    }
-    if ((format & SF_FORMAT_SUBMASK) != SF_FORMAT_PCM_16) {
-        sf_close(sf);
-        log_error() << "Input WAV must be 16-bit PCM (use convert-sample.sh)\n";
-        return -1.0;
-    }
-    if (audio_rate <= 0) {
-        sf_close(sf);
-        log_error() << "Invalid WAV file sample rate: " << audio_rate << "\n";
-        return -1.0;
-    }
-    if (frame_count <= 0) {
-        sf_close(sf);
-        log_error() << "WAV file is empty or invalid\n";
-        return -1.0;
-    }
-
-    samples.resize((size_t)frame_count);
-    sf_count_t read = sf_readf_float(sf, samples.data(), frame_count);
-    sf_close(sf);
-
-    if (read <= 0) {
-        log_error() << "Could not read samples from WAV file\n";
-        samples.clear();
-        return -1.0;
-    }
-    if (read < frame_count) {
-        log_warning() << "WAV read returned " << read << "/" << frame_count << " frames\n";
-        frame_count = read;
-    }
-    samples.resize((size_t)read);
-
-    return (double)frame_count / audio_rate;
-}
-
-// Helper: restore loopback attribute via a fresh IIO context.
-// Called after run_loopback() returns so no context conflicts with GNU Radio.
-static void restore_loopback(const std::string& uri, const std::string& prev_loopback) {
-    log_info() << "Restoring loopback to '" << prev_loopback << "'...\n";
-    struct iio_context* ctx = iio_create_context_from_uri(uri.c_str());
-    if (!ctx) {
-        log_warning() << "could not connect to IIO for loopback restore\n";
-        return;
-    }
-    struct iio_device* phy = iio_context_find_device(ctx, "ad9361-phy");
-    if (!phy) {
-        log_warning() << "could not find ad9361-phy for loopback restore\n";
-        iio_context_destroy(ctx);
-        return;
-    }
-    int ret = iio_device_debug_attr_write(phy, "loopback", prev_loopback.c_str());
-    if (ret < 0) {
-        log_warning() << "restore failed (ret=" << ret << "), trying '0'\n";
-        iio_device_debug_attr_write(phy, "loopback", "0");
-    }
-    iio_context_destroy(ctx);
-}
 
 // File-based loopback: TX flowgraph writes gr_complex to file, RX flowgraph reads it back.
 // No IIO hardware needed — tests the full FM mod/demod DSP chain locally.
 // Returns 0 on success, 1 on error.
-int run_file_loopback(const LoopbackConfig& cfg,
+inline int run_file_loopback(const LoopbackConfig& cfg,
                       int input_audio_rate, long long iq_sample_count,
                       const std::vector<float>& input_samples) {
     g_running = 1;
@@ -776,10 +267,18 @@ int run_file_loopback(const LoopbackConfig& cfg,
     }
 
     // Spectrogram
-    {
+    if (cfg.enable_spectrogram) {
         std::string spec_file = make_spectrogram_filename(iq_file);
         if (!generate_spectrogram(iq_file, spec_file, (long long)cfg.effective_rate)) {
             log_warning() << "spectrogram generation failed\n";
+        }
+    }
+
+    // Constellation
+    if (cfg.enable_constellation) {
+        std::string const_file = make_constellation_filename(iq_file);
+        if (!generate_constellation(iq_file, const_file)) {
+            log_warning() << "constellation generation failed\n";
         }
     }
 
@@ -812,7 +311,7 @@ int run_file_loopback(const LoopbackConfig& cfg,
 // iq_sample_count is the pre-snapped integer sample count (avoids float->int truncation).
 // input_samples: PCM float samples read via libsndfile (deterministic type).
 // prev_loopback: value to restore on forced exit (_Exit path bypasses RAII).
-int run_loopback(const LoopbackConfig& cfg,
+inline int run_loopback(const LoopbackConfig& cfg,
                  int input_audio_rate, long long iq_sample_count,
                  const std::vector<float>& input_samples,
                  const std::string& prev_loopback) {
@@ -1009,9 +508,13 @@ int run_loopback(const LoopbackConfig& cfg,
             // TX IIO sink — uses device_sink directly instead of fmcomms2_sink_fc32
             gr::iio::iio_param_vec_t no_tx_params;
             std::vector<std::string> tx_channels = {"voltage0", "voltage1"};
+            bool cyclic_tx = (cfg.tx_mode == "cyclic");
+            if (cyclic_tx) {
+                log_info() << "Cyclic TX: DMA buffer will loop (no continuous CPU refill)\n";
+            }
             iio_sink = gr::iio::device_sink::make(
                 cfg.uri, "cf-ad9361-dds-core-lpc", tx_channels, "ad9361-phy",
-                no_tx_params, cfg.iio_buffer_size, 0, false);
+                no_tx_params, cfg.iio_buffer_size, 0, cyclic_tx);
 
             // TX format conversion: gr_complex → float I/Q → int16
             from_fc32   = gr::blocks::complex_to_float::make(1);
@@ -1373,10 +876,18 @@ int run_loopback(const LoopbackConfig& cfg,
     }
 
     // Generate spectrogram thumbnail for downlink triage
-    {
+    if (cfg.enable_spectrogram) {
         std::string spec_file = make_spectrogram_filename(iq_file);
         if (!generate_spectrogram(iq_file, spec_file, (long long)cfg.effective_rate)) {
             log_warning() << "spectrogram generation failed\n";
+        }
+    }
+
+    // Generate constellation plot for I/Q health check (Q dropout detection)
+    if (cfg.enable_constellation) {
+        std::string const_file = make_constellation_filename(iq_file);
+        if (!generate_constellation(iq_file, const_file)) {
+            log_warning() << "constellation generation failed\n";
         }
     }
 
@@ -1414,194 +925,4 @@ int run_loopback(const LoopbackConfig& cfg,
     return 0;
 }
 
-int main(int argc, char* argv[]) {
-    LoopbackConfig cfg;
-
-    try {
-        int rc = parse_args(argc, argv, cfg);
-        if (rc == 2) return 0;  // --help
-        if (rc != 0) return rc;
-    } catch (const std::exception& e) {
-        log_error() << "Invalid argument value: " << e.what() << "\n";
-        print_usage(argv[0]);
-        return 1;
-    }
-
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-
-    // Pin to CPU 0 if requested — serializes all GNU Radio scheduler threads
-    // onto one core to diagnose multi-threading race conditions.
-    if (cfg.single_core) {
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(0, &cpuset);
-        if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0) {
-            log_info() << "Pinned to CPU 0 (--single-core)\n";
-        } else {
-            log_warning() << "sched_setaffinity failed: " << strerror(errno)
-                          << " (continuing without CPU pinning)\n";
-        }
-    }
-
-    log_config(cfg);
-
-    // --- Enable Loopback Mode via libiio (skip in file loopback mode) ---
-    std::string prev_loopback = "0";
-    if (cfg.use_file_loopback) {
-        log_info() << "File loopback mode — skipping IIO loopback setup\n";
-    } else {
-    // Context is created, used to enable loopback, then destroyed BEFORE
-    // run_loopback() creates GNU Radio blocks (which open their own contexts).
-    // Keeping this context alive during flowgraph execution causes segfaults
-    // due to IIO device conflicts with the device_source/sink contexts.
-    {
-        log_info() << "Connecting to IIO context for loopback setup...\n";
-        struct iio_context* ctx = iio_create_context_from_uri(cfg.uri.c_str());
-        if (!ctx) {
-            log_error() << "Could not connect to IIO context at " << cfg.uri << "\n";
-            return 1;
-        }
-
-        struct iio_device* phy = iio_context_find_device(ctx, "ad9361-phy");
-        if (!phy) {
-            log_error() << "Could not find ad9361-phy device\n";
-            iio_context_destroy(ctx);
-            return 1;
-        }
-
-        // Save current loopback value for restore on exit
-        {
-            char lb_buf[64];
-            ssize_t rb = iio_device_debug_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
-            if (rb <= 0) {
-                log_warning() << "Could not read loopback debug attribute, will restore to '0'\n";
-            } else if ((size_t)rb >= sizeof(lb_buf)) {
-                log_warning() << "Loopback attr truncated (" << rb << " bytes, buf="
-                              << sizeof(lb_buf) << "), will restore to '0'\n";
-            } else {
-                prev_loopback = trim(std::string(lb_buf, (size_t)rb));
-                log_info() << "AD9361 loopback current value: " << prev_loopback << "\n";
-            }
-        }
-
-        log_info() << "Enabling loopback mode (writing '1' to loopback debug attr)...\n";
-        int ret = iio_device_debug_attr_write(phy, "loopback", "1");
-        if (ret < 0) {
-            log_error() << "FATAL: could not enable loopback (ret=" << ret
-                        << "). Loopback validation requires working loopback mode.\n";
-            iio_context_destroy(ctx);
-            return 1;
-        }
-        log_info() << "Loopback write OK (wrote " << ret << " bytes)\n";
-
-        // Read back loopback attribute to confirm actual mode
-        {
-            char lb_buf[64];
-            ssize_t rb = iio_device_debug_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
-            if (rb <= 0) {
-                log_error() << "FATAL: could not read back loopback debug attribute — "
-                            << "cannot confirm loopback is active\n";
-                iio_context_destroy(ctx);
-                restore_loopback(cfg.uri, prev_loopback);
-                return 1;
-            } else if ((size_t)rb >= sizeof(lb_buf)) {
-                log_error() << "FATAL: loopback readback truncated (" << rb << " bytes, buf="
-                            << sizeof(lb_buf) << ") — cannot confirm loopback is active\n";
-                iio_context_destroy(ctx);
-                restore_loopback(cfg.uri, prev_loopback);
-                return 1;
-            } else {
-                std::string readback = trim(std::string(lb_buf, (size_t)rb));
-                log_info() << "AD9361 loopback readback: " << readback << "\n";
-                if (readback != "1") {
-                    log_error() << "FATAL: loopback readback is '" << readback
-                                << "', expected '1' — loopback not confirmed active\n";
-                    iio_context_destroy(ctx);
-                    restore_loopback(cfg.uri, prev_loopback);
-                    return 1;
-                }
-            }
-        }
-
-        // Destroy context — loopback setting persists in the kernel driver.
-        // No IIO context will be alive during flowgraph execution.
-        iio_context_destroy(ctx);
-        log_info() << "Loopback setup context released\n";
-    }
-    } // end if (!use_file_loopback)
-
-    // Read input WAV (samples loaded via libsndfile for deterministic float type)
-    int input_audio_rate = 0;
-    long long input_frames = 0;
-    std::vector<float> input_samples;
-    double duration_sec = read_input_wav(cfg.input_wav, input_audio_rate, input_frames, input_samples);
-    if (duration_sec < 0) {
-        if (!cfg.use_file_loopback) restore_loopback(cfg.uri, prev_loopback);
-        return 1;
-    }
-    log_info() << "Input frames:     " << input_frames << " (" << duration_sec << " sec)\n";
-
-    // Cap duration to stay within downlink budget (sc16: 4 bytes per complex sample)
-    // File is written at effective_rate (post-LPF decimation)
-    const long long max_iq_bytes = (long long)cfg.max_iq_mb * 1024LL * 1024;
-    double max_duration = (double)max_iq_bytes / (cfg.effective_rate * 4.0);
-    log_info() << "Capture cap:      " << max_duration << "s ("
-               << cfg.max_iq_mb << " MiB @ "
-               << cfg.effective_rate << " SPS sc16)\n";
-    if (duration_sec > max_duration) {
-        log_warning() << "Input duration " << duration_sec << "s exceeds cap, truncating\n";
-        duration_sec = max_duration;
-    }
-
-    // Snap to sample boundary at effective_rate for deterministic file sizes
-    long long snap_samples = (long long)(duration_sec * cfg.effective_rate);
-    if (snap_samples <= 0) {
-        log_error() << "Effective duration must be > 0 (increase max_iq_mb or input length)\n";
-        if (!cfg.use_file_loopback) restore_loopback(cfg.uri, prev_loopback);
-        return 1;
-    }
-    // Align to RX decimation multiple *before* computing TX need_in,
-    // otherwise we can falsely reject "too short" WAVs.
-    unsigned long rx_gcd_m = std::gcd((unsigned long)cfg.effective_rate, (unsigned long)cfg.audio_rate);
-    unsigned long rx_decim_m = cfg.effective_rate / rx_gcd_m;
-    {
-        long long rem = snap_samples % (long long)rx_decim_m;
-        if (rem != 0) {
-            long long snapped = snap_samples - rem;
-            if (snapped <= 0) {
-                log_error() << "Effective duration too short after RX alignment snap\n";
-                if (!cfg.use_file_loopback) restore_loopback(cfg.uri, prev_loopback);
-                return 1;
-            }
-            log_info() << "Aligning snap_samples to RX decim: " << snap_samples
-                       << " -> " << snapped << " (rx_decim=" << rx_decim_m << ")\n";
-            snap_samples = snapped;
-        }
-    }
-
-    log_info() << "Effective duration: " << (double)snap_samples / cfg.effective_rate << " sec ("
-               << snap_samples << " samples @ " << cfg.effective_rate << " Hz)\n";
-
-    // TX input is not truncated — tx_head in the flowgraph caps output to tx_samples.
-    // Truncating here would risk starving the resampler due to filter group delay.
-    // The full (already duration-capped) input is passed; any excess is simply unused.
-
-    int rc;
-    try {
-        if (cfg.use_file_loopback) {
-            rc = run_file_loopback(cfg, input_audio_rate, snap_samples, input_samples);
-        } else {
-            rc = run_loopback(cfg, input_audio_rate, snap_samples, input_samples, prev_loopback);
-        }
-    } catch (const std::exception& e) {
-        log_error() << e.what() << "\n";
-        rc = 1;
-    }
-
-    // Restore loopback via a fresh context (no conflicts with GNU Radio)
-    if (!cfg.use_file_loopback) {
-        restore_loopback(cfg.uri, prev_loopback);
-    }
-    return rc;
-}
+#endif // LOOPBACK_FLOWGRAPH_H

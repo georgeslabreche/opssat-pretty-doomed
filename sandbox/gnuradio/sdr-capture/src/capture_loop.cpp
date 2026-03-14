@@ -55,6 +55,7 @@
 #include "pretty_iio.h"
 #include "pretty_audio.h"
 #include "pretty_spectrogram.h"
+#include "pretty_constellation.h"
 
 using namespace pretty;
 
@@ -93,6 +94,8 @@ struct CaptureConfig {
     bool single_core = false;           // --single-core: pin process to CPU 0 (diagnose threading issues)
     long rate_tolerance = 10;           // max Hz offset for sample rate readback before fatal (AD9361 PLL quantization)
     int timeout_multiplier = 5;         // config: timeout_multiplier — timeout = duration * N + 10 (default 5 for ARM CPU headroom)
+    bool enable_spectrogram = true;     // config: enable_spectrogram — generate spectrogram BMP
+    bool enable_constellation = true;   // config: enable_constellation — generate constellation BMP
 };
 
 bool load_config(const std::string& path, CaptureConfig& cfg) {
@@ -119,6 +122,8 @@ bool load_config(const std::string& path, CaptureConfig& cfg) {
             else if (key == "single_core") cfg.single_core = (value == "true" || value == "1");
             else if (key == "rate_tolerance") cfg.rate_tolerance = std::stol(value);
             else if (key == "timeout_multiplier") cfg.timeout_multiplier = std::stoi(value);
+            else if (key == "enable_spectrogram") cfg.enable_spectrogram = (value == "true" || value == "1");
+            else if (key == "enable_constellation") cfg.enable_constellation = (value == "true" || value == "1");
             else if (key == "captures") { /* consumed by run script */ }
             else log_warning() << path << ": unknown config key: " << key << "\n";
         } catch (const std::exception& e) {
@@ -668,10 +673,18 @@ int run_capture(const CaptureConfig& cfg,
     }
 
     // Generate spectrogram thumbnail for downlink triage
-    {
+    if (cfg.enable_spectrogram) {
         std::string spec_file = make_spectrogram_filename(iq_file);
         if (!generate_spectrogram(iq_file, spec_file, (long long)cfg.effective_rate)) {
             log_warning() << "spectrogram generation failed\n";
+        }
+    }
+
+    // Generate constellation plot for I/Q health check (Q dropout detection)
+    if (cfg.enable_constellation) {
+        std::string const_file = make_constellation_filename(iq_file);
+        if (!generate_constellation(iq_file, const_file)) {
+            log_warning() << "constellation generation failed\n";
         }
     }
 

@@ -10,7 +10,6 @@ services:
       - ./package:/app/package
       - ./run:/app/run
       - ./config.cfg:/app/config.cfg
-      - ./config.file-loopback.cfg:/app/config.file-loopback.cfg
       - ./input:/app/input
       - ./toGround:/app/toGround
       - ../../../samples:/app/samples

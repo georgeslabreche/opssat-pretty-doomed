@@ -95,6 +95,10 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `iio_buffer_size` | 32768 | IIO DMA buffer size in samples per channel (tune to reduce TX/RX contention) |
 | `single_core` | false | Pin process to CPU 0 (diagnose threading issues) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
+| `enable_spectrogram` | true | Generate spectrogram BMP from captured I/Q data |
+| `enable_constellation` | true | Generate I/Q constellation BMP (detects Q channel dropout) |
+| `tx_mode` | default | TX execution mode: `default` (simultaneous), `staggered` (RX first), `cyclic` (DMA loop) |
+| `tx_startup_delay` | 2 | Seconds of TX silence before audio begins (staggered mode only) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
 
@@ -121,10 +125,10 @@ The `run` script takes no arguments. It executes a series of diagnostic runs def
 
 The `RUNS` variable uses a `label:override1,override2,...` format. Overrides are appended to the base `config.cfg` (last value wins). If `RUNS` is empty, a single run with the default config is executed.
 
-Default diagnostic schedule:
-1. **full-chain** — all flowgraph blocks enabled, default IIO buffer (32768 samples)
-2. **rx-only** — TX disabled, captures whatever RX sees with no TX active
-3. **buf-65536** — same as full-chain with doubled IIO buffer size (65536 samples)
+Default diagnostic schedule (investigating Q channel dropout):
+1. **default** — TX and RX start simultaneously (baseline, reproduces v5/v6 Q dropout)
+2. **staggered** — RX streams 3s before TX audio begins (tests startup race condition)
+3. **cyclic** — TX loops a single DMA buffer instead of continuous streaming (tests DMA contention)
 
 ## Output
 
@@ -133,16 +137,17 @@ Each run creates its own directory in `toGround/` with a copy of the effective c
 ```
 toGround/
 ├── experiment.log                                         # Top-level experiment log
-├── run-000001/                                            # full-chain
+├── run-000001/                                            # default
 │   ├── config.cfg                                         # Effective config (base + overrides)
 │   ├── run.log
 │   ├── summary.txt
 │   ├── captured_georges_opssat_clean.wav                  # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
 │   ├── captured_georges_opssat_clean.sc16                 # Raw I/Q data (interleaved int16, 4 bytes/sample)
-│   └── spectrogram.bmp                                    # Spectrogram thumbnail (1024x256, ~768 KB)
-├── run-000002/                                            # rx-only
+│   ├── spectrogram.bmp                                    # Spectrogram thumbnail (1024x256, ~768 KB)
+│   └── constellation.bmp                                  # I/Q constellation scatter (256x256, ~192 KB)
+├── run-000002/                                            # staggered
 │   └── ...
-└── run-000003/                                            # buf-65536
+└── run-000003/                                            # cyclic
     └── ...
 ```
 
