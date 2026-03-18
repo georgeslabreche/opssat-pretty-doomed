@@ -7,11 +7,12 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <ctime>
 #include <chrono>
 #include <cmath>
 #include <algorithm>
 #include <getopt.h>
+
+#include "pretty_log.h"
 
 #include "config.h"
 #include "audio_io.h"
@@ -21,16 +22,7 @@
 #include "output.h"
 #include "executor.h"
 
-static std::string timestamp() {
-    time_t now = time(nullptr);
-    char buf[20];
-    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
-    return buf;
-}
-
-static void log(const std::string& msg) {
-    std::cout << "[" << timestamp() << "] " << msg << std::endl;
-}
+using namespace pretty;
 
 static std::string format_duration(std::chrono::steady_clock::duration d) {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
@@ -106,7 +98,7 @@ static void write_file(const std::string& path, const std::string& content) {
     if (out) {
         out << content;
     } else {
-        std::cerr << "Warning: Cannot write to " << path << std::endl;
+        log_warning() << "Cannot write to " << path << "\n";
     }
 }
 
@@ -116,57 +108,55 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    log("=== PRETTY DOOMed ===");
+    log_info() << "=== PRETTY DOOMed ===\n";
     auto pipeline_start = std::chrono::steady_clock::now();
 
     // Step 1: Load config
-    log("Loading config: " + args.config_file);
+    log_info() << "Loading config: " << args.config_file << "\n";
     PipelineConfig cfg;
     if (!load_config(args.config_file, cfg)) {
-        std::cerr << "Error: Cannot load config: " << args.config_file << std::endl;
+        log_error() << "Cannot load config: " << args.config_file << "\n";
         return 1;
     }
 
     VariantsMap variants;
     if (!load_variants(args.variants_file, variants)) {
-        std::cerr << "Error: Cannot load variants: " << args.variants_file << std::endl;
+        log_error() << "Cannot load variants: " << args.variants_file << "\n";
         return 1;
     }
 
     if (args.verbose) {
-        log("  Wake word: " + cfg.wake_word);
-        log("  Call signs: " + std::to_string(cfg.call_signs.size()) + " configured");
+        log_info() << "  Wake word: " << cfg.wake_word << "\n";
+        log_info() << "  Call signs: " << cfg.call_signs.size() << " configured\n";
         std::string cmds_str = "  Commands: ";
         for (size_t i = 0; i < cfg.commands.size(); i++) {
             if (i > 0) cmds_str += ", ";
             cmds_str += cfg.commands[i];
         }
-        log(cmds_str);
-        log("  Decoding: " + cfg.decoding_method);
-        log("  Fuzzy distance: " + std::to_string(cfg.fuzzy_max_distance));
-        log("  Variants: " + std::to_string(variants.size()) + " entries");
+        log_info() << cmds_str << "\n";
+        log_info() << "  Decoding: " << cfg.decoding_method << "\n";
+        log_info() << "  Fuzzy distance: " << cfg.fuzzy_max_distance << "\n";
+        log_info() << "  Variants: " << variants.size() << " entries\n";
     }
 
     // Step 2: Read audio
-    log("Reading audio: " + args.input_file);
+    log_info() << "Reading audio: " << args.input_file << "\n";
     std::vector<float> samples;
     int sample_rate;
     if (!read_wav(args.input_file, samples, sample_rate)) {
         return 1;
     }
-    log("  " + std::to_string(sample_rate) + " Hz, " +
-        std::to_string(samples.size()) + " samples (" +
-        std::to_string(static_cast<float>(samples.size()) / sample_rate) + "s)");
+    log_info() << "  " << sample_rate << " Hz, " << samples.size()
+               << " samples (" << static_cast<float>(samples.size()) / sample_rate << "s)\n";
 
     AudioStats audio_stats;
     compute_audio_stats(samples, audio_stats.rms_raw, audio_stats.peak_raw);
 
     // Step 3: GNU Radio signal processing
-    log("Filtering (GNU Radio)...");
+    log_info() << "Filtering (GNU Radio)...\n";
     if (args.verbose) {
-        log("  Lowpass: " + std::to_string(cfg.lowpass_cutoff) + " Hz");
-        log("  Bandpass: " + std::to_string(cfg.bandpass_low) + "-" +
-            std::to_string(cfg.bandpass_high) + " Hz");
+        log_info() << "  Lowpass: " << cfg.lowpass_cutoff << " Hz\n";
+        log_info() << "  Bandpass: " << cfg.bandpass_low << "-" << cfg.bandpass_high << " Hz\n";
     }
 
     auto dsp_start = std::chrono::steady_clock::now();
@@ -181,56 +171,56 @@ int main(int argc, char** argv) {
     // Write denoised audio
     std::string denoised_path = args.output_dir + "/processed.wav";
     write_wav(denoised_path, filtered, sample_rate);
-    log("  Denoised audio: " + denoised_path);
+    log_info() << "  Denoised audio: " << denoised_path << "\n";
 
     // Step 4: Resample to 16 kHz
-    log("Resampling to 16 kHz...");
+    log_info() << "Resampling to 16 kHz...\n";
     auto resampled = resample(filtered, sample_rate, 16000);
     auto dsp_end = std::chrono::steady_clock::now();
-    log("  " + std::to_string(resampled.size()) + " samples");
-    log("  DSP time: " + format_duration(dsp_end - dsp_start));
+    log_info() << "  " << resampled.size() << " samples\n";
+    log_info() << "  DSP time: " << format_duration(dsp_end - dsp_start) << "\n";
 
     // Step 5: Transcribe
-    log("Transcribing (" + cfg.decoding_method + ")...");
+    log_info() << "Transcribing (" << cfg.decoding_method << ")...\n";
     auto stt_start = std::chrono::steady_clock::now();
     std::string transcript = transcribe(resampled, 16000, cfg);
     auto stt_end = std::chrono::steady_clock::now();
-    log("  STT time: " + format_duration(stt_end - stt_start));
+    log_info() << "  STT time: " << format_duration(stt_end - stt_start) << "\n";
 
     if (transcript.empty()) {
-        std::cerr << "Error: Transcription produced no output" << std::endl;
+        log_error() << "Transcription produced no output\n";
         // Still write empty files for diagnostics
         write_file(args.output_dir + "/transcription.txt", "");
         write_file(args.output_dir + "/summary.txt", "Transcription failed.\n");
         return 1;
     }
 
-    log("  Transcription: " + transcript);
+    log_info() << "  Transcription: " << transcript << "\n";
     write_file(args.output_dir + "/transcription.txt", transcript + "\n");
 
     // Step 6: Detect command
-    log("Detecting command...");
+    log_info() << "Detecting command...\n";
     DetectionResult detection = detect(transcript, cfg, variants);
 
     int wake_total = detection.wake_word_exact + detection.wake_word_approx;
-    log("  Wake word: " + std::to_string(wake_total) +
-        " (exact=" + std::to_string(detection.wake_word_exact) +
-        ", approx=" + std::to_string(detection.wake_word_approx) + ")");
+    log_info() << "  Wake word: " << wake_total
+               << " (exact=" << detection.wake_word_exact
+               << ", approx=" << detection.wake_word_approx << ")\n";
     for (const auto& [cmd, ec] : detection.command_exact_counts) {
         int ac = 0;
         auto it = detection.command_approx_counts.find(cmd);
         if (it != detection.command_approx_counts.end()) ac = it->second;
-        log("  Command [" + cmd + "]: " + std::to_string(ec + ac) +
-            " (exact=" + std::to_string(ec) + ", approx=" + std::to_string(ac) + ")");
+        log_info() << "  Command [" << cmd << "]: " << (ec + ac)
+                   << " (exact=" << ec << ", approx=" << ac << ")\n";
     }
     for (const auto& [cmd, ac] : detection.command_approx_counts) {
         if (detection.command_exact_counts.count(cmd) == 0) {
-            log("  Command [" + cmd + "]: " + std::to_string(ac) +
-                " (exact=0, approx=" + std::to_string(ac) + ")");
+            log_info() << "  Command [" << cmd << "]: " << ac
+                       << " (exact=0, approx=" << ac << ")\n";
         }
     }
     for (const auto& [sign, count] : detection.call_sign_counts) {
-        log("  Call sign [" + sign + "]: " + std::to_string(count));
+        log_info() << "  Call sign [" << sign << "]: " << count << "\n";
     }
 
     // Read ASCII art for summary (optional, from ascii.txt next to binary or config)
@@ -257,7 +247,7 @@ int main(int argc, char** argv) {
 
     // Step 7: Launch DOOM if command detected
     if (totals.command_detected) {
-        log("Command detected! Launching DOOM...");
+        log_info() << "Command detected! Launching DOOM...\n";
         if (!ascii_art.empty()) {
             std::cout << ascii_art << std::endl;
         }
@@ -265,14 +255,14 @@ int main(int argc, char** argv) {
                               cfg.doom_frames, cfg.doom_maxframes,
                               cfg.doom_keepgifframes);
         if (result != 0) {
-            std::cerr << "Warning: DOOM had " << result << " failure(s)" << std::endl;
+            log_warning() << "DOOM had " << result << " failure(s)\n";
         }
     } else {
-        log("No command detected.");
+        log_info() << "No command detected.\n";
     }
 
     auto pipeline_end = std::chrono::steady_clock::now();
-    log("Total time: " + format_duration(pipeline_end - pipeline_start));
-    log("=== Done ===");
+    log_info() << "Total time: " << format_duration(pipeline_end - pipeline_start) << "\n";
+    log_info() << "=== Done ===\n";
     return totals.command_detected ? 0 : 2;
 }
