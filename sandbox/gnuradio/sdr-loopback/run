@@ -35,9 +35,8 @@ mkdir -p "$TOGROUND_DIR"
 # Overrides are appended to base config (last value wins).
 # If RUNS is empty, a single run with the default config is executed.
 RUNS="
-default:tx_mode=default
-staggered:tx_mode=staggered,tx_startup_delay=3
-cyclic:tx_mode=cyclic
+cyclic-1.7s:tx_mode=cyclic,iio_buffer_size=4000000
+cyclic-3s:tx_mode=cyclic,iio_buffer_size=7200000
 "
 
 # --- Helper: next run ID ---

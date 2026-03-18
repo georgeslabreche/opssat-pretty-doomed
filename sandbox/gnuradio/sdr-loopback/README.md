@@ -127,7 +127,7 @@ The `RUNS` variable uses a `label:override1,override2,...` format. Overrides are
 
 Default diagnostic schedule (investigating Q channel dropout):
 1. **default** — TX and RX start simultaneously (baseline, reproduces v5/v6 Q dropout)
-2. **staggered** — TX DMA active but sends 3s silence before audio (tests TX content vs TX DMA activity)
+2. **staggered** — TX DMA active but sends 5s silence before audio (tests TX content vs TX DMA activity)
 3. **cyclic** — TX loops a single DMA buffer instead of continuous streaming (tests DMA contention)
 
 ## Output
@@ -206,7 +206,7 @@ make package-samples
 make package-tar
 ```
 
-Creates `package/exp4023-sdr-loopback-v6.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
+Creates `package/exp4023-sdr-loopback-v7.1.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
 
 ### Bundled Libraries
 
