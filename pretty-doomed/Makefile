@@ -9,8 +9,8 @@ CXXFLAGS = -Wall -O3 -std=c++17
 PACKAGE_VERSION ?= v1
 PACKAGE_NAME = exp4023-pretty-DOOMed-$(PACKAGE_VERSION)
 
-# Shared headers from common/
-COMMON_CFLAGS = -I/app/common/include
+# Shared headers from common/ (Docker: /app/common, CI/local: ../common)
+COMMON_CFLAGS ?= $(if $(wildcard /app/common/include),-I/app/common/include,-I../common/include)
 
 # External library flags
 GNURADIO_CFLAGS = $(shell pkg-config --cflags gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft 2>/dev/null)
