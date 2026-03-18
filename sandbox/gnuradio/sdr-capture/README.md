@@ -98,8 +98,11 @@ Parameters are externalized in `config.cfg` (KEY=VALUE format). Command-line arg
 | `lpf_cutoff` | 85000 | Channelization LPF cutoff (Hz) |
 | `lpf_transition` | 15000 | Channelization LPF transition (Hz) |
 | `rate_tolerance` | 10 | Max Hz offset for sample rate readback before fatal (AD9361 PLL quantization) |
+| `timeout_multiplier` | 5 | Timeout = duration * N + 10 seconds (default 5 for ARM CPU headroom) |
 | `single_core` | false | Pin process to CPU 0 (diagnose threading issues) |
 | `min_readback` | false | Downgrade sample rate readback mismatch to warning (for emulator) |
+| `enable_spectrogram` | true | Generate spectrogram BMP from captured I/Q data |
+| `enable_constellation` | true | Generate I/Q constellation BMP (detects Q channel dropout) |
 
 `sdr_rate` must be within the AD9361 hardware range (2,083,000 – 61,440,000 Hz). `rf_bandwidth` must be within the AD9361 analog filter range (200,000 – 56,000,000 Hz). `sdr_rate` must be evenly divisible by `decimation`. The effective sample rate (= `sdr_rate` / `decimation`) is the rate at which I/Q data is written to disk and audio is demodulated.
 
@@ -142,11 +145,13 @@ toGround/
     │   ├── capture.wav                  # FM-demodulated audio (16 kHz, mono, 16-bit PCM, RMS normalized)
     │   ├── capture.sc16                 # Raw I/Q data (interleaved int16, 4 bytes/sample)
     │   ├── spectrogram.bmp              # Spectrogram thumbnail (1024x256, ~768 KB)
+    │   ├── constellation.bmp            # I/Q constellation scatter (256x256, ~192 KB)
     │   └── capture.log
     ├── capture-002/
     │   ├── capture.wav
     │   ├── capture.sc16
     │   ├── spectrogram.bmp
+    │   ├── constellation.bmp
     │   └── capture.log
     ├── ...
     └── summary.txt

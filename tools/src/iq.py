@@ -53,6 +53,12 @@ def compute_signal_stats(iq, sample_rate, freqs, psd_db):
     dc_q = np.mean(q_data)
     dc_magnitude = np.sqrt(dc_i ** 2 + dc_q ** 2)
 
+    rms_i = float(np.sqrt(np.mean(i_data ** 2)))
+    rms_q = float(np.sqrt(np.mean(q_data ** 2)))
+    n = len(iq)
+    zero_i = int(np.sum(i_data == 0.0))
+    zero_q = int(np.sum(q_data == 0.0))
+
     gain_i = np.std(i_data)
     gain_q = np.std(q_data)
     gain_imbalance_db = 20 * np.log10(gain_i / (gain_q + 1e-20))
@@ -84,6 +90,12 @@ def compute_signal_stats(iq, sample_rate, freqs, psd_db):
         "dc_offset_i": float(dc_i),
         "dc_offset_q": float(dc_q),
         "dc_magnitude": float(dc_magnitude),
+        "rms_i": rms_i,
+        "rms_q": rms_q,
+        "rms_i_dbfs": float(20 * np.log10(rms_i + 1e-20)),
+        "rms_q_dbfs": float(20 * np.log10(rms_q + 1e-20)),
+        "zero_fraction_i": float(zero_i / n),
+        "zero_fraction_q": float(zero_q / n),
         "gain_imbalance_db": float(gain_imbalance_db),
         "phase_imbalance_deg": float(phase_imbalance_deg),
         "freq_offset_hz": float(freq_offset_hz),
@@ -116,6 +128,13 @@ def format_stats(stats):
         f"I:                 {stats['dc_offset_i']:.6f}",
         f"Q:                 {stats['dc_offset_q']:.6f}",
         f"Magnitude:         {stats['dc_magnitude']:.6f}",
+        "",
+        "Per-Channel",
+        "-" * 40,
+        f"RMS (I):           {stats['rms_i']:.4f} ({stats['rms_i_dbfs']:.1f} dBFS)",
+        f"RMS (Q):           {stats['rms_q']:.4f} ({stats['rms_q_dbfs']:.1f} dBFS)",
+        f"Zero fraction (I): {stats['zero_fraction_i']*100:.2f}%",
+        f"Zero fraction (Q): {stats['zero_fraction_q']*100:.2f}%",
         "",
         "I/Q Imbalance",
         "-" * 40,
