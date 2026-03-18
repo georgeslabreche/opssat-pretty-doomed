@@ -9,6 +9,9 @@ CXXFLAGS = -Wall -O3 -std=c++17
 PACKAGE_VERSION ?= v1
 PACKAGE_NAME = exp4023-pretty-DOOMed-$(PACKAGE_VERSION)
 
+# Shared headers from common/ (Docker: /app/common, CI/local: ../common)
+COMMON_CFLAGS ?= $(if $(wildcard /app/common/include),-I/app/common/include,-I../common/include)
+
 # External library flags
 GNURADIO_CFLAGS = $(shell pkg-config --cflags gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft 2>/dev/null)
 GNURADIO_LIBS = $(shell pkg-config --libs gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft 2>/dev/null) -lfmt
@@ -112,7 +115,7 @@ $(TARGET): $(OBJS_PURE) $(OBJS_EXT) $(OBJS_MAIN) | $(BUILDDIR)
 
 # Pure C++ objects (no special flags)
 $(BUILDDIR)/config.o: $(SRCDIR)/config.cpp $(SRCDIR)/config.h | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/matcher.o: $(SRCDIR)/matcher.cpp $(SRCDIR)/matcher.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -134,7 +137,7 @@ $(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h | $
 	$(CXX) $(CXXFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/main.o: $(SRCDIR)/main.cpp | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
 #############################################
 # Unit tests - pure C++17 modules only
@@ -144,7 +147,7 @@ TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_
 TEST_OBJS = $(patsubst $(TESTDIR)/%.cpp,$(BUILDDIR)/%.o,$(TEST_SRCS))
 
 $(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
 
 $(TEST_TARGET): $(TEST_OBJS) $(OBJS_PURE) | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@
