@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -O3 -std=c++17
 LDFLAGS = -Wl,-z,stack-size=8388608
 
 # Package version (change this for new releases)
-PACKAGE_VERSION = v3
+PACKAGE_VERSION = v7.1
 PACKAGE_NAME = exp4023-sdr-loopback-$(PACKAGE_VERSION)
 
 # GNU Radio libraries
@@ -22,7 +22,7 @@ SRCDIR = src
 BUILDDIR = build
 TARGET = $(BUILDDIR)/loopback_test
 
-SOURCES = $(SRCDIR)/loopback_test.cpp
+SOURCES = $(SRCDIR)/loopback.cpp
 
 .PHONY: all clean test test-iio package-prepare package-samples package-tar
 

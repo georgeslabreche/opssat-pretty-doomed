@@ -20,8 +20,8 @@ from datetime import datetime
 from output_dir import resolve_output_dir
 from iq import read_sc16, compute_psd, compute_signal_stats, read_wav_mono
 from plots import (fig_to_svg, plot_spectrogram, plot_psd, plot_constellation,
-                   plot_audio_spectrogram, plot_audio_waveform, plot_loopback,
-                   plot_psd_comparison)
+                   plot_iq_amplitude, plot_audio_spectrogram, plot_audio_waveform,
+                   plot_loopback, plot_psd_comparison)
 from animation import render_animation
 
 import matplotlib
@@ -63,6 +63,16 @@ HTML_TEMPLATE = textwrap.dedent("""\
   .badge-pass {{ background: #d4edda; color: #155724; }}
   .badge-warn {{ background: #fff3cd; color: #856404; }}
   .badge-fail {{ background: #f8d7da; color: #721c24; }}
+  .tabs {{ margin: 20px 0; }}
+  .tab-bar {{ display: flex; gap: 0; border-bottom: 2px solid #ddd; }}
+  .tab-btn {{ padding: 10px 20px; border: 1px solid transparent; border-bottom: none;
+              background: none; cursor: pointer; font-size: 14px; font-weight: 500;
+              color: #666; border-radius: 6px 6px 0 0; margin-bottom: -2px; }}
+  .tab-btn:hover {{ background: #f0f0f0; }}
+  .tab-btn.active {{ background: white; border-color: #ddd; color: #333;
+                     border-bottom: 2px solid white; }}
+  .tab-panel {{ display: none; padding: 10px 0; }}
+  .tab-panel.active {{ display: block; }}
   footer {{ margin-top: 40px; padding-top: 10px; border-top: 1px solid #ddd;
             color: #999; font-size: 12px; }}
 </style>
@@ -72,6 +82,17 @@ HTML_TEMPLATE = textwrap.dedent("""\
 <p><strong>{title}</strong> — generated {timestamp}</p>
 {content}
 <footer>OPS-SAT PRETTY Experiment — Ground Analysis Tools</footer>
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {{
+  btn.addEventListener('click', () => {{
+    const tabs = btn.closest('.tabs');
+    tabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    tabs.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    tabs.querySelector('#' + btn.dataset.tab).classList.add('active');
+  }});
+}});
+</script>
 </body>
 </html>
 """)
@@ -89,7 +110,7 @@ def badge(text, level):
 # Report builders
 # ---------------------------------------------------------------------------
 
-def process_capture_dir(capture_dir, sample_rate, output_dir):
+def process_capture_dir(capture_dir, sample_rate, output_dir, no_video=False):
     """Process a single capture directory (sc16 + wav + log). Returns HTML fragment."""
     sc16_files = sorted(glob.glob(os.path.join(capture_dir, "*.sc16")))
     wav_files = sorted(glob.glob(os.path.join(capture_dir, "*.wav")))
@@ -122,6 +143,11 @@ def process_capture_dir(capture_dir, sample_rate, output_dir):
         parts.append(stat_html("Freq Offset", f"{stats['freq_offset_hz']:.0f} Hz"))
         parts.append(stat_html("Occupied BW", f"{stats['occupied_bw_hz']:.0f} Hz"))
         parts.append(stat_html("DC Offset (I/Q)", f"{stats['dc_offset_i']:.4f} / {stats['dc_offset_q']:.4f}"))
+        parts.append(stat_html("RMS I / Q", f"{stats['rms_i']:.4f} ({stats['rms_i_dbfs']:.1f} dBFS) / {stats['rms_q']:.4f} ({stats['rms_q_dbfs']:.1f} dBFS)"))
+        zero_i_pct = stats['zero_fraction_i'] * 100
+        zero_q_pct = stats['zero_fraction_q'] * 100
+        zero_level = "fail" if max(zero_i_pct, zero_q_pct) > 10 else "warn" if max(zero_i_pct, zero_q_pct) > 1 else "pass"
+        parts.append(stat_html("Zero Fraction (I/Q)", f"{zero_i_pct:.2f}% / {zero_q_pct:.2f}% {badge('Q dropout' if zero_q_pct > 10 else 'OK', zero_level)}"))
         parts.append(stat_html("Gain Imbalance", f"{stats['gain_imbalance_db']:.2f} dB"))
         parts.append(stat_html("Phase Imbalance", f"{stats['phase_imbalance_deg']:.2f}°"))
         parts.append('</div>')
@@ -129,20 +155,22 @@ def process_capture_dir(capture_dir, sample_rate, output_dir):
         parts.append('<div class="plots">')
         parts.append(plot_spectrogram(iq, sample_rate, save_path=os.path.join(svg_dir, "spectrogram.svg")))
         parts.append(plot_psd(freqs, psd_db, stats=stats, save_path=os.path.join(svg_dir, "psd.svg")))
+        parts.append(plot_iq_amplitude(iq, sample_rate, save_path=os.path.join(svg_dir, "iq_amplitude.svg")))
         parts.append('</div>')
         parts.append('<div class="side-by-side">')
         parts.append(plot_constellation(iq, save_path=os.path.join(svg_dir, "constellation.svg")))
         parts.append('</div>')
 
         # PSD evolution animation (with audio if available)
-        print(f"  Rendering PSD animation...")
-        mp4_path = os.path.join(svg_dir, "psd_evolution.mp4")
-        wav_for_audio = wav_files[0] if wav_files else None
-        if render_animation(iq, sample_rate, mp4_path, audio_path=wav_for_audio):
-            rel_path = f"{name}/psd_evolution.mp4"
-            parts.append(f'<video controls width="100%" style="margin:10px 0">'
-                         f'<source src="{rel_path}" type="video/mp4">'
-                         f'PSD evolution animation</video>')
+        if not no_video:
+            print(f"  Rendering PSD animation...")
+            mp4_path = os.path.join(svg_dir, "psd_evolution.mp4")
+            wav_for_audio = wav_files[0] if wav_files else None
+            if render_animation(iq, sample_rate, mp4_path, audio_path=wav_for_audio):
+                rel_path = f"{name}/psd_evolution.mp4"
+                parts.append(f'<video controls width="100%" style="margin:10px 0">'
+                             f'<source src="{rel_path}" type="video/mp4">'
+                             f'PSD evolution animation</video>')
 
         # Save stats
         with open(os.path.join(svg_dir, "iq_stats.json"), "w") as f:
@@ -171,18 +199,36 @@ def process_capture_dir(capture_dir, sample_rate, output_dir):
     return "\n".join(parts)
 
 
-def build_capture_report(run_dir, sample_rate, output_dir):
+def build_capture_report(run_dir, sample_rate, output_dir, no_video=False):
     """Build report for an sdr-capture run directory."""
     content_parts = []
 
     # Check for capture subdirectories (capture-001, capture-002, ...)
     capture_dirs = sorted(glob.glob(os.path.join(run_dir, "capture-*")))
-    if capture_dirs:
-        for cd in capture_dirs:
-            content_parts.append(process_capture_dir(cd, sample_rate, output_dir))
+    if len(capture_dirs) > 1:
+        # Multiple captures: wrap in tabs
+        tab_group = f"cap-{id(capture_dirs)}"
+        content_parts.append('<div class="tabs">')
+        content_parts.append('<div class="tab-bar">')
+        for i, cd in enumerate(capture_dirs):
+            name = os.path.basename(cd)
+            tab_id = f"tab-{tab_group}-{name}"
+            active = " active" if i == 0 else ""
+            content_parts.append(f'<button class="tab-btn{active}" data-tab="{tab_id}">{name}</button>')
+        content_parts.append('</div>')
+        for i, cd in enumerate(capture_dirs):
+            name = os.path.basename(cd)
+            tab_id = f"tab-{tab_group}-{name}"
+            active = " active" if i == 0 else ""
+            content_parts.append(f'<div id="{tab_id}" class="tab-panel{active}">')
+            content_parts.append(process_capture_dir(cd, sample_rate, output_dir, no_video))
+            content_parts.append('</div>')
+        content_parts.append('</div>')
+    elif capture_dirs:
+        content_parts.append(process_capture_dir(capture_dirs[0], sample_rate, output_dir, no_video))
     else:
         # Flat structure (sc16/wav files directly in run dir)
-        content_parts.append(process_capture_dir(run_dir, sample_rate, output_dir))
+        content_parts.append(process_capture_dir(run_dir, sample_rate, output_dir, no_video))
 
     # Summary file
     summary_path = os.path.join(run_dir, "summary.txt")
@@ -212,7 +258,24 @@ def build_capture_report(run_dir, sample_rate, output_dir):
     return "\n".join(content_parts)
 
 
-def build_loopback_report(run_dir, sample_rate, output_dir, input_wav=None):
+def get_run_label(run_dir):
+    """Extract run label from config.cfg diagnostic override comment, or directory name."""
+    config_path = os.path.join(run_dir, "config.cfg")
+    if os.path.isfile(config_path):
+        try:
+            with open(config_path, "r") as f:
+                for line in f:
+                    if line.startswith("# Diagnostic overrides (run:"):
+                        label = line.split("(run:")[1].rstrip(")\n ").strip()
+                        if label:
+                            return label
+        except Exception:
+            pass
+    return os.path.basename(run_dir)
+
+
+def build_loopback_report(run_dir, sample_rate, output_dir, input_wav=None,
+                          asset_prefix="", no_video=False):
     """Build report for an sdr-loopback run directory."""
     content_parts = []
 
@@ -238,25 +301,33 @@ def build_loopback_report(run_dir, sample_rate, output_dir, input_wav=None):
         content_parts.append(stat_html("Freq Offset", f"{stats['freq_offset_hz']:.0f} Hz"))
         content_parts.append(stat_html("Occupied BW", f"{stats['occupied_bw_hz']:.0f} Hz"))
         content_parts.append(stat_html("DC Offset (I/Q)", f"{stats['dc_offset_i']:.4f} / {stats['dc_offset_q']:.4f}"))
+        content_parts.append(stat_html("RMS I / Q", f"{stats['rms_i']:.4f} ({stats['rms_i_dbfs']:.1f} dBFS) / {stats['rms_q']:.4f} ({stats['rms_q_dbfs']:.1f} dBFS)"))
+        zero_i_pct = stats['zero_fraction_i'] * 100
+        zero_q_pct = stats['zero_fraction_q'] * 100
+        zero_level = "fail" if max(zero_i_pct, zero_q_pct) > 10 else "warn" if max(zero_i_pct, zero_q_pct) > 1 else "pass"
+        content_parts.append(stat_html("Zero Fraction (I/Q)", f"{zero_i_pct:.2f}% / {zero_q_pct:.2f}% {badge('Q dropout' if zero_q_pct > 10 else 'OK', zero_level)}"))
         content_parts.append(stat_html("Gain Imbalance", f"{stats['gain_imbalance_db']:.2f} dB"))
         content_parts.append(stat_html("Phase Imbalance", f"{stats['phase_imbalance_deg']:.2f}°"))
         content_parts.append('</div>')
         content_parts.append('<div class="plots">')
         content_parts.append(plot_spectrogram(iq, sample_rate, save_path=os.path.join(output_dir, "spectrogram.svg")))
         content_parts.append(plot_psd(freqs, psd_db, stats=stats, save_path=os.path.join(output_dir, "psd.svg")))
+        content_parts.append(plot_iq_amplitude(iq, sample_rate, save_path=os.path.join(output_dir, "iq_amplitude.svg")))
         content_parts.append('</div>')
         content_parts.append('<div class="side-by-side">')
         content_parts.append(plot_constellation(iq, save_path=os.path.join(output_dir, "constellation.svg")))
         content_parts.append('</div>')
 
         # PSD evolution animation (with audio if available)
-        print(f"  Rendering PSD animation...")
-        mp4_path = os.path.join(output_dir, "psd_evolution.mp4")
-        wav_for_audio = wav_files[0] if wav_files else None
-        if render_animation(iq, sample_rate, mp4_path, audio_path=wav_for_audio):
-            content_parts.append('<video controls width="100%" style="margin:10px 0">'
-                                 '<source src="psd_evolution.mp4" type="video/mp4">'
-                                 'PSD evolution animation</video>')
+        if not no_video:
+            print(f"  Rendering PSD animation...")
+            mp4_path = os.path.join(output_dir, "psd_evolution.mp4")
+            wav_for_audio = wav_files[0] if wav_files else None
+            if render_animation(iq, sample_rate, mp4_path, audio_path=wav_for_audio):
+                video_src = f"{asset_prefix}psd_evolution.mp4"
+                content_parts.append(f'<video controls width="100%" style="margin:10px 0">'
+                                     f'<source src="{video_src}" type="video/mp4">'
+                                     f'PSD evolution animation</video>')
 
         content_parts.append('</div>')
 
@@ -306,14 +377,80 @@ def build_loopback_report(run_dir, sample_rate, output_dir, input_wav=None):
     return "\n".join(content_parts)
 
 
+def build_tabbed_capture_report(run_dirs, sample_rate, output_dir, no_video=False):
+    """Build tabbed report for multiple capture run directories."""
+    parts = ['<div class="tabs">', '<div class="tab-bar">']
+
+    for i, rd in enumerate(run_dirs):
+        run_name = os.path.basename(rd)
+        label = get_run_label(rd)
+        tab_id = f"tab-{run_name}"
+        active = " active" if i == 0 else ""
+        parts.append(f'<button class="tab-btn{active}" data-tab="{tab_id}">'
+                     f'{run_name}<br><small>{label}</small></button>')
+    parts.append('</div>')
+
+    for i, rd in enumerate(run_dirs):
+        run_name = os.path.basename(rd)
+        tab_id = f"tab-{run_name}"
+        active = " active" if i == 0 else ""
+        run_output = os.path.join(output_dir, run_name)
+        os.makedirs(run_output, exist_ok=True)
+
+        print(f"\nProcessing {run_name} ({get_run_label(rd)})...")
+        content = build_capture_report(rd, sample_rate, run_output, no_video)
+        parts.append(f'<div id="{tab_id}" class="tab-panel{active}">')
+        parts.append(content)
+        parts.append('</div>')
+
+    parts.append('</div>')
+    return "\n".join(parts)
+
+
+def build_tabbed_loopback_report(run_dirs, sample_rate, output_dir, input_wav=None,
+                                 no_video=False):
+    """Build tabbed report for multiple loopback run directories."""
+    parts = ['<div class="tabs">', '<div class="tab-bar">']
+
+    # Tab buttons
+    for i, rd in enumerate(run_dirs):
+        run_name = os.path.basename(rd)
+        label = get_run_label(rd)
+        tab_id = f"tab-{run_name}"
+        active = " active" if i == 0 else ""
+        parts.append(f'<button class="tab-btn{active}" data-tab="{tab_id}">'
+                     f'{run_name}<br><small>{label}</small></button>')
+    parts.append('</div>')
+
+    # Tab panels
+    for i, rd in enumerate(run_dirs):
+        run_name = os.path.basename(rd)
+        tab_id = f"tab-{run_name}"
+        active = " active" if i == 0 else ""
+        run_output = os.path.join(output_dir, run_name)
+        os.makedirs(run_output, exist_ok=True)
+
+        print(f"\nProcessing {run_name} ({get_run_label(rd)})...")
+        content = build_loopback_report(rd, sample_rate, run_output, input_wav,
+                                        asset_prefix=f"{run_name}/",
+                                        no_video=no_video)
+        parts.append(f'<div id="{tab_id}" class="tab-panel{active}">')
+        parts.append(content)
+        parts.append('</div>')
+
+    parts.append('</div>')
+    return "\n".join(parts)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate HTML report for SDR capture/loopback run")
-    parser.add_argument("run_dir", help="Path to run directory (e.g. toGround/run-000001)")
+    parser.add_argument("run_dir", help="Path to run directory or parent of run-* directories")
     parser.add_argument("--output-dir", default=".", help="Output directory for report.html")
     parser.add_argument("--sample-rate", type=int, default=200000,
                         help="I/Q sample rate in Hz (default: 200000 = effective rate after decimation)")
     parser.add_argument("--loopback", action="store_true", help="Treat as loopback run (flat file structure)")
     parser.add_argument("--input-wav", help="Input WAV for loopback comparison")
+    parser.add_argument("--no-video", action="store_true", help="Skip PSD evolution video generation")
     args = parser.parse_args()
 
     if not os.path.isdir(args.run_dir):
@@ -327,9 +464,25 @@ def main():
     print(f"Generating report for {args.run_dir}...")
 
     if args.loopback:
-        content = build_loopback_report(args.run_dir, args.sample_rate, output_dir, args.input_wav)
+        # Check for multi-run directory (contains run-* subdirs)
+        run_dirs = sorted(glob.glob(os.path.join(args.run_dir, "run-[0-9]*")))
+        if run_dirs:
+            content = build_tabbed_loopback_report(run_dirs, args.sample_rate,
+                                                    output_dir, args.input_wav,
+                                                    args.no_video)
+        else:
+            content = build_loopback_report(args.run_dir, args.sample_rate,
+                                            output_dir, args.input_wav,
+                                            no_video=args.no_video)
     else:
-        content = build_capture_report(args.run_dir, args.sample_rate, output_dir)
+        # Check for multi-run directory (contains run-* subdirs)
+        run_dirs = sorted(glob.glob(os.path.join(args.run_dir, "run-[0-9]*")))
+        if run_dirs:
+            content = build_tabbed_capture_report(run_dirs, args.sample_rate,
+                                                   output_dir, args.no_video)
+        else:
+            content = build_capture_report(args.run_dir, args.sample_rate,
+                                           output_dir, args.no_video)
 
     html = HTML_TEMPLATE.format(title=title, timestamp=timestamp, content=content)
 

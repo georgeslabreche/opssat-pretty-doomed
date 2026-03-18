@@ -99,6 +99,34 @@ def plot_waveform(iq, sample_rate, save_path=None, max_seconds=0.01):
     return fig_to_svg(fig, save_path)
 
 
+def plot_iq_amplitude(iq, sample_rate, save_path=None, window_ms=100):
+    """I and Q channel RMS amplitude over time (windowed). Returns SVG string."""
+    window = int(window_ms * sample_rate / 1000)
+    if window < 1:
+        window = 1
+    n_windows = len(iq) // window
+    if n_windows < 1:
+        return ""
+
+    i_data = iq[:n_windows * window].real.reshape(n_windows, window)
+    q_data = iq[:n_windows * window].imag.reshape(n_windows, window)
+
+    rms_i = np.sqrt(np.mean(i_data ** 2, axis=1))
+    rms_q = np.sqrt(np.mean(q_data ** 2, axis=1))
+    t = (np.arange(n_windows) + 0.5) * window / sample_rate
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(t, rms_i, linewidth=0.8, color="steelblue", label="I RMS", alpha=0.8)
+    ax.plot(t, rms_q, linewidth=0.8, color="coral", label="Q RMS", alpha=0.8)
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("RMS Amplitude")
+    ax.set_title(f"I/Q Channel Amplitude ({window_ms} ms windows)")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    return fig_to_svg(fig, save_path)
+
+
 def plot_audio_spectrogram(samples, sample_rate, save_path=None, fft_size=512):
     """Audio spectrogram. Returns SVG string."""
     fig, ax = plt.subplots(figsize=(12, 5))

@@ -19,95 +19,142 @@ else
     export LD_LIBRARY_PATH="${SCRIPT_DIR}/libs"
 fi
 
-CONFIG_FILE="${SCRIPT_DIR}/config.cfg"
+BASE_CONFIG="${SCRIPT_DIR}/config.cfg"
 INPUT_DIR="${SCRIPT_DIR}/input"
 TOGROUND_DIR="${SCRIPT_DIR}/toGround"
 
 # Preflight checks
 [ -x "${SCRIPT_DIR}/loopback_test" ] || { echo "Error: loopback_test not found or not executable" >&2; exit 1; }
-[ -f "$CONFIG_FILE" ] || { echo "Error: missing $CONFIG_FILE" >&2; exit 1; }
+[ -f "$BASE_CONFIG" ] || { echo "Error: missing $BASE_CONFIG" >&2; exit 1; }
 
 # Create toGround directory if it doesn't exist
 mkdir -p "$TOGROUND_DIR"
 
-# Auto-increment run ID (POSIX-safe, no sort -V or bashisms)
-LAST_RUN=0
-for d in "$TOGROUND_DIR"/run-[0-9][0-9][0-9][0-9][0-9][0-9]; do
-    [ -d "$d" ] || continue
-    n=${d##*-}
-    n=$(echo "$n" | sed 's/^0*//')
-    [ -z "$n" ] && n=0
-    [ "$n" -gt "$LAST_RUN" ] && LAST_RUN=$n
-done
-RUNID=$((LAST_RUN + 1))
+# --- Diagnostic run schedule ---
+# Each line: label:override1,override2,...
+# Overrides are appended to base config (last value wins).
+# If RUNS is empty, a single run with the default config is executed.
+RUNS="
+cyclic-1.7s:tx_mode=cyclic,iio_buffer_size=4000000
+cyclic-3s:tx_mode=cyclic,iio_buffer_size=7200000
+"
 
-RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
+# --- Helper: next run ID ---
+next_run_id() {
+    LAST_RUN=0
+    for d in "$TOGROUND_DIR"/run-[0-9][0-9][0-9][0-9][0-9][0-9]; do
+        [ -d "$d" ] || continue
+        n=${d##*-}
+        n=$(echo "$n" | sed 's/^0*//')
+        [ -z "$n" ] && n=0
+        [ "$n" -gt "$LAST_RUN" ] && LAST_RUN=$n
+    done
+    echo $((LAST_RUN + 1))
+}
 
-# Create run directory
-mkdir -p "$RUN_DIR"
+# --- Helper: execute one run ---
+# Usage: do_run <label> <overrides>
+do_run() {
+    RUN_LABEL=$1
+    OVERRIDES=$2
 
-RUN_LOG="${RUN_DIR}/run.log"
+    RUNID=$(next_run_id)
+    RUN_DIR=$(printf "%s/run-%06d" "$TOGROUND_DIR" "$RUNID")
+    mkdir -p "$RUN_DIR"
 
-# Redirect all subsequent stderr to run.log so unexpected errors are captured
-exec 2>> "$RUN_LOG"
-
-# Log start
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting SDR Loopback Test" >> "$RUN_LOG"
-echo "Run ID: $RUNID" >> "$RUN_LOG"
-echo "Input directory: $INPUT_DIR" >> "$RUN_LOG"
-echo "Output directory: $RUN_DIR" >> "$RUN_LOG"
-
-# Process all WAV files in input directory
-PROCESSED=0
-FAILURES=0
-for INPUT_FILE in "$INPUT_DIR"/*.wav; do
-    if [ -f "$INPUT_FILE" ]; then
-        FILENAME=$(basename "$INPUT_FILE")
-        OUTPUT_FILE="${RUN_DIR}/captured_${FILENAME}"
-
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Processing: $FILENAME" >> "$RUN_LOG"
-
-        "${SCRIPT_DIR}/loopback_test" \
-            --config "$CONFIG_FILE" \
-            --input "$INPUT_FILE" \
-            --output "$OUTPUT_FILE" \
-            >> "$RUN_LOG" 2>&1
-
-        STATUS=$?
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Completed $FILENAME with status: $STATUS" >> "$RUN_LOG"
-
-        PROCESSED=$((PROCESSED + 1))
-        [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
-
-        # After a failure, pause before next file to give the IIO server time
-        # to detect the dead TCP connection and free the connection slot.
-        if [ "$STATUS" -ne 0 ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - Waiting 5s for IIO cleanup after failure (status=$STATUS)..." >> "$RUN_LOG"
-            sleep 5
-        fi
+    # Build effective config: base + overrides
+    CONFIG_FILE="${RUN_DIR}/config.cfg"
+    cp -f "$BASE_CONFIG" "$CONFIG_FILE"
+    if [ -n "$OVERRIDES" ]; then
+        printf "\n# Diagnostic overrides (run: %s)\n" "$RUN_LABEL" >> "$CONFIG_FILE"
+        echo "$OVERRIDES" | tr ',' '\n' >> "$CONFIG_FILE"
     fi
-done
 
-# Log completion
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Processed $PROCESSED files ($FAILURES failed)" >> "$RUN_LOG"
+    RUN_LOG="${RUN_DIR}/run.log"
 
-# Read frequency from config for summary
-FREQ=$(grep -E '^frequency=' "$CONFIG_FILE" | tail -1 | cut -d= -f2 | tr -d ' \t\r')
-[ -n "$FREQ" ] || FREQ="(unknown)"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting run $RUNID ($RUN_LABEL)" >> "$RUN_LOG"
+    echo "Config overrides: ${OVERRIDES:-(none)}" >> "$RUN_LOG"
 
-# Create summary file
-{
-    echo "OPSSAT PRETTY SDR Loopback Test Results"
-    echo "========================="
-    echo "Run ID: $RUNID"
-    echo "Mode: AD9361 internal loopback (TX -> RX)"
-    echo "Modulation: FM (5 kHz deviation)"
-    echo "Frequency: $FREQ Hz"
-    echo "Files processed: $PROCESSED"
-    echo "Failures: $FAILURES"
-    echo ""
-    echo "Output files:"
-    ls -la "$RUN_DIR"/*.wav "$RUN_DIR"/*.sc16 2>/dev/null || echo "  (none)"
-} > "${RUN_DIR}/summary.txt"
+    PROCESSED=0
+    FAILURES=0
+    for INPUT_FILE in "$INPUT_DIR"/*.wav; do
+        if [ -f "$INPUT_FILE" ]; then
+            FILENAME=$(basename "$INPUT_FILE")
+            OUTPUT_FILE="${RUN_DIR}/captured_${FILENAME}"
 
-exit $( [ "$FAILURES" -gt 0 ] && echo 1 || echo 0 )
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Processing: $FILENAME" >> "$RUN_LOG"
+
+            "${SCRIPT_DIR}/loopback_test" \
+                --config "$CONFIG_FILE" \
+                --input "$INPUT_FILE" \
+                --output "$OUTPUT_FILE" \
+                >> "$RUN_LOG" 2>&1
+
+            STATUS=$?
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Completed $FILENAME with status: $STATUS" >> "$RUN_LOG"
+
+            PROCESSED=$((PROCESSED + 1))
+            [ "$STATUS" -eq 0 ] || FAILURES=$((FAILURES + 1))
+
+            if [ "$STATUS" -ne 0 ]; then
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] Waiting 5s for IIO cleanup after failure (status=$STATUS)..." >> "$RUN_LOG"
+                sleep 5
+            fi
+        fi
+    done
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Run $RUNID ($RUN_LABEL): $PROCESSED files, $FAILURES failed" >> "$RUN_LOG"
+
+    FREQ=$(grep -E '^frequency=' "$CONFIG_FILE" | tail -1 | cut -d= -f2 | tr -d ' \t\r')
+    [ -n "$FREQ" ] || FREQ="(unknown)"
+
+    {
+        echo "OPSSAT PRETTY SDR Loopback Test Results"
+        echo "========================="
+        echo "Run ID: $RUNID"
+        echo "Label: $RUN_LABEL"
+        echo "Config overrides: ${OVERRIDES:-(none)}"
+        echo "Mode: AD9361 internal loopback (TX -> RX)"
+        echo "Modulation: FM (5 kHz deviation)"
+        echo "Frequency: $FREQ Hz"
+        echo "Files processed: $PROCESSED"
+        echo "Failures: $FAILURES"
+        echo ""
+        echo "Output files:"
+        ls -la "$RUN_DIR"/*.wav "$RUN_DIR"/*.sc16 2>/dev/null || echo "  (none)"
+    } > "${RUN_DIR}/summary.txt"
+
+    return $FAILURES
+}
+
+# --- Execute runs ---
+TOTAL_FAILURES=0
+
+# Redirect stderr for the entire script
+exec 2>> "${TOGROUND_DIR}/experiment.log"
+
+# Strip blank lines from RUNS; if empty, default to a single unnamed run
+RUNS_CLEAN=$(echo "$RUNS" | sed '/^[[:space:]]*$/d')
+[ -z "$RUNS_CLEAN" ] && RUNS_CLEAN="default:"
+
+RUNS_FILE=$(mktemp)
+echo "$RUNS_CLEAN" > "$RUNS_FILE"
+RUN_COUNT=$(wc -l < "$RUNS_FILE" | tr -d ' ')
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting experiment ($RUN_COUNT run(s))" >> "${TOGROUND_DIR}/experiment.log"
+
+FIRST=1
+while IFS=: read -r LABEL OVERRIDES; do
+    if [ "$FIRST" = 1 ]; then
+        FIRST=0
+    else
+        sleep 5
+    fi
+
+    do_run "$LABEL" "$OVERRIDES"
+    TOTAL_FAILURES=$((TOTAL_FAILURES + $?))
+done < "$RUNS_FILE"
+rm -f "$RUNS_FILE"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Experiment complete ($RUN_COUNT run(s), failures: $TOTAL_FAILURES)" >> "${TOGROUND_DIR}/experiment.log"
+
+exit $( [ "$TOTAL_FAILURES" -gt 0 ] && echo 1 || echo 0 )

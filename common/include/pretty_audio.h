@@ -105,6 +105,76 @@ inline bool rms_normalize(const std::string& wav_path, double target_dbfs) {
     return true;
 }
 
+// Diagnostic statistics for sc16 I/Q files.
+// Computes per-channel RMS, DC offset, min/max, and zero fraction
+// to identify dead signal (all zeros), noise, clipping, or DC bias.
+struct Sc16Stats {
+    long long samples = 0;          // complex samples analyzed
+    double rms_i = 0, rms_q = 0;    // RMS per channel (int16 scale)
+    double mean_i = 0, mean_q = 0;  // DC offset per channel
+    int16_t min_i = 0, max_i = 0;   // range I
+    int16_t min_q = 0, max_q = 0;   // range Q
+    long long zero_i = 0, zero_q = 0; // count of exact-zero samples
+    bool valid = false;
+};
+
+inline Sc16Stats analyze_sc16(const std::string& path, long long max_samples = 0) {
+    Sc16Stats s;
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f.is_open()) return s;
+
+    long long file_bytes = (long long)f.tellg();
+    if (file_bytes < 4) return s;
+
+    long long total_samples = file_bytes / 4;  // 2 int16 per complex sample
+    long long to_analyze = total_samples;
+    if (max_samples > 0 && to_analyze > max_samples)
+        to_analyze = max_samples;
+
+    f.seekg(0, std::ios::beg);
+
+    double sum_i = 0, sum_q = 0;
+    double sumsq_i = 0, sumsq_q = 0;
+    s.min_i = 32767; s.max_i = -32768;
+    s.min_q = 32767; s.max_q = -32768;
+
+    std::vector<int16_t> buf(8192);  // pairs of I,Q
+    long long remaining = to_analyze;
+    while (remaining > 0 && f.good()) {
+        // Read pairs (each pair = 2 int16 = 4 bytes)
+        long long pairs_to_read = std::min(remaining, (long long)(buf.size() / 2));
+        f.read(reinterpret_cast<char*>(buf.data()), pairs_to_read * 4);
+        long long got_bytes = f.gcount();
+        long long got_pairs = got_bytes / 4;
+        if (got_pairs <= 0) break;
+
+        for (long long j = 0; j < got_pairs; j++) {
+            int16_t vi = buf[j * 2];
+            int16_t vq = buf[j * 2 + 1];
+            sum_i += vi; sum_q += vq;
+            sumsq_i += (double)vi * vi;
+            sumsq_q += (double)vq * vq;
+            if (vi < s.min_i) s.min_i = vi;
+            if (vi > s.max_i) s.max_i = vi;
+            if (vq < s.min_q) s.min_q = vq;
+            if (vq > s.max_q) s.max_q = vq;
+            if (vi == 0) s.zero_i++;
+            if (vq == 0) s.zero_q++;
+        }
+        s.samples += got_pairs;
+        remaining -= got_pairs;
+    }
+
+    if (s.samples > 0) {
+        s.mean_i = sum_i / s.samples;
+        s.mean_q = sum_q / s.samples;
+        s.rms_i = std::sqrt(sumsq_i / s.samples);
+        s.rms_q = std::sqrt(sumsq_q / s.samples);
+        s.valid = true;
+    }
+    return s;
+}
+
 // Check sc16 file for clipping and peak magnitude. Reads first and last
 // `check_seconds` worth of samples. Sets clip_rate and peak_abs (0-32768 scale).
 inline void check_sc16_quality(const std::string& path, long long sample_rate,

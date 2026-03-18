@@ -32,66 +32,87 @@ Each tool automatically creates a deterministic subfolder derived from the input
 
 ```
 output/
-├── pack-4023_1772797685_run-000001/     # capture report
+├── pack-4023_1772797685/                 # capture report (multi-run → tabbed)
 │   ├── index.html                        # self-contained HTML report
-│   ├── psd_comparison.svg                # PSD overlay across captures
-│   ├── capture-001/
-│   │   ├── spectrogram.svg
-│   │   ├── psd.svg
-│   │   ├── constellation.svg
-│   │   ├── audio_spectrogram.svg
-│   │   ├── audio_waveform.svg
-│   │   ├── psd_evolution.mp4
-│   │   └── iq_stats.json
-│   ├── capture-002/
-│   │   └── ...
-│   └── capture-003/
-│       └── ...
-└── run-000001/                           # loopback report
+│   └── run-000001/
+│       ├── psd_comparison.svg            # PSD overlay across captures
+│       ├── capture-001/                  # captures are tabbed within the run
+│       │   ├── spectrogram.svg
+│       │   ├── psd.svg
+│       │   ├── constellation.svg
+│       │   ├── iq_amplitude.svg
+│       │   ├── audio_spectrogram.svg
+│       │   ├── audio_waveform.svg
+│       │   ├── psd_evolution.mp4
+│       │   └── iq_stats.json
+│       ├── capture-002/
+│       │   └── ...
+│       └── capture-003/
+│           └── ...
+└── pack-4023_1773212635/                 # loopback report (multi-run → tabbed)
     ├── index.html
-    ├── spectrogram.svg
-    ├── psd.svg
-    ├── constellation.svg
-    ├── audio_spectrogram.svg
-    ├── audio_waveform.svg
-    ├── psd_evolution.mp4
-    ├── loopback_overlay.svg
-    ├── loopback_correlation.svg
-    └── iq_stats.json
+    ├── run-000001/
+    │   ├── spectrogram.svg
+    │   ├── psd.svg
+    │   ├── constellation.svg
+    │   ├── iq_amplitude.svg
+    │   ├── audio_spectrogram.svg
+    │   ├── audio_waveform.svg
+    │   ├── psd_evolution.mp4
+    │   ├── loopback_overlay.svg
+    │   ├── loopback_correlation.svg
+    │   └── iq_stats.json
+    ├── run-000002/
+    │   └── ...
+    └── run-000003/
+        └── ...
 ```
 
 ## Scripts
 
 ### report.py — Batch HTML report
 
-Processes an entire run directory and generates a self-contained `index.html` with embedded SVGs, signal statistics, log files, and quality badges. Individual SVG files and `iq_stats.json` are also written alongside the report.
+Processes a run directory (or parent directory containing multiple `run-*` subdirectories) and generates a self-contained `index.html` with embedded SVGs, signal statistics, log files, and quality badges. When multiple runs are detected, each run is rendered as a tab. Multiple captures within a run are also tabbed. Individual SVG files and `iq_stats.json` are also written alongside the report.
 
 ```bash
-# Capture run
+# Capture — single run
 docker-compose run --rm tools src/report.py \
   /data/capture-artifacts/pack-4023_.../chg/toGround/run-000001 \
   --sample-rate 200000 --output-dir /output
 
-# Loopback run
+# Capture — parent directory (auto-detects run-* subdirs, creates tabs)
 docker-compose run --rm tools src/report.py \
-  /data/loopback-artifacts/run-000001 \
+  /data/capture-artifacts/pack-4023_.../chg/toGround \
+  --sample-rate 200000 --output-dir /output
+
+# Loopback — parent directory with tabs, skip video generation
+docker-compose run --rm tools src/report.py \
+  /data/loopback-artifacts/pack-4023_.../chg/toGround \
   --sample-rate 200000 --loopback --input-wav /data/samples/input.wav \
-  --output-dir /output
+  --output-dir /output --no-video
 ```
+
+Options:
+- `--sample-rate` — I/Q sample rate in Hz (default: 200000)
+- `--loopback` — Treat as loopback run (flat file structure with input WAV comparison)
+- `--input-wav` — Input WAV for loopback comparison
+- `--no-video` — Skip PSD evolution video generation (much faster)
 
 | Output | Description |
 |--------|-------------|
 | `index.html` | Self-contained HTML with embedded SVGs, stat cards, quality badges, and logs |
 | `psd_comparison.svg` | PSD overlay across all captures in the run (capture mode only) |
-| `<capture-NNN>/spectrogram.svg` | Per-capture spectrogram |
-| `<capture-NNN>/psd.svg` | Per-capture PSD |
-| `<capture-NNN>/constellation.svg` | Per-capture I/Q constellation |
-| `<capture-NNN>/psd_evolution.mp4` | Realtime PSD animation with audio soundtrack |
-| `<capture-NNN>/iq_stats.json` | Per-capture signal statistics |
+| `spectrogram.svg` | I/Q spectrogram waterfall |
+| `psd.svg` | Power spectral density |
+| `constellation.svg` | I/Q scatter plot |
+| `iq_amplitude.svg` | Per-channel I/Q RMS amplitude over time (100 ms windows) |
+| `psd_evolution.mp4` | Realtime PSD animation with audio soundtrack (unless `--no-video`) |
+| `iq_stats.json` | Signal statistics (machine-readable) |
 
 Quality badges:
 - **SNR**: PASS (>10 dB), WARN (3–10 dB), FAIL (<3 dB)
 - **Loopback correlation**: PASS (>=0.7), WARN (0.3–0.7), FAIL (<0.3)
+- **Zero fraction**: OK (<1%), WARN (1–10%), FAIL / Q dropout (>10%)
 
 ### plot_iq.py — I/Q file visualization
 
@@ -107,11 +128,13 @@ docker-compose run --rm tools src/plot_iq.py <file.sc16> --sample-rate 200000 --
 | `psd.svg` | Power spectral density with noise floor, peak frequency, and occupied bandwidth |
 | `constellation.svg` | I vs Q scatter plot |
 | `waveform.svg` | First 10 ms of I and Q amplitude |
+| `iq_amplitude.svg` | Per-channel I/Q RMS amplitude over time (100 ms windows) |
 | `iq_stats.txt` | Signal statistics (human-readable) |
 | `iq_stats.json` | Signal statistics (machine-readable) |
 
 **Signal statistics include:**
 - Signal level: RMS, peak, crest factor (all in dBFS)
+- Per-channel: RMS I, RMS Q (dBFS), zero fraction I, zero fraction Q
 - DC offset: I, Q, and magnitude
 - I/Q imbalance: gain imbalance (dB) and phase imbalance (degrees)
 - Spectral: frequency offset, noise floor, SNR estimate, occupied bandwidth
@@ -198,10 +221,10 @@ The `docker-compose.yml` mounts artifact directories as read-only volumes:
 ## Example with real satellite data
 
 ```bash
-# Full HTML report for a capture run (all 3 captures)
+# Full HTML report for a capture experiment (tabbed runs, tabbed captures)
 docker-compose run --rm tools src/report.py \
-  /data/capture-artifacts/pack-4023_1772797685/chg/toGround/run-000001 \
-  --sample-rate 200000 --output-dir /output
+  /data/capture-artifacts/pack-4023_1772797685/chg/toGround \
+  --sample-rate 200000 --output-dir /output --no-video
 
 # Individual I/Q analysis
 docker-compose run --rm tools src/plot_iq.py \
