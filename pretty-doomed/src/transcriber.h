@@ -5,9 +5,27 @@
 #include <vector>
 #include "config.h"
 
-// Transcribe audio samples using sherpa-onnx offline recognition.
-// Model paths are read from cfg (model_encoder, model_decoder, model_joiner, model_tokens).
-// Returns uppercase transcription text.
+// Persistent transcriber: loads the model once, reuses across calls.
+class Transcriber {
+public:
+    // Loads the STT model. Check is_ready() after construction.
+    explicit Transcriber(const PipelineConfig& cfg);
+    ~Transcriber();
+
+    // Non-copyable (owns model resources)
+    Transcriber(const Transcriber&) = delete;
+    Transcriber& operator=(const Transcriber&) = delete;
+
+    bool is_ready() const;
+
+    // Transcribe audio samples. Returns uppercase transcription text.
+    std::string transcribe(const std::vector<float>& samples, int sample_rate);
+
+private:
+    const void* recognizer_ = nullptr;
+};
+
+// Convenience: one-shot transcribe (loads and unloads model per call).
 std::string transcribe(const std::vector<float>& samples,
                        int sample_rate,
                        const PipelineConfig& cfg);

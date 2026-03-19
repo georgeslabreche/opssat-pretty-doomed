@@ -148,7 +148,8 @@ static bool process_wav(const std::string& input_file,
                         const std::string& output_dir,
                         const PipelineConfig& cfg,
                         const VariantsMap& variants,
-                        const Args& args) {
+                        const Args& args,
+                        Transcriber& stt) {
     log_info() << "--- Processing: " << input_file << " ---\n";
     auto proc_start = std::chrono::steady_clock::now();
 
@@ -196,7 +197,7 @@ static bool process_wav(const std::string& input_file,
 
     log_info() << "Transcribing (" << cfg.decoding_method << ")...\n";
     auto stt_start = std::chrono::steady_clock::now();
-    std::string transcript = transcribe(resampled, 16000, cfg);
+    std::string transcript = stt.transcribe(resampled, 16000);
     auto stt_end = std::chrono::steady_clock::now();
     log_info() << "  STT time: " << format_duration(stt_end - stt_start) << "\n";
 
@@ -264,7 +265,7 @@ static bool process_wav(const std::string& input_file,
         }
         int result = run_doom(args.doom_binary, args.demos_dir, output_dir,
                               cfg.doom_frames, cfg.doom_maxframes,
-                              cfg.doom_keepgifframes);
+                              cfg.doom_keepgifframes, cfg.doom_demo_order);
         if (result != 0) {
             log_warning() << "DOOM had " << result << " failure(s)\n";
         }
@@ -324,6 +325,13 @@ int main(int argc, char** argv) {
         log_info() << "  Decoding: " << cfg.decoding_method << "\n";
         log_info() << "  Fuzzy distance: " << cfg.fuzzy_max_distance << "\n";
         log_info() << "  Variants: " << variants.size() << " entries\n";
+    }
+
+    // Load STT model once (reused across all captures/processing)
+    Transcriber stt(cfg);
+    if (!stt.is_ready()) {
+        log_error() << "STT model failed to load\n";
+        return 1;
     }
 
     bool any_detected = false;
@@ -389,7 +397,7 @@ int main(int argc, char** argv) {
             FILE* fp = freopen((capture_dir + "/run.log").c_str(), "a", stdout);
             if (fp) dup2(fileno(stdout), fileno(stderr));
 
-            if (process_wav(captures[i].wav_path, capture_dir, cfg, variants, args)) {
+            if (process_wav(captures[i].wav_path, capture_dir, cfg, variants, args, stt)) {
                 any_detected = true;
             }
 
@@ -398,7 +406,7 @@ int main(int argc, char** argv) {
         }
     } else {
         // Single file mode
-        any_detected = process_wav(args.input_file, args.output_dir, cfg, variants, args);
+        any_detected = process_wav(args.input_file, args.output_dir, cfg, variants, args, stt);
     }
 
     auto pipeline_end = std::chrono::steady_clock::now();

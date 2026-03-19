@@ -134,7 +134,7 @@ $(BUILDDIR)/audio_io.o: $(SRCDIR)/audio_io.cpp $(SRCDIR)/audio_io.h | $(BUILDDIR
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@

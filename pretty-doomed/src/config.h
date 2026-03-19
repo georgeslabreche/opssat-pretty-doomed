@@ -37,6 +37,7 @@ struct PipelineConfig {
     // Max frame count per demo (for random frame selection)
     std::unordered_map<std::string, int> doom_maxframes;
     bool doom_keepgifframes = false;
+    std::vector<std::string> doom_demo_order;  // optional: cycle order (default: alphabetical)
 
     // SDR capture (used when --sdr-capture mode is active)
     long long sdr_frequency = 1296000000;
