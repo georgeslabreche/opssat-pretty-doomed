@@ -2,6 +2,10 @@
  * PRETTY DOOMed - Voice-command-to-DOOM pipeline for OPS-SAT
  *
  * Pipeline: WAV -> Lowpass -> Bandpass -> Resample -> STT -> Match -> DOOM
+ *
+ * Modes:
+ *   -i <file>  Process a single WAV file
+ *   -s         SDR capture mode: N sequential captures, then process each
  */
 
 #include <iostream>
@@ -10,9 +14,13 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <thread>
+#include <vector>
 #include <getopt.h>
 
 #include <csignal>
+#include <cstdio>
+#include <unistd.h>
 
 #include "pretty_log.h"
 #include "pretty_signal.h"
@@ -24,7 +32,7 @@
 #include "matcher.h"
 #include "output.h"
 #include "executor.h"
-#include "sdr_capture.h"
+#include "capture.h"
 
 using namespace pretty;
 
@@ -104,6 +112,27 @@ bool parse_args(int argc, char** argv, Args& args) {
     return true;
 }
 
+// Switch stdout+stderr to a new log file. Returns the saved fd to restore later.
+static int switch_log(const std::string& path) {
+    int saved = dup(fileno(stdout));
+    std::fflush(stdout);
+    std::fflush(stderr);
+    FILE* fp = freopen(path.c_str(), "w", stdout);
+    if (fp) {
+        dup2(fileno(stdout), fileno(stderr));
+    }
+    return saved;
+}
+
+// Restore stdout+stderr from a saved fd.
+static void restore_log(int saved_fd) {
+    std::fflush(stdout);
+    std::fflush(stderr);
+    dup2(saved_fd, fileno(stdout));
+    dup2(saved_fd, fileno(stderr));
+    close(saved_fd);
+}
+
 static void write_file(const std::string& path, const std::string& content) {
     std::ofstream out(path);
     if (out) {
@@ -113,64 +142,22 @@ static void write_file(const std::string& path, const std::string& content) {
     }
 }
 
-int main(int argc, char** argv) {
-    Args args;
-    if (!parse_args(argc, argv, args)) {
-        return 1;
-    }
+// Process a single WAV file through the pipeline: DSP -> STT -> detect -> DOOM.
+// Returns true if a command was detected.
+static bool process_wav(const std::string& input_file,
+                        const std::string& output_dir,
+                        const PipelineConfig& cfg,
+                        const VariantsMap& variants,
+                        const Args& args) {
+    log_info() << "--- Processing: " << input_file << " ---\n";
+    auto proc_start = std::chrono::steady_clock::now();
 
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-
-    log_info() << "=== PRETTY DOOMed ===\n";
-    auto pipeline_start = std::chrono::steady_clock::now();
-
-    // Step 1: Load config
-    log_info() << "Loading config: " << args.config_file << "\n";
-    PipelineConfig cfg;
-    if (!load_config(args.config_file, cfg)) {
-        log_error() << "Cannot load config: " << args.config_file << "\n";
-        return 1;
-    }
-
-    VariantsMap variants;
-    if (!load_variants(args.variants_file, variants)) {
-        log_error() << "Cannot load variants: " << args.variants_file << "\n";
-        return 1;
-    }
-
-    if (args.verbose) {
-        log_info() << "  Wake word: " << cfg.wake_word << "\n";
-        log_info() << "  Call signs: " << cfg.call_signs.size() << " configured\n";
-        std::string cmds_str = "  Commands: ";
-        for (size_t i = 0; i < cfg.commands.size(); i++) {
-            if (i > 0) cmds_str += ", ";
-            cmds_str += cfg.commands[i];
-        }
-        log_info() << cmds_str << "\n";
-        log_info() << "  Decoding: " << cfg.decoding_method << "\n";
-        log_info() << "  Fuzzy distance: " << cfg.fuzzy_max_distance << "\n";
-        log_info() << "  Variants: " << variants.size() << " entries\n";
-    }
-
-    // Step 1.5: SDR Capture (if --sdr-capture mode)
-    if (args.sdr_capture) {
-        log_info() << "SDR Capture mode\n";
-        SdrCaptureResult sdr_result;
-        if (!run_sdr_capture(cfg, args.output_dir, sdr_result)) {
-            log_error() << "SDR capture failed\n";
-            return 1;
-        }
-        args.input_file = sdr_result.wav_path;
-        log_info() << "SDR capture output: " << args.input_file << "\n";
-    }
-
-    // Step 2: Read audio
-    log_info() << "Reading audio: " << args.input_file << "\n";
+    // Read audio
+    log_info() << "Reading audio: " << input_file << "\n";
     std::vector<float> samples;
     int sample_rate;
-    if (!read_wav(args.input_file, samples, sample_rate)) {
-        return 1;
+    if (!read_wav(input_file, samples, sample_rate)) {
+        return false;
     }
     log_info() << "  " << sample_rate << " Hz, " << samples.size()
                << " samples (" << static_cast<float>(samples.size()) / sample_rate << "s)\n";
@@ -178,13 +165,8 @@ int main(int argc, char** argv) {
     AudioStats audio_stats;
     compute_audio_stats(samples, audio_stats.rms_raw, audio_stats.peak_raw);
 
-    // Step 3: GNU Radio signal processing
+    // DSP: lowpass -> bandpass -> resample
     log_info() << "Filtering (GNU Radio)...\n";
-    if (args.verbose) {
-        log_info() << "  Lowpass: " << cfg.lowpass_cutoff << " Hz\n";
-        log_info() << "  Bandpass: " << cfg.bandpass_low << "-" << cfg.bandpass_high << " Hz\n";
-    }
-
     auto dsp_start = std::chrono::steady_clock::now();
     auto filtered = apply_lowpass(samples, sample_rate,
                                    cfg.lowpass_cutoff, cfg.lowpass_transition);
@@ -194,19 +176,24 @@ int main(int argc, char** argv) {
 
     compute_audio_stats(filtered, audio_stats.rms_filtered, audio_stats.peak_filtered);
 
-    // Write denoised audio
-    std::string denoised_path = args.output_dir + "/processed.wav";
+    std::string denoised_path = output_dir + "/processed.wav";
     write_wav(denoised_path, filtered, sample_rate);
-    log_info() << "  Denoised audio: " << denoised_path << "\n";
 
-    // Step 4: Resample to 16 kHz
     log_info() << "Resampling to 16 kHz...\n";
     auto resampled = resample(filtered, sample_rate, 16000);
     auto dsp_end = std::chrono::steady_clock::now();
-    log_info() << "  " << resampled.size() << " samples\n";
-    log_info() << "  DSP time: " << format_duration(dsp_end - dsp_start) << "\n";
+    log_info() << "  " << resampled.size() << " samples, DSP time: "
+               << format_duration(dsp_end - dsp_start) << "\n";
 
-    // Step 5: Transcribe
+    // STT (minimum ~0.5s of audio needed for the model's Conv layers)
+    if (resampled.size() < 8000) {
+        log_warning() << "Audio too short for STT (" << resampled.size()
+                      << " samples, need at least 8000). Skipping transcription.\n";
+        write_file(output_dir + "/transcription.txt", "");
+        write_file(output_dir + "/summary.txt", "Audio too short for transcription.\n");
+        return false;
+    }
+
     log_info() << "Transcribing (" << cfg.decoding_method << ")...\n";
     auto stt_start = std::chrono::steady_clock::now();
     std::string transcript = transcribe(resampled, 16000, cfg);
@@ -215,16 +202,15 @@ int main(int argc, char** argv) {
 
     if (transcript.empty()) {
         log_error() << "Transcription produced no output\n";
-        // Still write empty files for diagnostics
-        write_file(args.output_dir + "/transcription.txt", "");
-        write_file(args.output_dir + "/summary.txt", "Transcription failed.\n");
-        return 1;
+        write_file(output_dir + "/transcription.txt", "");
+        write_file(output_dir + "/summary.txt", "Transcription failed.\n");
+        return false;
     }
 
     log_info() << "  Transcription: " << transcript << "\n";
-    write_file(args.output_dir + "/transcription.txt", transcript + "\n");
+    write_file(output_dir + "/transcription.txt", transcript + "\n");
 
-    // Step 6: Detect command
+    // Detect command
     log_info() << "Detecting command...\n";
     DetectionResult detection = detect(transcript, cfg, variants);
 
@@ -249,10 +235,9 @@ int main(int argc, char** argv) {
         log_info() << "  Call sign [" << sign << "]: " << count << "\n";
     }
 
-    // Read ASCII art for summary (optional, from ascii.txt next to binary or config)
+    // Read ASCII art
     std::string ascii_art;
     {
-        // Try directory of config file first, then current directory
         std::string cfg_dir = args.config_file;
         auto pos = cfg_dir.find_last_of('/');
         std::string ascii_path = (pos != std::string::npos)
@@ -267,17 +252,17 @@ int main(int argc, char** argv) {
 
     // Write scores + summary
     DetectionTotals totals = compute_totals(detection);
-    write_file(args.output_dir + "/scores.txt", format_scores(detection, totals, audio_stats));
-    write_file(args.output_dir + "/summary.txt",
-               format_summary(detection, totals, cfg, args.input_file, transcript, ascii_art));
+    write_file(output_dir + "/scores.txt", format_scores(detection, totals, audio_stats));
+    write_file(output_dir + "/summary.txt",
+               format_summary(detection, totals, cfg, input_file, transcript, ascii_art));
 
-    // Step 7: Launch DOOM if command detected
+    // Launch DOOM if command detected
     if (totals.command_detected) {
         log_info() << "Command detected! Launching DOOM...\n";
         if (!ascii_art.empty()) {
             std::cout << ascii_art << std::endl;
         }
-        int result = run_doom(args.doom_binary, args.demos_dir, args.output_dir,
+        int result = run_doom(args.doom_binary, args.demos_dir, output_dir,
                               cfg.doom_frames, cfg.doom_maxframes,
                               cfg.doom_keepgifframes);
         if (result != 0) {
@@ -287,8 +272,137 @@ int main(int argc, char** argv) {
         log_info() << "No command detected.\n";
     }
 
+    auto proc_end = std::chrono::steady_clock::now();
+    log_info() << "Processing time: " << format_duration(proc_end - proc_start) << "\n";
+    return totals.command_detected;
+}
+
+int main(int argc, char** argv) {
+    Args args;
+    if (!parse_args(argc, argv, args)) {
+        return 1;
+    }
+
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+
+    // Redirect stdout and stderr to a log file in the output directory
+    // so that both manual runs and run-script runs produce the same artifacts.
+    {
+        std::string mkdir_cmd = "mkdir -p " + args.output_dir;
+        system(mkdir_cmd.c_str());
+        std::string log_path = args.output_dir + "/pretty-doomed.log";
+        FILE* log_fp = freopen(log_path.c_str(), "w", stdout);
+        if (!log_fp) {
+            std::cerr << "Warning: cannot open " << log_path << " for logging\n";
+        } else {
+            // Redirect stderr to the same file
+            dup2(fileno(stdout), fileno(stderr));
+        }
+    }
+
+    log_info() << "=== PRETTY DOOMed ===\n";
+    auto pipeline_start = std::chrono::steady_clock::now();
+
+    // Load config
+    log_info() << "Loading config: " << args.config_file << "\n";
+    PipelineConfig cfg;
+    if (!load_config(args.config_file, cfg)) {
+        log_error() << "Cannot load config: " << args.config_file << "\n";
+        return 1;
+    }
+
+    VariantsMap variants;
+    if (!load_variants(args.variants_file, variants)) {
+        log_error() << "Cannot load variants: " << args.variants_file << "\n";
+        return 1;
+    }
+
+    if (args.verbose) {
+        log_info() << "  Wake word: " << cfg.wake_word << "\n";
+        log_info() << "  Call signs: " << cfg.call_signs.size() << " configured\n";
+        log_info() << "  Decoding: " << cfg.decoding_method << "\n";
+        log_info() << "  Fuzzy distance: " << cfg.fuzzy_max_distance << "\n";
+        log_info() << "  Variants: " << variants.size() << " entries\n";
+    }
+
+    bool any_detected = false;
+
+    if (args.sdr_capture) {
+        // Multi-capture mode: capture all, then process all (sequential)
+        int num_captures = cfg.sdr_captures;
+        if (num_captures <= 0) num_captures = 1;
+
+        log_info() << "SDR Capture mode: " << num_captures << " capture(s) of "
+                   << cfg.sdr_duration << "s\n";
+
+        // Phase 1: Capture all (each capture logs to its own run.log)
+        std::vector<CaptureResult> captures;
+        for (int i = 1; i <= num_captures && g_running; i++) {
+            char subdir[32];
+            std::snprintf(subdir, sizeof(subdir), "/capture-%03d", i);
+            std::string capture_dir = args.output_dir + subdir;
+
+            std::string mkdir_cmd = "mkdir -p " + capture_dir;
+            system(mkdir_cmd.c_str());
+
+            log_info() << "Capture " << i << "/" << num_captures << "\n";
+
+            // Switch to per-capture log
+            int saved_fd = switch_log(capture_dir + "/run.log");
+
+            log_info() << "=== Capture " << i << "/" << num_captures << " ===\n";
+            CaptureResult result;
+            if (!run_capture(cfg, capture_dir, result)) {
+                log_error() << "Capture " << i << " failed\n";
+            }
+            captures.push_back(result);
+
+            // Restore top-level log
+            restore_log(saved_fd);
+
+            if (i < num_captures && g_running) {
+                log_info() << "Waiting 5s for IIO cleanup...\n";
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+            }
+        }
+
+        log_info() << "All captures complete, processing " << captures.size() << " WAV(s)\n";
+
+        // Phase 2: Process each captured WAV (appends to each capture's run.log)
+        for (size_t i = 0; i < captures.size() && g_running; i++) {
+            if (!captures[i].success && captures[i].wav_path.empty()) {
+                log_warning() << "Skipping capture " << (i + 1) << " (no WAV produced)\n";
+                continue;
+            }
+
+            char subdir[32];
+            std::snprintf(subdir, sizeof(subdir), "/capture-%03d", (int)(i + 1));
+            std::string capture_dir = args.output_dir + subdir;
+
+            log_info() << "Processing capture " << (i + 1) << "/" << captures.size() << "\n";
+
+            // Switch to per-capture log (append)
+            int saved_fd = dup(fileno(stdout));
+            std::fflush(stdout);
+            std::fflush(stderr);
+            FILE* fp = freopen((capture_dir + "/run.log").c_str(), "a", stdout);
+            if (fp) dup2(fileno(stdout), fileno(stderr));
+
+            if (process_wav(captures[i].wav_path, capture_dir, cfg, variants, args)) {
+                any_detected = true;
+            }
+
+            // Restore top-level log
+            restore_log(saved_fd);
+        }
+    } else {
+        // Single file mode
+        any_detected = process_wav(args.input_file, args.output_dir, cfg, variants, args);
+    }
+
     auto pipeline_end = std::chrono::steady_clock::now();
     log_info() << "Total time: " << format_duration(pipeline_end - pipeline_start) << "\n";
     log_info() << "=== Done ===\n";
-    return totals.command_detected ? 0 : 2;
+    return any_detected ? 0 : 2;
 }

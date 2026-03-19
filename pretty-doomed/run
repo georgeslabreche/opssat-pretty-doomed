@@ -64,33 +64,22 @@ for WAV_NAME in georges_01.wav oli_10.wav; do
         -f "$VARIANTS" \
         -o "$RUN_DIR" \
         -d "$DEMOS" \
-        -e "${DOOM_BINARY}" \
-        > "$RUN_DIR/pretty-doomed.log" 2>&1
+        -e "${DOOM_BINARY}"
 done
 
-# --- Phase 2: SDR capture mode (3 x 20-second captures) ---
-SDR_CAPTURES=3
-CAPTURE_NUM=0
-while [ "$CAPTURE_NUM" -lt "$SDR_CAPTURES" ]; do
-    CAPTURE_NUM=$((CAPTURE_NUM + 1))
-    RUNID=$(next_run_id)
-    RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
-    mkdir -p "$RUN_DIR"
+# --- Phase 2: SDR multi-capture mode ---
+# Captures N times back-to-back (sdr_captures in config, default 3),
+# then processes each WAV through the pipeline. Model loaded once.
+RUNID=$(next_run_id)
+RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$RUN_DIR"
 
-    echo "Run $(printf '%05d' "$RUNID"): SDR capture ${CAPTURE_NUM}/${SDR_CAPTURES}"
+echo "Run $(printf '%05d' "$RUNID"): SDR multi-capture"
 
-    ${PRETTY_DOOMED} \
-        -s \
-        -c "$CONFIG" \
-        -f "$VARIANTS" \
-        -o "$RUN_DIR" \
-        -d "$DEMOS" \
-        -e "${DOOM_BINARY}" \
-        > "$RUN_DIR/pretty-doomed.log" 2>&1
-
-    STATUS=$?
-    if [ "$STATUS" -ne 0 ] && [ "$CAPTURE_NUM" -lt "$SDR_CAPTURES" ]; then
-        echo "  Capture ${CAPTURE_NUM} failed (status=$STATUS), waiting 5s..."
-        sleep 5
-    fi
-done
+${PRETTY_DOOMED} \
+    -s \
+    -c "$CONFIG" \
+    -f "$VARIANTS" \
+    -o "$RUN_DIR" \
+    -d "$DEMOS" \
+    -e "${DOOM_BINARY}"

@@ -59,6 +59,7 @@ struct PipelineConfig {
     int sdr_timeout_multiplier = 5;
     bool sdr_enable_spectrogram = true;
     bool sdr_enable_constellation = true;
+    int sdr_captures = 3;              // number of sequential SDR captures
 };
 
 // Parse KEY=VALUE config file. Lines starting with # are comments.
