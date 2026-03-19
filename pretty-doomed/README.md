@@ -8,7 +8,11 @@ Voice-command-to-DOOM pipeline for OPS-SAT PRETTY. Processes audio from amateur 
 WAV ──> Lowpass ──> Bandpass ──> Resample ──> STT ──> Match ──> DOOM
 ```
 
-All processing in memory. No intermediate files between stages.
+Two input modes:
+- **File input** (`-i`): reads a pre-recorded WAV file
+- **SDR capture** (`-s`): captures live RF audio from the AD9361 SDR, FM demodulates, and feeds into the pipeline
+
+All processing in memory. No intermediate files between stages (except SDR capture artifacts).
 
 ## Build
 
@@ -86,39 +90,62 @@ docker-compose run --rm pretty-doomed make test-dsp
 
 ## Run
 
-The `run` script manages output directories and executes the full pipeline:
+The `run` script executes the full pipeline in two phases:
+
+1. **File input**: processes bundled WAV files (one with DOOM command, one without)
+2. **SDR capture**: runs 3 sequential 20-second RF captures through the pipeline
 
 ```bash
-# Single file (default: input/sample.wav)
-docker-compose run --rm pretty-doomed sh run
-
-# Single file (explicit)
-docker-compose run --rm pretty-doomed sh run input/sample.wav
-
-# All WAV files in a directory (one run per file)
-docker-compose run --rm pretty-doomed sh run input/
+# Full run (file input + SDR captures)
+docker-compose run --rm pretty-doomed ./run
 ```
 
-Each run creates a new `toGround/run-XXXXX/` directory (auto-incrementing) containing all output. When given a directory, each WAV file gets its own numbered run.
+Each run creates a new `toGround/run-XXXXX/` directory (auto-incrementing).
 
 ### Manual execution
 
 ```bash
+# File input mode
 docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
     -i input/sample.wav \
     -c config.cfg \
     -f variants.cfg \
     -o output \
     -d demos \
-    -e doom-build/local/opssat-doom \
-    -v
+    -e doom-build/local/opssat-doom
+
+# SDR capture mode
+docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
+    -s \
+    -c config.cfg \
+    -f variants.cfg \
+    -o output \
+    -d demos \
+    -e doom-build/local/opssat-doom
+```
+
+### SDR Emulator Testing
+
+Uses the same `iio-emu` container and sample file as sdr-capture/sdr-loopback, but the pretty-doomed binary runs natively on x86_64 (Debian Bookworm). This avoids the intermittent SIGFPE crashes that affect the ARM32 sdr-capture/sdr-loopback containers running under QEMU emulation. The emulator serves IIO data over TCP and is architecture-independent.
+
+The emulator replays a finite sample file and does not reflect config writes in readback attributes. The emulator config (`config.emu.cfg`) sets `sdr_min_readback=true` to accept the readback mismatch and uses a short capture duration (1s) to fit within the sample file.
+
+```bash
+# Start emulator, build, run SDR capture
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed make clean all
+docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed \
+    ./build/local/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
+    -o toGround/emu-test -d demos -e doom-build/local/opssat-doom
+docker-compose -f docker-compose.emu-test.yml down
 ```
 
 ### Options
 
 | Option | Description | Required |
 |--------|-------------|----------|
-| `-i <file>` | Input WAV file (48 kHz mono) | Yes |
+| `-i <file>` | Input WAV file (48 kHz mono) | Yes (unless `-s`) |
+| `-s` | SDR capture mode (capture RF audio from AD9361) | No |
 | `-c <file>` | Pipeline config file | Yes |
 | `-f <file>` | Fuzzy match variants file | Yes |
 | `-o <dir>` | Output directory | Yes |
@@ -169,6 +196,25 @@ doom_maxframes_m1-normal=1785
 doom_maxframes_m1-simple=700
 ```
 
+SDR capture parameters (used with `-s` flag, all optional with defaults matching sdr-capture):
+
+| Config Key | Default | Description |
+|------------|---------|-------------|
+| `sdr_frequency` | 1296000000 | RX frequency in Hz |
+| `sdr_rate` | 2400000 | AD9361 sample rate in Hz |
+| `sdr_decimation` | 12 | LPF decimation factor |
+| `sdr_rf_bandwidth` | 200000 | AD9361 analog filter bandwidth in Hz |
+| `sdr_gain` | 50 | RX gain in dB |
+| `sdr_fm_deviation` | 5000 | FM deviation in Hz |
+| `sdr_uri` | local: | IIO URI (local: for hardware, ip:host:port for emulator) |
+| `sdr_duration` | 20 | Capture duration in seconds |
+| `sdr_max_iq_mb` | 20 | Max I/Q file size in MiB |
+| `sdr_audio_rate` | 16000 | Output audio sample rate in Hz |
+| `sdr_timeout_multiplier` | 5 | Timeout = duration * N + 10 seconds |
+| `sdr_min_readback` | false | Downgrade sample rate readback mismatch to warning |
+| `sdr_enable_spectrogram` | true | Generate spectrogram BMP |
+| `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
+
 ### `variants.cfg` — Fuzzy match variants
 
 Known misrecognition patterns per word, derived from BPE token analysis:
@@ -193,17 +239,21 @@ When using the `run` script, each execution creates a numbered directory:
 
 ```
 toGround/run-00001/
-├── pretty-doomed.log      # Pipeline log (timestamped)
+├── pretty-doomed.log      # Pipeline log (timestamped, ms precision)
 ├── processed.wav          # Filtered audio
 ├── transcription.txt      # STT output
 ├── scores.txt             # Detection scores (exact/approximate breakdown)
 ├── summary.txt            # Human-readable summary
 ├── doom.log               # DOOM stdout/stderr (if command detected)
 ├── results.log            # Statdump validation (OK/ERROR per demo)
-└── e1m7-607/              # DOOM demo output (one demo per run, cycling)
-    ├── stats.txt          # Level statistics
-    ├── frame-NNNNNN.jpg   # Snapshot (random, cycling, or fixed)
-    └── frames-007992-008025.gif  # Animated GIF (if dash range configured)
+├── e1m7-607/              # DOOM demo output (one demo per run, cycling)
+│   ├── stats.txt          # Level statistics
+│   ├── frame-NNNNNN.jpg   # Snapshot (random, cycling, or fixed)
+│   └── frames-007992-008025.gif  # Animated GIF (if dash range configured)
+├── sdr_capture.wav        # FM-demodulated audio (SDR capture mode only)
+├── sdr_capture.sc16       # Raw I/Q data (SDR capture mode only)
+├── spectrogram.bmp        # I/Q spectrogram (SDR capture mode only)
+└── constellation.bmp      # I/Q constellation (SDR capture mode only)
 ```
 
 ### scores.txt
@@ -275,7 +325,8 @@ pretty-doomed/
 │   ├── transcriber.cpp / .h   # Sherpa-ONNX wrapper
 │   ├── matcher.cpp / .h       # Fuzzy matching + detection
 │   ├── executor.cpp / .h      # DOOM execution
-│   └── output.cpp / .h        # Summary + log output formatting
+│   ├── output.cpp / .h        # Summary + log output formatting
+│   └── sdr_capture.cpp / .h   # AD9361 SDR capture (RX flowgraph)
 ├── tests/
 │   ├── doctest.h              # Test framework (single header)
 │   ├── test_main.cpp          # Test runner
@@ -299,9 +350,11 @@ pretty-doomed/
 ├── Dockerfile.sepp            # ARM32 SEPP build (multi-stage, GNU Radio from source)
 ├── docker-compose.yml         # Local dev
 ├── docker-compose.sepp.yml    # SEPP packaging
+├── docker-compose.emu-test.yml # SDR emulator testing
 ├── build-sepp.sh              # One-shot SEPP build + package
 ├── run                        # Pipeline entrypoint
-├── config.cfg
+├── config.cfg                 # Pipeline + SDR config (hardware defaults)
+├── config.emu.cfg             # SDR emulator config (short duration, relaxed readback)
 ├── variants.cfg
 ├── convert-sample.sh
 └── docs/
