@@ -43,7 +43,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libsndfile1-dev \
     gnuradio-dev \
-    libfmt-dev && \
+    libfmt-dev \
+    libiio-dev \
+    libad9361-dev \
+    libfftw3-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy sherpa-onnx SDK from builder stage

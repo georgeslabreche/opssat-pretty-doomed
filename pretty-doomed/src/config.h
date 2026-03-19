@@ -37,6 +37,28 @@ struct PipelineConfig {
     // Max frame count per demo (for random frame selection)
     std::unordered_map<std::string, int> doom_maxframes;
     bool doom_keepgifframes = false;
+
+    // SDR capture (used when --sdr-capture mode is active)
+    long long sdr_frequency = 1296000000;
+    long sdr_rate = 2400000;
+    int sdr_decimation = 12;
+    long sdr_rf_bandwidth = 200000;
+    double sdr_gain = 50.0;
+    double sdr_fm_deviation = 5000.0;
+    std::string sdr_uri = "local:";
+    int sdr_duration = 20;
+    int sdr_max_iq_mb = 20;
+    int sdr_audio_rate = 16000;
+    double sdr_lpf_cutoff = 85000.0;
+    double sdr_lpf_transition = 15000.0;
+    double sdr_bandpass_low = 300.0;
+    double sdr_bandpass_high = 3400.0;
+    bool sdr_min_readback = false;
+    bool sdr_single_core = false;
+    long sdr_rate_tolerance = 10;
+    int sdr_timeout_multiplier = 5;
+    bool sdr_enable_spectrogram = true;
+    bool sdr_enable_constellation = true;
 };
 
 // Parse KEY=VALUE config file. Lines starting with # are comments.
