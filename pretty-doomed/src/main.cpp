@@ -12,7 +12,10 @@
 #include <algorithm>
 #include <getopt.h>
 
+#include <csignal>
+
 #include "pretty_log.h"
+#include "pretty_signal.h"
 
 #include "config.h"
 #include "audio_io.h"
@@ -21,6 +24,7 @@
 #include "matcher.h"
 #include "output.h"
 #include "executor.h"
+#include "sdr_capture.h"
 
 using namespace pretty;
 
@@ -49,25 +53,27 @@ struct Args {
     std::string demos_dir;
     std::string doom_binary;
     bool verbose = false;
+    bool sdr_capture = false;
 };
 
 void print_usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options]\n"
               << "\nRequired:\n"
-              << "  -i <file>   Input WAV file\n"
+              << "  -i <file>   Input WAV file (not needed with -s)\n"
               << "  -c <file>   Pipeline config file\n"
               << "  -f <file>   Fuzzy match variants file\n"
               << "  -o <dir>    Output directory\n"
               << "  -d <dir>    DOOM demo files directory\n"
               << "  -e <file>   DOOM binary path\n"
               << "\nOptional:\n"
+              << "  -s          SDR capture mode (capture RF audio from AD9361)\n"
               << "  -v          Verbose output\n"
               << "  -h          Show this help\n";
 }
 
 bool parse_args(int argc, char** argv, Args& args) {
     int opt;
-    while ((opt = getopt(argc, argv, "i:c:f:o:d:e:vh")) != -1) {
+    while ((opt = getopt(argc, argv, "i:c:f:o:d:e:svh")) != -1) {
         switch (opt) {
             case 'i': args.input_file = optarg; break;
             case 'c': args.config_file = optarg; break;
@@ -75,14 +81,19 @@ bool parse_args(int argc, char** argv, Args& args) {
             case 'o': args.output_dir = optarg; break;
             case 'd': args.demos_dir = optarg; break;
             case 'e': args.doom_binary = optarg; break;
+            case 's': args.sdr_capture = true; break;
             case 'v': args.verbose = true; break;
             case 'h': print_usage(argv[0]); return false;
             default: print_usage(argv[0]); return false;
         }
     }
 
-    if (args.input_file.empty() ||
-        args.config_file.empty() || args.variants_file.empty() ||
+    if (!args.sdr_capture && args.input_file.empty()) {
+        std::cerr << "Error: Input WAV file required (use -i or -s for SDR capture)\n\n";
+        print_usage(argv[0]);
+        return false;
+    }
+    if (args.config_file.empty() || args.variants_file.empty() ||
         args.output_dir.empty() || args.demos_dir.empty() ||
         args.doom_binary.empty()) {
         std::cerr << "Error: All required options must be specified\n\n";
@@ -107,6 +118,9 @@ int main(int argc, char** argv) {
     if (!parse_args(argc, argv, args)) {
         return 1;
     }
+
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
 
     log_info() << "=== PRETTY DOOMed ===\n";
     auto pipeline_start = std::chrono::steady_clock::now();
@@ -137,6 +151,18 @@ int main(int argc, char** argv) {
         log_info() << "  Decoding: " << cfg.decoding_method << "\n";
         log_info() << "  Fuzzy distance: " << cfg.fuzzy_max_distance << "\n";
         log_info() << "  Variants: " << variants.size() << " entries\n";
+    }
+
+    // Step 1.5: SDR Capture (if --sdr-capture mode)
+    if (args.sdr_capture) {
+        log_info() << "SDR Capture mode\n";
+        SdrCaptureResult sdr_result;
+        if (!run_sdr_capture(cfg, args.output_dir, sdr_result)) {
+            log_error() << "SDR capture failed\n";
+            return 1;
+        }
+        args.input_file = sdr_result.wav_path;
+        log_info() << "SDR capture output: " << args.input_file << "\n";
     }
 
     // Step 2: Read audio

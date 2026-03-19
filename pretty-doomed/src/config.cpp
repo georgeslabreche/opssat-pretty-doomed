@@ -41,6 +41,27 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "command") cfg.commands = split_csv(value);
     else if (key == "fuzzy_max_distance") cfg.fuzzy_max_distance = std::stoi(value);
     else if (key == "doom_keepgifframes") cfg.doom_keepgifframes = (value == "true" || value == "1");
+    // SDR capture
+    else if (key == "sdr_frequency") cfg.sdr_frequency = std::stoll(value);
+    else if (key == "sdr_rate") cfg.sdr_rate = std::stol(value);
+    else if (key == "sdr_decimation") cfg.sdr_decimation = std::stoi(value);
+    else if (key == "sdr_rf_bandwidth") cfg.sdr_rf_bandwidth = std::stol(value);
+    else if (key == "sdr_gain") cfg.sdr_gain = std::stod(value);
+    else if (key == "sdr_fm_deviation") cfg.sdr_fm_deviation = std::stod(value);
+    else if (key == "sdr_uri") cfg.sdr_uri = value;
+    else if (key == "sdr_duration") cfg.sdr_duration = std::stoi(value);
+    else if (key == "sdr_max_iq_mb") cfg.sdr_max_iq_mb = std::stoi(value);
+    else if (key == "sdr_audio_rate") cfg.sdr_audio_rate = std::stoi(value);
+    else if (key == "sdr_lpf_cutoff") cfg.sdr_lpf_cutoff = std::stod(value);
+    else if (key == "sdr_lpf_transition") cfg.sdr_lpf_transition = std::stod(value);
+    else if (key == "sdr_bandpass_low") cfg.sdr_bandpass_low = std::stod(value);
+    else if (key == "sdr_bandpass_high") cfg.sdr_bandpass_high = std::stod(value);
+    else if (key == "sdr_min_readback") cfg.sdr_min_readback = (value == "true" || value == "1");
+    else if (key == "sdr_single_core") cfg.sdr_single_core = (value == "true" || value == "1");
+    else if (key == "sdr_rate_tolerance") cfg.sdr_rate_tolerance = std::stol(value);
+    else if (key == "sdr_timeout_multiplier") cfg.sdr_timeout_multiplier = std::stoi(value);
+    else if (key == "sdr_enable_spectrogram") cfg.sdr_enable_spectrogram = (value == "true" || value == "1");
+    else if (key == "sdr_enable_constellation") cfg.sdr_enable_constellation = (value == "true" || value == "1");
     else {
         const std::string frames_prefix = "doom_frames_";
         const std::string maxframes_prefix = "doom_maxframes_";

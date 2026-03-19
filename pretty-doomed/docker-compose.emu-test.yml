@@ -1,0 +1,46 @@
+# SDR emulator integration test for pretty-doomed
+#
+# Usage:
+#   docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+#   docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed make clean all
+#   docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed \
+#     ./build/local/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
+#       -o toGround/emu-test -d demos -e doom-build/local/opssat-doom
+#   docker-compose -f docker-compose.emu-test.yml down
+
+services:
+  sdr-emu:
+    image: iio-emu:latest
+    container_name: sdr_emu_pretty
+    ports:
+      - "30431:30431"
+    volumes:
+      - ../sandbox/gnuradio/sdr-capture/emu-samples:/samples:ro
+    environment:
+      SAMPLE_FILE: "sdr_20210519_101920_1176450000_38400000_12.cs16"
+      DATA_SOURCE_TYPE: "file"
+
+  pretty-doomed:
+    build: .
+    container_name: pretty-doomed-emu
+    depends_on:
+      - sdr-emu
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ../common:/app/common
+      - ./Makefile:/app/Makefile
+      - ./build/local:/app/build/local
+      - ./models:/app/models
+      - ./input:/app/input
+      - ./ascii.txt:/app/ascii.txt
+      - ./config.cfg:/app/config.cfg
+      - ./config.emu.cfg:/app/config.emu.cfg
+      - ./variants.cfg:/app/variants.cfg
+      - ./run:/app/run
+      - ./toGround:/app/toGround
+      - ../doom/src:/app/doom-src
+      - ../doom/build:/app/doom-build
+      - ../doom/demos:/app/demos
+    working_dir: /app
+    tty: true
