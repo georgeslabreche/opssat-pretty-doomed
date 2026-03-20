@@ -13,8 +13,12 @@ PACKAGE_NAME = exp4023-pretty-DOOMed-$(PACKAGE_VERSION)
 COMMON_CFLAGS ?= $(if $(wildcard /app/common/include),-I/app/common/include,-I../common/include)
 
 # External library flags
+# Local (Debian): pkg-config finds GNU Radio. SEPP (Alpine): pre-built libs at /app/libs-gnuradio.
 GNURADIO_CFLAGS = $(shell pkg-config --cflags gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft gnuradio-analog gnuradio-iio 2>/dev/null)
+GNURADIO_CFLAGS += $(if $(wildcard /app/libs-gnuradio/include/gnuradio),-I/app/libs-gnuradio/include,)
 GNURADIO_LIBS = $(shell pkg-config --libs gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft gnuradio-analog gnuradio-iio 2>/dev/null) -lfmt -liio -lad9361 -lfftw3f
+# SEPP: pre-built libs (pkg-config may not have .pc files)
+GNURADIO_LIBS += $(if $(wildcard /app/libs-gnuradio/lib/libgnuradio-runtime.so),-L/app/libs-gnuradio/lib -lgnuradio-runtime -lgnuradio-blocks -lgnuradio-filter -lgnuradio-fft -lgnuradio-pmt -lgnuradio-analog -lgnuradio-iio -lvolk,)
 
 # Sherpa-ONNX: two layouts depending on environment.
 #
@@ -256,7 +260,8 @@ package-prepare: $(TARGET) doom
 	cp variants.cfg $(PACKAGE_DIR)/
 	cp ascii.txt $(PACKAGE_DIR)/
 	chmod +x $(PACKAGE_DIR)/run
-	# GNU Radio + VOLK libs
+	# GNU Radio + VOLK + AD9361 libs (pre-built or from /opt/gnuradio)
+	cp -P /app/libs-gnuradio/lib/*.so* $(PACKAGE_DIR)/libs/ 2>/dev/null || \
 	cp -P /opt/gnuradio/lib/*.so* $(PACKAGE_DIR)/libs/
 	# Boost libs
 	cp -P /usr/lib/libboost_filesystem.so* $(PACKAGE_DIR)/libs/
@@ -279,6 +284,8 @@ package-prepare: $(TARGET) doom
 	cp -P /usr/lib/libopus.so* $(PACKAGE_DIR)/libs/
 	cp -P /usr/lib/libmpg123.so* $(PACKAGE_DIR)/libs/
 	cp -P /usr/lib/libmp3lame.so* $(PACKAGE_DIR)/libs/
+	# IIO libs (SDR capture)
+	cp -P /usr/lib/libiio.so* $(PACKAGE_DIR)/libs/
 	# Sherpa-ONNX + ONNX Runtime: statically linked into pretty-doomed binary
 	# (no shared libs needed — see build-sherpa comment)
 	@echo "Package prepared in $(PACKAGE_DIR)/"
