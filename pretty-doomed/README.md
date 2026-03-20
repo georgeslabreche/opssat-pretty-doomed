@@ -94,55 +94,64 @@ docker-compose run --rm pretty-doomed make test-dsp
 
 ## Run
 
-The `run` script executes the full pipeline in two phases:
+### Local testing (no SDR hardware)
 
-1. **File input**: processes bundled WAV files (one with DOOM command, one without)
-2. **SDR capture**: runs 3 sequential 20-second RF captures through the pipeline
+Tests the pipeline with pre-recorded WAV files. No IIO or AD9361 needed.
 
 ```bash
-# Full run (file input + SDR captures)
+# Build
+docker-compose run --rm pretty-doomed make clean all
+
+# Run the full test schedule (1 file input + 2 SDR capture phases)
+# SDR phases will fail gracefully (no hardware), file input works
 docker-compose run --rm pretty-doomed ./run
+
+# Manual: single file
+docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
+    -i input/georges_01.wav -c config.cfg -f variants.cfg \
+    -o toGround/test -d demos -e doom-build/local/opssat-doom
 ```
 
-Each run creates a new `toGround/run-XXXXX/` directory (auto-incrementing).
+### SDR emulator testing
 
-### Manual execution
+Tests the full SDR capture pipeline (IIO connection, GNU Radio flowgraph, FM demod, STT) against a software IIO emulator. Uses `config.emu.cfg` which differs from `config.cfg` in:
 
-```bash
-# File input mode
-docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
-    -i input/sample.wav \
-    -c config.cfg \
-    -f variants.cfg \
-    -o output \
-    -d demos \
-    -e doom-build/local/opssat-doom
+| Parameter | `config.cfg` (EM/hardware) | `config.emu.cfg` (emulator) |
+|-----------|---------------------------|----------------------------|
+| `sdr_uri` | `local:` (default) | `ip:sdr-emu:30431` |
+| `sdr_duration` | `20` (default) | `1` (emulator has limited sample data) |
+| `sdr_min_readback` | `false` (default) | `true` (emulator doesn't reflect config writes) |
+| `sdr_timeout_multiplier` | `5` (default) | `60` (emulator is slow) |
+| `sdr_captures` | `3` (default) | `2` |
 
-# SDR capture mode
-docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
-    -s \
-    -c config.cfg \
-    -f variants.cfg \
-    -o output \
-    -d demos \
-    -e doom-build/local/opssat-doom
-```
-
-### SDR Emulator Testing
-
-Uses the same `iio-emu` container and sample file as sdr-capture/sdr-loopback, but the pretty-doomed binary runs natively on x86_64 (Debian Bookworm). This avoids the intermittent SIGFPE crashes that affect the ARM32 sdr-capture/sdr-loopback containers running under QEMU emulation. The emulator serves IIO data over TCP and is architecture-independent.
-
-The emulator replays a finite sample file and does not reflect config writes in readback attributes. The emulator config (`config.emu.cfg`) sets `sdr_min_readback=true` to accept the readback mismatch and uses a short capture duration (1s) to fit within the sample file.
+The pretty-doomed binary runs natively on x86_64 (Debian Bookworm), not under QEMU. This avoids the intermittent SIGFPE crashes that affect the ARM32 sdr-capture/sdr-loopback containers. The emulator serves IIO data over TCP and is architecture-independent.
 
 ```bash
-# Start emulator, build, run SDR capture
-docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+# Build (if not already built)
 docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed make clean all
+
+# Start emulator, run SDR capture test, stop emulator
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+sleep 3
 docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed \
     ./build/local/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
     -o toGround/emu-test -d demos -e doom-build/local/opssat-doom
 docker-compose -f docker-compose.emu-test.yml down
+
+# Check results
+cat toGround/emu-test/pretty-doomed.log
+cat toGround/emu-test/capture-001/run.log
 ```
+
+### EM/hardware run
+
+The `run` script executes three phases on the EM:
+
+1. **File input**: georges_01.wav (DOOM command detection test)
+2. **SDR sequential**: 2 x 20s captures, then process both
+3. **SDR background**: 2 x 20s captures, processing previous while capturing next
+
+Each phase creates its own `toGround/run-XXXXX/` directory. SDR captures produce `capture-NNN/` subdirectories with per-capture `run.log` files. A top-level `pretty-doomed.log` contains dispatch info.
 
 ### Options
 
