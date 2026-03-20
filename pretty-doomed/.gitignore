@@ -19,3 +19,6 @@ package/
 # Runtime output
 toGround/
 output/
+
+# Artifacts from development
+artifacts
