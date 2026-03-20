@@ -206,7 +206,7 @@ make package-samples
 make package-tar
 ```
 
-Creates `package/exp4023-sdr-loopback-v7.1.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
+Creates `package/exp4023-sdr-loopback-v8.tar.gz`. For emulator testing, uncomment the `uri` and `min_readback` lines in `config.cfg` (or pass `--uri` and `--min-readback` on the command line).
 
 ### Bundled Libraries
 

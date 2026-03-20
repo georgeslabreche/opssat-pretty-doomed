@@ -318,11 +318,9 @@ inline int run_file_loopback(const LoopbackConfig& cfg,
 // Build GNU Radio flowgraph, run loopback test, then post-process audio.
 // iq_sample_count is the pre-snapped integer sample count (avoids float->int truncation).
 // input_samples: PCM float samples read via libsndfile (deterministic type).
-// prev_loopback: value to restore on forced exit (_Exit path bypasses RAII).
 inline int run_loopback(const LoopbackConfig& cfg,
                  int input_audio_rate, long long iq_sample_count,
-                 const std::vector<float>& input_samples,
-                 const std::string& prev_loopback) {
+                 const std::vector<float>& input_samples) {
     // Reset signal flags (safe for multi-run or future use)
     g_running = 1;
     g_signal_received = 0;
@@ -731,7 +729,7 @@ inline int run_loopback(const LoopbackConfig& cfg,
                 log_error() << "FATAL: tb->wait() hung for " << WAIT_GRACE_SEC
                             << "s after stop — force-exiting to prevent automation stall\n";
                 // Best-effort loopback restore before forced exit (_Exit skips RAII)
-                restore_loopback(cfg.uri, prev_loopback);
+                restore_loopback(cfg.uri);
                 std::cerr.flush();
                 std::cout.flush();
                 wait_thread.detach();
