@@ -77,7 +77,6 @@ int main(int argc, char* argv[]) {
     }
 
     // --- Enable Loopback Mode via libiio (skip in file loopback mode) ---
-    std::string prev_loopback = "0";
     if (cfg.use_file_loopback) {
         log_info() << "File loopback mode — skipping IIO loopback setup\n";
     } else {
@@ -100,18 +99,12 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        // Save current loopback value for restore on exit
+        // Read current loopback value for diagnostic logging
         {
             char lb_buf[64];
             ssize_t rb = iio_device_debug_attr_read(phy, "loopback", lb_buf, sizeof(lb_buf));
-            if (rb <= 0) {
-                log_warning() << "Could not read loopback debug attribute, will restore to '0'\n";
-            } else if ((size_t)rb >= sizeof(lb_buf)) {
-                log_warning() << "Loopback attr truncated (" << rb << " bytes, buf="
-                              << sizeof(lb_buf) << "), will restore to '0'\n";
-            } else {
-                prev_loopback = trim(std::string(lb_buf, (size_t)rb));
-                log_info() << "AD9361 loopback current value: " << prev_loopback << "\n";
+            if (rb > 0 && (size_t)rb < sizeof(lb_buf)) {
+                log_info() << "AD9361 loopback current value: " << trim(std::string(lb_buf, (size_t)rb)) << "\n";
             }
         }
 
@@ -133,13 +126,13 @@ int main(int argc, char* argv[]) {
                 log_error() << "FATAL: could not read back loopback debug attribute — "
                             << "cannot confirm loopback is active\n";
                 iio_context_destroy(ctx);
-                restore_loopback(cfg.uri, prev_loopback);
+                restore_loopback(cfg.uri);
                 return 1;
             } else if ((size_t)rb >= sizeof(lb_buf)) {
                 log_error() << "FATAL: loopback readback truncated (" << rb << " bytes, buf="
                             << sizeof(lb_buf) << ") — cannot confirm loopback is active\n";
                 iio_context_destroy(ctx);
-                restore_loopback(cfg.uri, prev_loopback);
+                restore_loopback(cfg.uri);
                 return 1;
             } else {
                 std::string readback = trim(std::string(lb_buf, (size_t)rb));
@@ -148,7 +141,7 @@ int main(int argc, char* argv[]) {
                     log_error() << "FATAL: loopback readback is '" << readback
                                 << "', expected '1' — loopback not confirmed active\n";
                     iio_context_destroy(ctx);
-                    restore_loopback(cfg.uri, prev_loopback);
+                    restore_loopback(cfg.uri);
                     return 1;
                 }
             }
@@ -167,7 +160,7 @@ int main(int argc, char* argv[]) {
     std::vector<float> input_samples;
     double duration_sec = read_input_wav(cfg.input_wav, input_audio_rate, input_frames, input_samples);
     if (duration_sec < 0) {
-        if (!cfg.use_file_loopback) restore_loopback(cfg.uri, prev_loopback);
+        if (!cfg.use_file_loopback) restore_loopback(cfg.uri);
         return 1;
     }
     log_info() << "Input frames:     " << input_frames << " (" << duration_sec << " sec)\n";
@@ -188,7 +181,7 @@ int main(int argc, char* argv[]) {
     long long snap_samples = (long long)(duration_sec * cfg.effective_rate);
     if (snap_samples <= 0) {
         log_error() << "Effective duration must be > 0 (increase max_iq_mb or input length)\n";
-        if (!cfg.use_file_loopback) restore_loopback(cfg.uri, prev_loopback);
+        if (!cfg.use_file_loopback) restore_loopback(cfg.uri);
         return 1;
     }
     // Align to RX decimation multiple *before* computing TX need_in,
@@ -201,7 +194,7 @@ int main(int argc, char* argv[]) {
             long long snapped = snap_samples - rem;
             if (snapped <= 0) {
                 log_error() << "Effective duration too short after RX alignment snap\n";
-                if (!cfg.use_file_loopback) restore_loopback(cfg.uri, prev_loopback);
+                if (!cfg.use_file_loopback) restore_loopback(cfg.uri);
                 return 1;
             }
             log_info() << "Aligning snap_samples to RX decim: " << snap_samples
@@ -235,7 +228,7 @@ int main(int argc, char* argv[]) {
         if (cfg.use_file_loopback) {
             rc = run_file_loopback(cfg, input_audio_rate, snap_samples, input_samples);
         } else {
-            rc = run_loopback(cfg, input_audio_rate, snap_samples, input_samples, prev_loopback);
+            rc = run_loopback(cfg, input_audio_rate, snap_samples, input_samples);
         }
     } catch (const std::exception& e) {
         log_error() << e.what() << "\n";
@@ -244,7 +237,7 @@ int main(int argc, char* argv[]) {
 
     // Restore loopback via a fresh context (no conflicts with GNU Radio)
     if (!cfg.use_file_loopback) {
-        restore_loopback(cfg.uri, prev_loopback);
+        restore_loopback(cfg.uri);
     }
     return rc;
 }
