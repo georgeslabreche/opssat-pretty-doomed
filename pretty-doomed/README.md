@@ -94,64 +94,32 @@ docker-compose run --rm pretty-doomed make test-dsp
 
 ## Run
 
-### Local testing (no SDR hardware)
+The `run` script executes the full test schedule:
 
-Tests the pipeline with pre-recorded WAV files. No IIO or AD9361 needed.
+1. **File input**: georges_01.wav (DOOM command detection test)
+2. **SDR sequential**: 2 x 20s captures, then process both
+3. **SDR background**: 2 x 20s captures, processing previous while capturing next
 
 ```bash
-# Build
-docker-compose run --rm pretty-doomed make clean all
-
-# Run the full test schedule (1 file input + 2 SDR capture phases)
-# SDR phases will fail gracefully (no hardware), file input works
+# Full run (file input works locally, SDR phases need hardware or emulator)
 docker-compose run --rm pretty-doomed ./run
 
 # Manual: single file
 docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
     -i input/georges_01.wav -c config.cfg -f variants.cfg \
     -o toGround/test -d demos -e doom-build/local/opssat-doom
-```
 
-### SDR emulator testing
-
-Tests the full SDR capture pipeline (IIO connection, GNU Radio flowgraph, FM demod, STT) against a software IIO emulator. Uses `config.emu.cfg` which differs from `config.cfg` in:
-
-| Parameter | `config.cfg` (EM/hardware) | `config.emu.cfg` (emulator) |
-|-----------|---------------------------|----------------------------|
-| `sdr_uri` | `local:` (default) | `ip:sdr-emu:30431` |
-| `sdr_duration` | `20` (default) | `1` (emulator has limited sample data) |
-| `sdr_min_readback` | `false` (default) | `true` (emulator doesn't reflect config writes) |
-| `sdr_timeout_multiplier` | `5` (default) | `60` (emulator is slow) |
-| `sdr_captures` | `3` (default) | `2` |
-
-The pretty-doomed binary runs natively on x86_64 (Debian Bookworm), not under QEMU. This avoids the intermittent SIGFPE crashes that affect the ARM32 sdr-capture/sdr-loopback containers. The emulator serves IIO data over TCP and is architecture-independent.
-
-```bash
-# Build (if not already built)
-docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed make clean all
-
-# Start emulator, run SDR capture test, stop emulator
-docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
-sleep 3
+# SDR capture against emulator
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu && sleep 3
 docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed \
     ./build/local/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
     -o toGround/emu-test -d demos -e doom-build/local/opssat-doom
 docker-compose -f docker-compose.emu-test.yml down
-
-# Check results
-cat toGround/emu-test/pretty-doomed.log
-cat toGround/emu-test/capture-001/run.log
 ```
 
-### EM/hardware run
+Each run creates a new `toGround/run-XXXXX/` directory (auto-incrementing).
 
-The `run` script executes three phases on the EM:
-
-1. **File input**: georges_01.wav (DOOM command detection test)
-2. **SDR sequential**: 2 x 20s captures, then process both
-3. **SDR background**: 2 x 20s captures, processing previous while capturing next
-
-Each phase creates its own `toGround/run-XXXXX/` directory. SDR captures produce `capture-NNN/` subdirectories with per-capture `run.log` files. A top-level `pretty-doomed.log` contains dispatch info.
+See [`docs/TESTING.md`](docs/TESTING.md) for detailed instructions on local, emulator, and EM testing, including config differences, emulator limitations, expected output structure, and troubleshooting.
 
 ### Options
 
