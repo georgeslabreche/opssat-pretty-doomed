@@ -1,5 +1,7 @@
 # PRETTY DOOMED
 
+> **Note:** This is a historical document from the early project phase. The final implementation diverges from this proposal in several areas. See [PROPOSAL_DIVERGENCES.md](PROPOSAL_DIVERGENCES.md) for a summary of what changed and why.
+
 ## Overview
 
 * **Goal:** First voice command sent to a spacecraft.  
