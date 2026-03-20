@@ -61,6 +61,7 @@ struct PipelineConfig {
     bool sdr_enable_spectrogram = true;
     bool sdr_enable_constellation = true;
     int sdr_captures = 3;              // number of sequential SDR captures
+    std::string process_mode = "sequential";  // "sequential" or "background"
 };
 
 // Parse KEY=VALUE config file. Lines starting with # are comments.
