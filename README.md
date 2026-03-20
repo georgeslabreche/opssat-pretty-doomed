@@ -4,10 +4,10 @@ First voice command sent to a spacecraft — playing DOOM from orbit via amateur
 
 ## What
 
-A radio amateur transmits a voice command to ESA's OPS-SAT PRETTY spacecraft. The onboard pipeline filters the audio signal, transcribes speech, detects the command, and launches a DOOM demo playback. Frame captures, level stats, and transcription are downlinked.
+A radio amateur transmits a voice command to ESA's OPS-SAT PRETTY spacecraft on 1296 MHz. The onboard SDR captures the RF signal, FM demodulates, filters, transcribes speech, detects the command, and launches a DOOM demo playback. Frame captures, level stats, I/Q diagnostics, and transcription are downlinked.
 
 ```
-Voice (UHF) --> Lowpass --> Bandpass --> Resample --> STT --> Match --> DOOM --> Downlink
+RF (1296 MHz) --> SDR Capture --> FM Demod --> Filter --> Resample --> STT --> Match --> DOOM --> Downlink
 ```
 
 ## Repository
@@ -16,7 +16,9 @@ Voice (UHF) --> Lowpass --> Bandpass --> Resample --> STT --> Match --> DOOM -->
 |-----------|-------------|
 | [`pretty-doomed/`](pretty-doomed/) | Voice-command-to-DOOM pipeline (C++17, GNU Radio, Sherpa-ONNX) |
 | [`doom/`](doom/) | Headless DOOM engine with JPEG/GIF frame capture |
-| [`sandbox/`](sandbox/) | Experiments: signal processing, denoising, STT evaluation |
+| [`common/`](common/) | Shared C++ headers (logging, config, IIO, audio, spectrogram, constellation) |
+| [`tools/`](tools/) | Ground-side visualization: HTML reports, spectrograms, I/Q analysis |
+| [`sandbox/`](sandbox/) | Experiments: SDR capture/loopback, signal processing, denoising, STT evaluation |
 | [`docs/`](docs/) | Project proposal and reference material |
 
 ## Quick Start
@@ -31,9 +33,8 @@ docker-compose run --rm pretty-doomed make all doom
 # Download models (see models/README.md)
 # ...
 
-# Run (single file or entire directory)
-docker-compose run --rm pretty-doomed sh run input/georges_01.wav
-docker-compose run --rm pretty-doomed sh run input/
+# Run (file input + SDR captures)
+docker-compose run --rm pretty-doomed ./run
 
 # Test
 docker-compose run --rm pretty-doomed make test
@@ -67,6 +68,7 @@ toGround/run-00001/
 
 Earlier experiments that informed the final pipeline design:
 
+- **SDR apps** — [`sandbox/gnuradio/sdr-capture/`](sandbox/gnuradio/sdr-capture/) and [`sdr-loopback/`](sandbox/gnuradio/sdr-loopback/) — standalone SDR experiments (validated on EM, loopback shelved due to DMA contention)
 - **Signal processing** — [`sandbox/gnuradio/`](sandbox/gnuradio/) — GNU Radio lowpass/bandpass/squelch for ARM32
 - **Denoising** — [`sandbox/denoising/`](sandbox/denoising/) — DTLN, spectral subtraction, adaptive filtering, Wiener, ALE
 - **STT evaluation** — [`sandbox/speech-to-text/`](sandbox/speech-to-text/) — Vosk, Sherpa-ONNX, PocketSphinx comparison
