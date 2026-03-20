@@ -16,11 +16,11 @@ Two processing modes for SDR capture (configurable via `process_mode`):
 - **sequential** (default): capture all N, then process all N
 - **background**: process previous capture on a background thread while the next capture runs
 
-All processing in memory. No intermediate files between stages (except SDR capture artifacts).
+In file input mode, all processing happens in memory with no intermediate files. In SDR capture mode, the captured audio is written to WAV and sc16 files for diagnostics before being fed into the pipeline.
 
 ## Build
 
-Two build targets: local (x86_64) for development and testing, SEPP (ARM32) for OPS-SAT deployment. Both build `pretty-doomed` and `opssat-doom` automatically — the DOOM source is mounted into the container via docker-compose.
+Two build targets: local (x86_64) for development and testing, SEPP (ARM32) for OPS-SAT deployment. Both build `pretty-doomed` and `opssat-doom` automatically. The DOOM source is mounted into the container via docker-compose.
 
 ### Local Build (x86_64)
 
@@ -40,11 +40,13 @@ Download models before running — see [`models/README.md`](models/README.md). M
 
 ### SEPP Build (ARM32)
 
-Builds an ARM32 package for OPS-SAT SEPP deployment. The first build compiles GNU Radio and sherpa-onnx from source under QEMU emulation — this is slow but results are cached by Docker for subsequent builds.
+Builds an ARM32 package for OPS-SAT SEPP deployment. Uses pre-built GNU Radio ARM32 libraries (no GNU Radio compilation needed). Sherpa-onnx is built from source under QEMU on the first run (cached for subsequent builds).
 
 Prerequisites:
 - Docker and Docker Compose
 - `resources/exp_env.tar.gz` (one directory up from repo root)
+- Pre-built GNU Radio ARM32 libs at [`sandbox/gnuradio/build-libs-armv7/output/`](../sandbox/gnuradio/build-libs-armv7/) (includes GNU Radio, gr-iio, libad9361, libvolk). Build these first if they don't exist.
+- SDR emulator image `iio-emu:latest` (optional, for emulator testing only)
 
 ```bash
 ./build-sepp.sh
@@ -53,8 +55,8 @@ Prerequisites:
 This script:
 1. Sets up QEMU ARM32 emulation
 2. Imports `exp_env.tar.gz` as Docker image
-3. Builds Docker image (GNU Radio from source, cached after first run)
-4. Builds sherpa-onnx C API from source inside the container
+3. Builds Docker image (installs Alpine deps, no GNU Radio compilation)
+4. Builds sherpa-onnx C API from source inside the container (first time only, cached)
 5. Builds `pretty-doomed` and `opssat-doom` (from `../doom/src`)
 6. Copies model files, demo files, and bundled shared libraries
 7. Creates `package/exp4023-pretty-DOOMed-v1.tar.gz`
@@ -66,7 +68,7 @@ Or step by step:
 docker run --rm --privileged tonistiigi/binfmt --install arm
 docker import --platform linux/arm/v7 ../resources/exp_env.tar.gz exp_env:latest
 
-# Build Docker image (GNU Radio from source — first time is slow)
+# Build Docker image
 docker-compose -f docker-compose.sepp.yml build
 
 # Build sherpa-onnx C API (first time only)
@@ -353,7 +355,7 @@ pretty-doomed/
 │           └── tokens.txt
 ├── Makefile
 ├── Dockerfile                 # Local x86_64 build (Debian Bookworm)
-├── Dockerfile.sepp            # ARM32 SEPP build (multi-stage, GNU Radio from source)
+├── Dockerfile.sepp            # ARM32 SEPP build (pre-built GNU Radio libs)
 ├── docker-compose.yml         # Local dev
 ├── docker-compose.sepp.yml    # SEPP packaging
 ├── docker-compose.emu-test.yml # SDR emulator testing
