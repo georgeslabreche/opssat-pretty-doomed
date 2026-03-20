@@ -24,8 +24,8 @@ fi
 echo "Copying GNU Radio libraries from build-libs-armv7/output..."
 rm -rf "$LIBS_DST"
 mkdir -p "$LIBS_DST"
-cp -r "$LIBS_SRC/lib" "$LIBS_DST/"
-cp -r "$LIBS_SRC/include" "$LIBS_DST/"
+cp -a "$LIBS_SRC/lib" "$LIBS_DST/"
+cp -a "$LIBS_SRC/include" "$LIBS_DST/"
 
 echo "Done. Libraries copied to: libs-gnuradio/"
 echo ""
