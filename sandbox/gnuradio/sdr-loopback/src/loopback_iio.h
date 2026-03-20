@@ -7,10 +7,10 @@
 
 using namespace pretty;
 
-// Helper: restore loopback attribute via a fresh IIO context.
+// Disable loopback mode via a fresh IIO context.
 // Called after run_loopback() returns so no context conflicts with GNU Radio.
-inline void restore_loopback(const std::string& uri, const std::string& prev_loopback) {
-    log_info() << "Restoring loopback to '" << prev_loopback << "'...\n";
+inline void restore_loopback(const std::string& uri) {
+    log_info() << "Disabling loopback (writing '0')...\n";
     struct iio_context* ctx = iio_create_context_from_uri(uri.c_str());
     if (!ctx) {
         log_warning() << "could not connect to IIO for loopback restore\n";
@@ -22,10 +22,9 @@ inline void restore_loopback(const std::string& uri, const std::string& prev_loo
         iio_context_destroy(ctx);
         return;
     }
-    int ret = iio_device_debug_attr_write(phy, "loopback", prev_loopback.c_str());
+    int ret = iio_device_debug_attr_write(phy, "loopback", "0");
     if (ret < 0) {
-        log_warning() << "restore failed (ret=" << ret << "), trying '0'\n";
-        iio_device_debug_attr_write(phy, "loopback", "0");
+        log_warning() << "loopback disable failed (ret=" << ret << ")\n";
     }
     iio_context_destroy(ctx);
 }
