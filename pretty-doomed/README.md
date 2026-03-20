@@ -10,7 +10,11 @@ WAV ──> Lowpass ──> Bandpass ──> Resample ──> STT ──> Match 
 
 Two input modes:
 - **File input** (`-i`): reads a pre-recorded WAV file
-- **SDR capture** (`-s`): captures live RF audio from the AD9361 SDR, FM demodulates, and feeds into the pipeline
+- **SDR capture** (`-s`): N sequential RF captures from the AD9361 SDR, FM demodulated, then each WAV processed through the pipeline. STT model loaded once and reused across captures.
+
+Two processing modes for SDR capture (configurable via `process_mode`):
+- **sequential** (default): capture all N, then process all N
+- **background**: process previous capture on a background thread while the next capture runs
 
 All processing in memory. No intermediate files between stages (except SDR capture artifacts).
 
@@ -194,6 +198,10 @@ doom_frames_m1-simple=-1
 doom_maxframes_impfight=2030
 doom_maxframes_m1-normal=1785
 doom_maxframes_m1-simple=700
+
+# Demo cycling order (GIF-producing demos first for richer first-run output)
+# If not set, cycles alphabetically through all .lmp files in demos/
+doom_demo_order=e1m7-607,impfight,m1-fast,m1-normal,m1-simple
 ```
 
 SDR capture parameters (used with `-s` flag, all optional with defaults matching sdr-capture):
@@ -214,6 +222,8 @@ SDR capture parameters (used with `-s` flag, all optional with defaults matching
 | `sdr_min_readback` | false | Downgrade sample rate readback mismatch to warning |
 | `sdr_enable_spectrogram` | true | Generate spectrogram BMP |
 | `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
+| `sdr_captures` | 3 | Number of sequential SDR captures |
+| `process_mode` | sequential | Processing mode: `sequential` (all captures then all processing) or `background` (process previous while capturing next) |
 
 ### `variants.cfg` — Fuzzy match variants
 
@@ -237,6 +247,7 @@ Convert a recording to the expected input format (48 kHz, mono, 16-bit):
 
 When using the `run` script, each execution creates a numbered directory:
 
+File input mode (`-i`):
 ```
 toGround/run-00001/
 ├── pretty-doomed.log      # Pipeline log (timestamped, ms precision)
@@ -246,14 +257,31 @@ toGround/run-00001/
 ├── summary.txt            # Human-readable summary
 ├── doom.log               # DOOM stdout/stderr (if command detected)
 ├── results.log            # Statdump validation (OK/ERROR per demo)
-├── e1m7-607/              # DOOM demo output (one demo per run, cycling)
-│   ├── stats.txt          # Level statistics
-│   ├── frame-NNNNNN.jpg   # Snapshot (random, cycling, or fixed)
-│   └── frames-007992-008025.gif  # Animated GIF (if dash range configured)
-├── sdr_capture.wav        # FM-demodulated audio (SDR capture mode only)
-├── sdr_capture.sc16       # Raw I/Q data (SDR capture mode only)
-├── spectrogram.bmp        # I/Q spectrogram (SDR capture mode only)
-└── constellation.bmp      # I/Q constellation (SDR capture mode only)
+└── e1m7-607/              # DOOM demo output (one demo per run, cycling)
+    ├── stats.txt          # Level statistics
+    ├── frame-NNNNNN.jpg   # Snapshot (random, cycling, or fixed)
+    └── frames-007992-008025.gif  # Animated GIF (if dash range configured)
+```
+
+SDR capture mode (`-s`):
+```
+toGround/run-00003/
+├── pretty-doomed.log      # Dispatch log (capture/processing progress)
+├── capture-001/           # Per-capture directory
+│   ├── run.log            # Detailed capture + processing log
+│   ├── capture.wav        # FM-demodulated audio
+│   ├── capture.sc16       # Raw I/Q data
+│   ├── spectrogram.bmp    # I/Q spectrogram
+│   ├── constellation.bmp  # I/Q constellation
+│   ├── processed.wav      # Filtered audio (pipeline output)
+│   ├── transcription.txt  # STT output
+│   ├── scores.txt
+│   ├── summary.txt
+│   └── e1m7-607/          # DOOM output (if command detected)
+├── capture-002/
+│   └── ...
+└── capture-003/
+    └── ...
 ```
 
 ### scores.txt
@@ -326,7 +354,8 @@ pretty-doomed/
 │   ├── matcher.cpp / .h       # Fuzzy matching + detection
 │   ├── executor.cpp / .h      # DOOM execution
 │   ├── output.cpp / .h        # Summary + log output formatting
-│   └── sdr_capture.cpp / .h   # AD9361 SDR capture (RX flowgraph)
+│   ├── capture.cpp / .h       # AD9361 SDR capture (RX flowgraph)
+│   └── pipeline.cpp / .h      # WAV processing pipeline (DSP + STT + detect + DOOM)
 ├── tests/
 │   ├── doctest.h              # Test framework (single header)
 │   ├── test_main.cpp          # Test runner
