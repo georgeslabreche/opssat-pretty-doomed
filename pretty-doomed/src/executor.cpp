@@ -205,7 +205,8 @@ int run_doom(const std::string& doom_binary,
              const std::string& output_dir,
              const std::unordered_map<std::string, std::string>& frames_map,
              const std::unordered_map<std::string, int>& maxframes_map,
-             bool keepgifframes) {
+             bool keepgifframes,
+             const std::vector<std::string>& demo_order) {
     std::string wad_path = demos_dir + "/doom.wad";
     struct stat st;
     if (stat(wad_path.c_str(), &st) != 0) {
@@ -213,7 +214,9 @@ int run_doom(const std::string& doom_binary,
         return -1;
     }
 
-    std::vector<std::string> demos = find_demo_files(demos_dir);
+    // Use custom demo order if provided, otherwise alphabetical from directory
+    std::vector<std::string> demos = demo_order.empty()
+        ? find_demo_files(demos_dir) : demo_order;
     if (demos.empty()) {
         std::cerr << "Warning: No demo files found in " << demos_dir << std::endl;
         return 0;

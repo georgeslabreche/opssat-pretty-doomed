@@ -1,11 +1,11 @@
 /**
- * sdr_capture.cpp - AD9361 RX capture for the pretty-doomed pipeline
+ * capture.cpp - AD9361 RX capture for the pretty-doomed pipeline
  *
  * Adapted from sandbox/gnuradio/sdr-capture/src/capture_loop.cpp.
  * Captures RF audio, FM demodulates, and writes WAV + sc16 artifacts.
  */
 
-#include "sdr_capture.h"
+#include "capture.h"
 
 #include <algorithm>
 #include <atomic>
@@ -41,9 +41,9 @@
 
 using namespace pretty;
 
-bool run_sdr_capture(const PipelineConfig& cfg,
+bool run_capture(const PipelineConfig& cfg,
                      const std::string& output_dir,
-                     SdrCaptureResult& result) {
+                     CaptureResult& result) {
     result.success = false;
 
     // Derived rates
@@ -58,8 +58,8 @@ bool run_sdr_capture(const PipelineConfig& cfg,
     }
 
     // Output paths
-    std::string wav_file = output_dir + "/sdr_capture.wav";
-    std::string iq_file = output_dir + "/sdr_capture.sc16";
+    std::string wav_file = output_dir + "/capture.wav";
+    std::string iq_file = output_dir + "/capture.sc16";
 
     // Sample counts
     long long iq_samples = (long long)cfg.sdr_duration * (long long)effective_rate;
