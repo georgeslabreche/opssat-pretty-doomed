@@ -62,7 +62,7 @@ SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SR
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
-OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/sdr_capture.o
+OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o
 OBJS_MAIN = $(BUILDDIR)/main.o
 
 TARGET = $(BUILDDIR)/pretty-doomed
@@ -134,10 +134,13 @@ $(BUILDDIR)/audio_io.o: $(SRCDIR)/audio_io.cpp $(SRCDIR)/audio_io.h | $(BUILDDIR
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/sdr_capture.o: $(SRCDIR)/sdr_capture.cpp $(SRCDIR)/sdr_capture.h | $(BUILDDIR)
+$(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
+
+$(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/main.o: $(SRCDIR)/main.cpp | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
@@ -288,7 +291,7 @@ package-model:
 	@echo "Model files copied to $(PACKAGE_DIR)/models/sherpa-onnx/small/"
 
 package-input:
-	cp input/georges_01.wav input/oli_04.wav input/vlad_02.wav $(PACKAGE_DIR)/input/
+	cp input/georges_01.wav $(PACKAGE_DIR)/input/
 	@echo "Input WAV files copied to $(PACKAGE_DIR)/input/"
 
 package-demos:

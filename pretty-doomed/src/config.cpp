@@ -41,6 +41,7 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "command") cfg.commands = split_csv(value);
     else if (key == "fuzzy_max_distance") cfg.fuzzy_max_distance = std::stoi(value);
     else if (key == "doom_keepgifframes") cfg.doom_keepgifframes = (value == "true" || value == "1");
+    else if (key == "doom_demo_order") cfg.doom_demo_order = split_csv(value);
     // SDR capture
     else if (key == "sdr_frequency") cfg.sdr_frequency = std::stoll(value);
     else if (key == "sdr_rate") cfg.sdr_rate = std::stol(value);
@@ -62,6 +63,8 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "sdr_timeout_multiplier") cfg.sdr_timeout_multiplier = std::stoi(value);
     else if (key == "sdr_enable_spectrogram") cfg.sdr_enable_spectrogram = (value == "true" || value == "1");
     else if (key == "sdr_enable_constellation") cfg.sdr_enable_constellation = (value == "true" || value == "1");
+    else if (key == "sdr_captures") cfg.sdr_captures = std::stoi(value);
+    else if (key == "process_mode") cfg.process_mode = value;
     else {
         const std::string frames_prefix = "doom_frames_";
         const std::string maxframes_prefix = "doom_maxframes_";
