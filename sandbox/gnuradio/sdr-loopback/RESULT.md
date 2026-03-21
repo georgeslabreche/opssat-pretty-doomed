@@ -114,6 +114,45 @@ Same horizontal Q=0 line as default. Q dropped out immediately even when TX was 
 
 Healthy 2D scatter with signal energy in all four quadrants. Both I and Q channels alive. The asymmetric shape is expected from the cyclic buffer looping a short FM snippet.
 
+## QEMU SIGFPE Analysis
+
+The intermittent SIGFPE crashes observed during QEMU ARM32 emulation were investigated using `QEMU_STRACE`. The loopback binary was run in RX-only mode (`enable_tx=false`) against the IIO emulator, since the emulator lacks TX device support (`cf-ad9361-dds-core-lpc`).
+
+The strace from the loopback RX-only run (thread 12 reading IIO buffers):
+
+```
+12 sendto(6,"READBUF iio:device1 131072\15\12",28,0,NULL,0) = 28
+12 poll(0x426e184c,2,5000) = 1
+12 recvfrom(6,0x426e18bc,1024,MSG_PEEK,NULL,NULL) = 1024
+12 poll(0x426e184c,2,5000) = 1
+12 recvfrom(6,NULL,9,MSG_TRUNC,NULL,NULL) = 9
+12 poll(0x426e1c8c,2,5000) = 1
+12 recvfrom(6,0x46f21520,9,0,NULL,NULL) = 9
+12 poll(0x426e1c8c,2,5000) = 1
+12 recvfrom(6,0x43eec650,3,0,NULL,NULL) = 3
+12 poll(0x426e184c,2,5000) = 1
+12 recvfrom(6,0x426e18bc,1024,MSG_PEEK,NULL,NULL) = 1024
+12 poll(0x426e184c,2,5000) = 1
+12 recvfrom(6,NULL,2,MSG_TRUNC,NULL,NULL) = 2
+12 rt_sigprocmask(SIG_BLOCK,[...all signals...],0x426e20f0,8) = 0
+12 tkill(12,SIGFPE) = 0
+12 rt_sigprocmask(SIG_SETMASK,[original mask],NULL,8) = 0
+--- SIGFPE {si_signo=SIGFPE, si_code=SI_TKILL, si_pid=1, si_uid=0} ---
+qemu: uncaught target signal 8 (Arithmetic exception) - core dumped
+```
+
+The same pattern was observed in a separate `QEMU_STRACE` run of the pretty-doomed integrated experiment (RX-only flowgraph, thread 35).
+
+Observations:
+- The strace shows `tkill(SIGFPE)` with `si_code=SI_TKILL`. This could indicate a deliberate crash path in some library, or it could be how QEMU internally delivers FPU exceptions to the emulated process.
+- The pattern (block all signals, tkill self, restore mask) is consistent with a controlled crash, but could also be QEMU's signal delivery mechanism.
+- The crash is preceded by IIO buffer reads (`READBUF iio:device1`) and, in the pretty-doomed test, by multiple "Operation timed out" errors on the IIO socket.
+- The SIGFPE has not been observed on native ARM hardware (EM) or on x86_64 builds.
+
+Hypothesis: QEMU + Docker network overhead may cause IIO read timeouts or buffer errors that trigger an error condition leading to SIGFPE. On native ARM or with a stable network connection to real hardware, the conditions that trigger this may not occur. However, other explanations (QEMU FPU emulation edge cases, timing-dependent arithmetic errors) have not been ruled out.
+
+Full strace log: `figures/2026-03-21-qemu-strace-rxonly-sigfpe.log`
+
 ## EM Artifacts
 
 Artifacts are not included in the repository.
