@@ -1,0 +1,54 @@
+# End-to-end test: ARM32 pretty-doomed (QEMU) + SDR emulator
+#
+# Usage:
+#   docker-compose -f docker-compose.sepp-emu-test.yml up -d sdr-emu
+#   sleep 3
+#   docker-compose -f docker-compose.sepp-emu-test.yml run --rm pretty-doomed-sepp \
+#     ./build/sepp/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
+#     -o toGround/sepp-emu-test -d demos -e doom-build/sepp/opssat-doom
+#   docker-compose -f docker-compose.sepp-emu-test.yml down
+
+services:
+  sdr-emu:
+    image: iio-emu:latest
+    container_name: sdr_emu_sepp
+    ports:
+      - "30431:30431"
+    volumes:
+      - ../sandbox/gnuradio/sdr-capture/emu-samples:/samples:ro
+    environment:
+      SAMPLE_FILE: "sdr_20210519_101920_1176450000_38400000_12.cs16"
+      DATA_SOURCE_TYPE: "file"
+
+  pretty-doomed-sepp:
+    build:
+      context: .
+      dockerfile: Dockerfile.sepp
+    container_name: pretty-doomed-sepp-emu
+    depends_on:
+      - sdr-emu
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ../common:/app/common
+      - ../sandbox/gnuradio/build-libs-armv7/output:/app/libs-gnuradio
+      - ./Makefile:/app/Makefile
+      - ./build/local:/app/build/local
+      - ./build/sepp:/app/build/sepp
+      - ./models:/app/models
+      - ./input:/app/input
+      - ./ascii.txt:/app/ascii.txt
+      - ./config.cfg:/app/config.cfg
+      - ./config.emu.cfg:/app/config.emu.cfg
+      - ./variants.cfg:/app/variants.cfg
+      - ./run:/app/run
+      - ./toGround:/app/toGround
+      - ../doom/src:/app/doom-src
+      - ../doom/build:/app/doom-build
+      - ../doom/demos:/app/demos
+      - sherpa-onnx-src:/opt/sherpa-onnx-src
+    working_dir: /app
+    tty: true
+
+volumes:
+  sherpa-onnx-src:
