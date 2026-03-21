@@ -50,19 +50,7 @@ PRETTY, THIS IS <CALL_SIGN>, PLAY DOOM.
 
 ## Output
 
-Each run produces a numbered directory downlinked to ground:
-
-```
-toGround/run-00001/
-├── transcription.txt       # What the STT heard
-├── summary.txt             # Human-readable summary with ASCII art
-├── scores.txt              # Detection scores
-├── processed.wav           # Filtered audio
-├── impfight/               # DOOM demo output
-│   ├── frame-000700.jpg    # Captured frame
-│   └── stats.txt           # Level statistics
-└── ...
-```
+Each run produces a numbered directory downlinked to ground with transcription, detection scores, filtered audio, and DOOM artifacts (if command detected). SDR capture runs also include I/Q data, spectrograms, and constellation plots per capture. See [`pretty-doomed/docs/DESIGN.md`](pretty-doomed/docs/DESIGN.md) for the full output structure.
 
 ## Sandbox
 
