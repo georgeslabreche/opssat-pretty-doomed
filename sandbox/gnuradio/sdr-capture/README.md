@@ -1,5 +1,7 @@
 # SDR Capture for OPS-SAT PRETTY SEPP
 
+> **Status:** Validated on EM (v8). Healthy I/Q confirmed across all captures. The RX flowgraph has been integrated into [`pretty-doomed`](../../../pretty-doomed/) (via `capture.cpp`) for the operational experiment.
+
 RF capture for live signal reception. Runs N sequential captures (configurable via `captures` in `config.cfg`). Each capture produces FM-demodulated audio and raw I/Q data from AD9361 SDR. Follows [CAPTURE.md](../CAPTURE.md) guidelines: sc16 I/Q format, 2.4 MSPS hardware with 12x software decimation to 200 kSPS effective, channelization LPF, audio bandpass, RMS normalization.
 
 ## Pipeline

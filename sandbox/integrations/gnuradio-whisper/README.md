@@ -1,5 +1,7 @@
 # GNU Radio + Whisper Integration for OPS-SAT
 
+> **Status:** Superseded. This was an early prototype combining GNU Radio with Whisper.cpp. The final pipeline ([`pretty-doomed`](../../pretty-doomed/)) uses Sherpa-ONNX instead of Whisper (smaller model, better accuracy for short commands) and adds SDR capture, fuzzy command matching, and DOOM execution.
+
 Single binary pipeline using GNU Radio for signal processing and Whisper for speech-to-text. Designed for the OPS-SAT SEPP to process SDR-captured audio.
 
 ## Pipeline

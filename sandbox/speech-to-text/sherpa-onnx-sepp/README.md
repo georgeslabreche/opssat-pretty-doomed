@@ -1,12 +1,14 @@
 # Sherpa-ONNX Speech-to-Text for OPS-SAT SEPP
 
+> **Status:** Validated on EM (v2). Model loads in ~26s, transcription takes ~288s for 22s of audio on ARM32. Integrated into [`pretty-doomed`](../../../pretty-doomed/) (via `transcriber.cpp` with persistent Transcriber class).
+
 Speech-to-text transcription using Sherpa-ONNX with the zipformer-small model, built from source for Alpine Linux ARM32 (musl).
 
 ## Model
 
 - **Name**: sherpa-onnx-zipformer-small-en-2023-06-26
 - **Type**: int8 quantized (for smaller size)
-- **Size**: ~28 MB
+- **Size**: ~27 MB
 - **Language**: English
 
 ## Prerequisites

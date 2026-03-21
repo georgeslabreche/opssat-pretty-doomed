@@ -1,5 +1,7 @@
 # SDR Loopback Test for OPS-SAT PRETTY SEPP
 
+> **Status:** Shelved at v8. Q channel dropout (~63% zeros) during simultaneous TX/RX streaming. See [RESULT.md](RESULT.md) for the full investigation. Does not affect operational (RX-only) scenarios.
+
 Validates AD9361 SDR integration using internal loopback mode. TX routes internally to RX with no RF emission. Outputs both FM-demodulated audio and raw I/Q data. Follows [CAPTURE.md](../CAPTURE.md) guidelines: sc16 I/Q format, 2.4 MSPS hardware with 12x software decimation to 200 kSPS effective, channelization LPF, audio bandpass, RMS normalization. Includes signal quality validation via normalized cross-correlation between input and output audio.
 
 ## Pipeline
