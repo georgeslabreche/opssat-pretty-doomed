@@ -71,11 +71,45 @@ ls toGround/emu-test/capture-001/
 - **Finite sample data.** The emulator replays a fixed sample file. Capture duration must fit within the file (1s works, 5s+ times out). The second capture in a multi-capture run may receive less data since the emulator's connection state is not fully reset between captures.
 - **No config reflection.** The emulator accepts AD9361 parameter writes but does not update readback attributes. `sdr_min_readback=true` downgrades the sample rate readback check to a warning.
 - **Single connection.** The emulator only accepts one IIO connection at a time. A 5-second cleanup delay between captures allows the previous connection to close.
-- **No SIGFPE.** Unlike the ARM32 sdr-capture/sdr-loopback Docker containers (which run under QEMU emulation and trigger intermittent SIGFPE in FFTW/FIR filters), pretty-doomed runs natively on x86_64. The emulator serves IIO data over TCP and is architecture-independent.
+- **No SIGFPE.** The pretty-doomed binary runs natively on x86_64, avoiding the intermittent SIGFPE that affects ARM32 binaries under QEMU (see SEPP emulator section below).
 
 **What it tests:** IIO connection, AD9361 config write/readback, GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass), sc16/WAV output, spectrogram/constellation BMP generation, RMS normalization, multi-capture loop, STT on captured audio.
 
 **What it does NOT test:** real RF reception, actual AD9361 hardware behavior, ARM32 performance (STT timing, memory pressure), satellite pass timing.
+
+## 2b. SEPP Emulator (ARM32 under QEMU)
+
+Tests the actual ARM32 binary under QEMU emulation against the IIO emulator. This validates the exact binary that ships to the EM but is significantly slower and subject to intermittent SIGFPE crashes.
+
+```bash
+# Prerequisites: QEMU ARM emulation, iio-emu image, pre-built SEPP binary
+docker run --rm --privileged tonistiigi/binfmt --install arm
+docker load -i resources/internal/sdr_emu_testing/sdr_emu.tar  # if pruned
+
+# Start emulator + run ARM32 binary
+docker-compose -f docker-compose.sepp-emu-test.yml up -d sdr-emu
+sleep 3
+docker-compose -f docker-compose.sepp-emu-test.yml run --rm pretty-doomed-sepp \
+    sh -c 'export LD_LIBRARY_PATH="/app/libs-gnuradio/lib:$LD_LIBRARY_PATH" && \
+    ./build/sepp/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
+    -o toGround/sepp-emu-test -d demos -e doom-build/sepp/opssat-doom'
+docker-compose -f docker-compose.sepp-emu-test.yml down
+
+# With QEMU_STRACE for debugging crashes
+docker-compose -f docker-compose.sepp-emu-test.yml run --rm \
+    -e QEMU_STRACE=1 pretty-doomed-sepp \
+    sh -c '...' > toGround/strace.log 2>&1
+```
+
+### SEPP emulator limitations
+
+All x86_64 emulator limitations apply, plus:
+
+- **Very slow.** STT model loading takes ~7s under QEMU (vs 0.7s on x86_64, ~26s on native ARM). QEMU_STRACE makes it even slower.
+- **Intermittent SIGFPE.** The ARM32 binary can crash with `qemu: uncaught target signal 8 (Arithmetic exception)` during GNU Radio flowgraph execution. Strace analysis shows this is a deliberate `tkill(SIGFPE)` triggered by IIO buffer read timeouts, not a hardware FPU trap. It does not occur on native ARM or x86_64.
+- **LD_LIBRARY_PATH required.** The pre-built GNU Radio libs are mounted at `/app/libs-gnuradio/lib` and must be added to `LD_LIBRARY_PATH` manually.
+
+**When to use:** only when you need to validate the exact ARM32 binary before shipping to the EM. For regular development and pipeline testing, use the x86_64 emulator test (section 2).
 
 ## 3. EM/Hardware (Engineering Model)
 
@@ -145,5 +179,5 @@ toGround/
 | `Unable to create buffer: -12` | DMA buffer allocation failed (ENOMEM) | Reduce `iio_buffer_size` or `sdr_captures` |
 | `Audio too short for STT` | Capture timed out with too few samples | Increase `sdr_timeout_multiplier` or reduce `sdr_duration` |
 | `Transcription produced no output` | STT model failed silently | Check model paths in config, verify model files exist |
-| `SIGFPE` in GNU Radio | QEMU ARM emulation bug | Only affects ARM32 containers. Use x86_64 Docker or native ARM (EM). |
+| `SIGFPE` / `Arithmetic exception` | Deliberate `tkill(SIGFPE)` triggered by IIO read timeouts under QEMU ARM32 | Only affects ARM32 under QEMU. Use x86_64 emulator test or native ARM (EM). Run with `QEMU_STRACE=1` to capture the crash context. |
 | Background processing slower than sequential | STT is CPU-bound on single core | Expected if only one core available. Background mode helps on dual-core (SEPP). |
