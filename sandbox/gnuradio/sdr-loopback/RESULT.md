@@ -65,6 +65,12 @@ Attempted to make cyclic mode produce recognizable audio by increasing the buffe
 
 Both runs failed with ENOMEM (error -12) at buffer creation. The combined TX+RX DMA allocation exceeded the SEPP's available contiguous memory.
 
+### v8: loopback cleanup fix
+
+A bug was found where the experiment was not disabling loopback mode on exit. The code saved the current loopback attribute value before enabling it and restored that value when done. Since the attribute may persist in the kernel driver, subsequent runs could read "1" and restore to "1" instead of "0". v8 fixes this by always writing "0" on exit.
+
+The v8 EM run confirmed the fix writes "0" on exit. The three diagnostic runs (default, staggered, cyclic) also ran as expected: runs 1 and 2 showed the usual Q dropout (~63% zeros), while run 3 (cyclic) showed healthy Q (~0.36% zeros), consistent with v7 results.
+
 ## Root Cause Hypothesis
 
 The Q dropout appears to be caused by contention between concurrent TX and RX data paths on the OPS-SAT SEPP (Altera Cyclone V SoC). The MCT confirmed the contention independently using `iio_writedev` / `iio_readdev` and noted that it could occur at any point in the chain: the Linux driver, interrupt handling, or the DMA controller. The exact layer has not been determined.
@@ -165,3 +171,4 @@ Artifacts are not included in the repository.
 | pack-4023_1773387612 | v6 | 2026-03-13 | 9 | Diagnostic runs: buffer size has no effect |
 | pack-4023_1773670543 | v7 | 2026-03-16 | 3 | TX modes: cyclic fixes Q dropout |
 | pack-4023_1773734223 | v7.1 | 2026-03-17 | 2 | Large cyclic buffer: ENOMEM |
+| pack-4023_1773991097 | v8 | 2026-03-20 | 3 | Bug fix: always reset loopback attr to 0 on exit |

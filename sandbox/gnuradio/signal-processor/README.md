@@ -1,5 +1,7 @@
 # GNU Radio Signal Processor for OPS-SAT SEPP
 
+> **Status:** Validated on EM and spacecraft. Confirmed GNU Radio DSP filters (lowpass, bandpass, squelch) run correctly on ARM32 hardware. The signal processing logic has since been integrated into the [`pretty-doomed`](../../../pretty-doomed/) pipeline (via `dsp.cpp` and `capture.cpp`).
+
 A GNU Radio C++ application demonstrating a signal processing pipeline for voice audio on the OPS-SAT SEPP spacecraft.
 
 ## Pipeline
