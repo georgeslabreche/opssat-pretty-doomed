@@ -110,11 +110,6 @@ static void render_spectrogram_bg(Image& canvas, int ox, int oy, int region_w, i
     long long file_size = f.tellg();
     long long num_samples = file_size / 4;
     if (num_samples < 256) return;
-    f.seekg(0);
-
-    std::vector<int16_t> raw(num_samples * 2);
-    f.read(reinterpret_cast<char*>(raw.data()), num_samples * 4);
-    f.close();
 
     int num_cols = region_w;
 
@@ -148,10 +143,19 @@ static void render_spectrogram_bg(Image& canvas, int ox, int oy, int region_w, i
 
     int half_fft = fft_size / 2;
     int num_rows = fft_size;
+
+    // Small per-column read buffer (stream instead of loading entire file)
+    std::vector<int16_t> col_buf(fft_size * 2);
 #else
+    f.seekg(0);
+
+    // Non-FFTW fallback loads entire file (small num_rows, simple magnitude)
+    std::vector<int16_t> raw(num_samples * 2);
+    f.read(reinterpret_cast<char*>(raw.data()), num_samples * 4);
+    f.close();
+
     // Fallback: simple magnitude spectrogram (no frequency decomposition)
     int num_rows = 64;
-    int fft_size = num_rows; // for rendering math below
     long long samples_per_col = num_samples / num_cols;
     int samples_per_row = std::max(1, (int)(samples_per_col / num_rows));
 #endif
@@ -164,10 +168,13 @@ static void render_spectrogram_bg(Image& canvas, int ox, int oy, int region_w, i
         long long offset = col * hop;
         if (offset + fft_size > num_samples) offset = num_samples - fft_size;
 
+        // Seek and read only fft_size samples for this column
+        f.seekg(offset * 4);
+        f.read(reinterpret_cast<char*>(col_buf.data()), fft_size * 4);
+
         for (int i = 0; i < fft_size; i++) {
-            long long idx = (offset + i) * 2;
-            fft_in[i][0] = raw[idx]     * window[i] / 32768.0f;
-            fft_in[i][1] = raw[idx + 1] * window[i] / 32768.0f;
+            fft_in[i][0] = col_buf[i * 2]     * window[i] / 32768.0f;
+            fft_in[i][1] = col_buf[i * 2 + 1] * window[i] / 32768.0f;
         }
         fftwf_execute(plan);
 
@@ -204,6 +211,7 @@ static void render_spectrogram_bg(Image& canvas, int ox, int oy, int region_w, i
     }
 
 #ifdef POSTCARD_USE_FFTW
+    f.close();
     fftwf_destroy_plan(plan);
     fftwf_free(fft_in);
     fftwf_free(fft_out);

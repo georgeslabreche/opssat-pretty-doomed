@@ -71,6 +71,7 @@ Example: "PRETTY, THIS IS GEORGES, PLAY DOOM."
 ## Documentation
 
 - [docs/BUILDING.md](docs/BUILDING.md) -- Build instructions (local, SEPP, models, audio prep)
+- [docs/CONFIG.md](docs/CONFIG.md) -- Configuration reference (all config keys with prefixes)
 - [docs/DESIGN.md](docs/DESIGN.md) -- Architecture, modules, configuration, output structure
 - [docs/TESTING.md](docs/TESTING.md) -- Local, emulator, and EM testing guide
 

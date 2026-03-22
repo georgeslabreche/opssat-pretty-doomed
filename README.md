@@ -56,10 +56,10 @@ Each run produces a numbered directory downlinked to ground with transcription, 
 
 Earlier experiments that informed the final pipeline design:
 
-- **SDR apps** — [`sandbox/gnuradio/sdr-capture/`](sandbox/gnuradio/sdr-capture/) and [`sdr-loopback/`](sandbox/gnuradio/sdr-loopback/) — standalone SDR experiments (validated on EM, loopback shelved due to DMA contention)
-- **Signal processing** — [`sandbox/gnuradio/`](sandbox/gnuradio/) — GNU Radio lowpass/bandpass/squelch for ARM32
 - **Denoising** — [`sandbox/denoising/`](sandbox/denoising/) — DTLN, spectral subtraction, adaptive filtering, Wiener, ALE
 - **STT evaluation** — [`sandbox/speech-to-text/`](sandbox/speech-to-text/) — Vosk, Sherpa-ONNX, PocketSphinx comparison
+- **Signal processing** — [`sandbox/gnuradio/`](sandbox/gnuradio/) — GNU Radio lowpass/bandpass/squelch for ARM32
+- **SDR apps** — [`sandbox/gnuradio/sdr-capture/`](sandbox/gnuradio/sdr-capture/) and [`sdr-loopback/`](sandbox/gnuradio/sdr-loopback/) — standalone SDR experiments (validated on EM, loopback shelved due to DMA contention)
 - **Integration** — [`sandbox/integrations/`](sandbox/integrations/) — GNU Radio + Whisper end-to-end prototype
 
 **Finding:** Classical and neural denoising methods all struggle with the non-stationary radio interference in OPS-SAT samples. The pipeline instead relies on bandpass filtering + a robust STT model with fuzzy matching.
