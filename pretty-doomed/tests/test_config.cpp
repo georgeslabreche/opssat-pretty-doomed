@@ -5,25 +5,25 @@
 TEST_CASE("load_config parses key=value pairs") {
     std::istringstream input(
         "# Signal Processing\n"
-        "lowpass_cutoff=4000\n"
-        "bandpass_low=300\n"
-        "bandpass_high=3400\n"
-        "lowpass_transition=600\n"
-        "bandpass_transition=150\n"
+        "dsp_lowpass_cutoff=4000\n"
+        "dsp_bandpass_low=300\n"
+        "dsp_bandpass_high=3400\n"
+        "dsp_lowpass_transition=600\n"
+        "dsp_bandpass_transition=150\n"
         "\n"
         "# Speech-to-Text\n"
-        "model_encoder=models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx\n"
-        "model_decoder=models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx\n"
-        "model_joiner=models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx\n"
-        "model_tokens=models/sherpa-onnx/small/tokens.txt\n"
-        "decoding_method=modified_beam_search\n"
-        "num_threads=2\n"
+        "stt_model_encoder=models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx\n"
+        "stt_model_decoder=models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx\n"
+        "stt_model_joiner=models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx\n"
+        "stt_model_tokens=models/sherpa-onnx/small/tokens.txt\n"
+        "stt_decoding_method=modified_beam_search\n"
+        "stt_num_threads=2\n"
         "\n"
         "# Detection\n"
-        "wake_word=PRETTY\n"
-        "call_signs=NIGHT,DELTA,ALPHA\n"
-        "command=DOOM\n"
-        "fuzzy_max_distance=3\n"
+        "detect_wake_word=PRETTY\n"
+        "detect_call_signs=NIGHT,DELTA,ALPHA\n"
+        "detect_command=DOOM\n"
+        "detect_fuzzy_max_distance=3\n"
         "\n"
         "# DOOM Frame Capture\n"
         "doom_frames_e1m7-607=5000,5001-5020\n"
@@ -34,24 +34,24 @@ TEST_CASE("load_config parses key=value pairs") {
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
 
-    CHECK(cfg.lowpass_cutoff == doctest::Approx(4000.0f));
-    CHECK(cfg.bandpass_low == doctest::Approx(300.0f));
-    CHECK(cfg.bandpass_high == doctest::Approx(3400.0f));
-    CHECK(cfg.lowpass_transition == doctest::Approx(600.0f));
-    CHECK(cfg.bandpass_transition == doctest::Approx(150.0f));
-    CHECK(cfg.model_encoder == "models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx");
-    CHECK(cfg.model_decoder == "models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx");
-    CHECK(cfg.model_joiner == "models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx");
-    CHECK(cfg.model_tokens == "models/sherpa-onnx/small/tokens.txt");
-    CHECK(cfg.decoding_method == "modified_beam_search");
-    CHECK(cfg.num_threads == 2);
-    CHECK(cfg.wake_word == "PRETTY");
-    CHECK(cfg.call_signs.size() == 3);
-    CHECK(cfg.call_signs[0] == "NIGHT");
-    CHECK(cfg.call_signs[1] == "DELTA");
-    CHECK(cfg.call_signs[2] == "ALPHA");
-    CHECK(cfg.commands == std::vector<std::string>{"DOOM"});
-    CHECK(cfg.fuzzy_max_distance == 3);
+    CHECK(cfg.dsp_lowpass_cutoff == doctest::Approx(4000.0f));
+    CHECK(cfg.dsp_bandpass_low == doctest::Approx(300.0f));
+    CHECK(cfg.dsp_bandpass_high == doctest::Approx(3400.0f));
+    CHECK(cfg.dsp_lowpass_transition == doctest::Approx(600.0f));
+    CHECK(cfg.dsp_bandpass_transition == doctest::Approx(150.0f));
+    CHECK(cfg.stt_model_encoder == "models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx");
+    CHECK(cfg.stt_model_decoder == "models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx");
+    CHECK(cfg.stt_model_joiner == "models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx");
+    CHECK(cfg.stt_model_tokens == "models/sherpa-onnx/small/tokens.txt");
+    CHECK(cfg.stt_decoding_method == "modified_beam_search");
+    CHECK(cfg.stt_num_threads == 2);
+    CHECK(cfg.detect_wake_word == "PRETTY");
+    CHECK(cfg.detect_call_signs.size() == 3);
+    CHECK(cfg.detect_call_signs[0] == "NIGHT");
+    CHECK(cfg.detect_call_signs[1] == "DELTA");
+    CHECK(cfg.detect_call_signs[2] == "ALPHA");
+    CHECK(cfg.detect_commands == std::vector<std::string>{"DOOM"});
+    CHECK(cfg.detect_fuzzy_max_distance == 3);
     CHECK(cfg.doom_frames.size() == 2);
     CHECK(cfg.doom_frames.at("e1m7-607") == "5000,5001-5020");
     CHECK(cfg.doom_frames.at("impfight") == "700,701-720");
@@ -63,35 +63,35 @@ TEST_CASE("load_config ignores comments and blank lines") {
         "# This is a comment\n"
         "\n"
         "  # Indented comment\n"
-        "wake_word=TEST\n"
+        "detect_wake_word=TEST\n"
         "\n"
     );
 
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
-    CHECK(cfg.wake_word == "TEST");
+    CHECK(cfg.detect_wake_word == "TEST");
 }
 
 TEST_CASE("load_config preserves defaults for missing keys") {
-    std::istringstream input("wake_word=HELLO\n");
+    std::istringstream input("detect_wake_word=HELLO\n");
 
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
-    CHECK(cfg.wake_word == "HELLO");
+    CHECK(cfg.detect_wake_word == "HELLO");
     // Defaults preserved
-    CHECK(cfg.lowpass_cutoff == doctest::Approx(3400.0f));
-    CHECK(cfg.decoding_method == "modified_beam_search");
-    CHECK(cfg.fuzzy_max_distance == 2);
+    CHECK(cfg.dsp_lowpass_cutoff == doctest::Approx(3400.0f));
+    CHECK(cfg.stt_decoding_method == "modified_beam_search");
+    CHECK(cfg.detect_fuzzy_max_distance == 2);
     CHECK(cfg.doom_frames.empty());
     CHECK(cfg.doom_keepgifframes == false);
 }
 
 TEST_CASE("load_config handles whitespace around =") {
-    std::istringstream input("wake_word = PRETTY\n");
+    std::istringstream input("detect_wake_word = PRETTY\n");
 
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
-    CHECK(cfg.wake_word == "PRETTY");
+    CHECK(cfg.detect_wake_word == "PRETTY");
 }
 
 TEST_CASE("load_variants parses TARGET=VARIANT1,VARIANT2") {

@@ -73,71 +73,11 @@ The `Transcriber` instance is created once at startup and reused across all capt
 
 All parameters are externalized in two config files, not compiled into the binary.
 
-### `config.cfg` -- Pipeline Parameters
+### Configuration
 
-```ini
-# Signal Processing
-lowpass_cutoff=3400
-bandpass_low=300
-bandpass_high=3400
-lowpass_transition=500
-bandpass_transition=100
+All config keys use semantic prefixes (`dsp_`, `stt_`, `detect_`, `doom_`, `sdr_`). An `operation` key selects what the voice command triggers (only `doom` for now).
 
-# Speech-to-Text
-model_encoder=models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx
-model_decoder=models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx
-model_joiner=models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx
-model_tokens=models/sherpa-onnx/small/tokens.txt
-decoding_method=modified_beam_search
-num_threads=1
-
-# Detection
-wake_word=PRETTY
-call_signs=NIGHT,LIGHT,HEART,...
-command=DOOM,PLAY DOOM
-fuzzy_max_distance=1
-
-# DOOM Frame Capture
-# Per-demo: integer=snapshot, range=GIF, -1=random, list=cycling
-doom_frames_e1m7-607=8000,7992-8025
-doom_frames_impfight=-1
-doom_frames_m1-fast=400,300,500,100
-doom_frames_m1-normal=-1
-doom_frames_m1-simple=-1
-doom_maxframes_impfight=2030
-doom_maxframes_m1-normal=1785
-doom_maxframes_m1-simple=700
-
-# Demo cycling order (GIF-producing demos first for richer first-run output)
-# If not set, cycles alphabetically through all .lmp files in demos/
-doom_demo_order=e1m7-607,impfight,m1-fast,m1-normal,m1-simple
-```
-
-### SDR Capture Parameters
-
-Used with the `-s` flag. All optional, with defaults matching sdr-capture.
-
-| Config Key | Default | Description |
-|------------|---------|-------------|
-| `sdr_frequency` | 1296000000 | RX frequency in Hz |
-| `sdr_rate` | 2400000 | AD9361 sample rate in Hz |
-| `sdr_decimation` | 12 | LPF decimation factor |
-| `sdr_rf_bandwidth` | 200000 | AD9361 analog filter bandwidth in Hz |
-| `sdr_gain` | 50 | RX gain in dB |
-| `sdr_fm_deviation` | 5000 | FM deviation in Hz |
-| `sdr_uri` | local: | IIO URI (local: for hardware, ip:host:port for emulator) |
-| `sdr_duration` | 20 | Capture duration in seconds |
-| `sdr_max_iq_mb` | 20 | Max I/Q file size in MiB |
-| `sdr_audio_rate` | 16000 | Output audio sample rate in Hz |
-| `sdr_timeout_multiplier` | 5 | Timeout = duration * N + 10 seconds |
-| `sdr_min_readback` | false | Downgrade sample rate readback mismatch to warning |
-| `sdr_enable_spectrogram` | true | Generate spectrogram BMP |
-| `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
-| `sdr_captures` | 3 | Number of sequential SDR captures |
-| `process_mode` | sequential | Processing mode: `sequential` or `background` |
-| `doom_force_trigger` | false | Force DOOM launch regardless of detection (for testing) |
-| `doom_enable_postcard` | true | Generate DOOM-themed composite postcard after each run |
-| `doom_postcard_scale` | 1 | Postcard output resolution multiplier (1 for 1x, 2 for 2x...) |
+See [CONFIG.md](CONFIG.md) for the full configuration reference.
 
 ### `variants.cfg` -- Fuzzy Match Variants
 

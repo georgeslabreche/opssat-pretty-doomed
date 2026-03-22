@@ -10,36 +10,40 @@
 using VariantsMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 struct PipelineConfig {
-    // Signal processing
-    float lowpass_cutoff = 3400.0f;
-    float lowpass_transition = 500.0f;
-    float bandpass_low = 300.0f;
-    float bandpass_high = 3400.0f;
-    float bandpass_transition = 100.0f;
+    // Operation: what the voice command triggers (feature flag)
+    std::string operation = "doom";     // "doom" (only implementation for now)
 
-    // Speech-to-text model paths
-    std::string model_encoder;
-    std::string model_decoder;
-    std::string model_joiner;
-    std::string model_tokens;
-    std::string decoding_method = "modified_beam_search";
-    int num_threads = 1;
+    // DSP: signal processing filters
+    float dsp_lowpass_cutoff = 3400.0f;
+    float dsp_lowpass_transition = 500.0f;
+    float dsp_bandpass_low = 300.0f;
+    float dsp_bandpass_high = 3400.0f;
+    float dsp_bandpass_transition = 100.0f;
 
-    // Detection
-    std::string wake_word = "PRETTY";
-    std::vector<std::string> call_signs;
-    std::vector<std::string> commands = {"DOOM"};
-    int fuzzy_max_distance = 2;
+    // STT: speech-to-text model
+    std::string stt_model_encoder;
+    std::string stt_model_decoder;
+    std::string stt_model_joiner;
+    std::string stt_model_tokens;
+    std::string stt_decoding_method = "modified_beam_search";
+    int stt_num_threads = 1;
 
-    // DOOM frame capture: demo name -> frames spec (e.g. "5000,5001-5020")
-    // Special values: "-1" = random frame, comma list = cycling
+    // Detection: command recognition
+    std::string detect_wake_word = "PRETTY";
+    std::vector<std::string> detect_call_signs;
+    std::vector<std::string> detect_commands = {"DOOM"};
+    int detect_fuzzy_max_distance = 2;
+
+    // DOOM: frame capture and execution
     std::unordered_map<std::string, std::string> doom_frames;
-    // Max frame count per demo (for random frame selection)
     std::unordered_map<std::string, int> doom_maxframes;
     bool doom_keepgifframes = false;
-    std::vector<std::string> doom_demo_order;  // optional: cycle order (default: alphabetical)
+    std::vector<std::string> doom_demo_order;
+    bool doom_force_trigger = false;
+    bool doom_enable_postcard = true;
+    int doom_postcard_scale = 1;
 
-    // SDR capture (used when --sdr-capture mode is active)
+    // SDR: capture settings
     long long sdr_frequency = 1296000000;
     long sdr_rate = 2400000;
     int sdr_decimation = 12;
@@ -60,15 +64,8 @@ struct PipelineConfig {
     int sdr_timeout_multiplier = 5;
     bool sdr_enable_spectrogram = true;
     bool sdr_enable_constellation = true;
-    int sdr_captures = 3;              // number of sequential SDR captures
-    std::string process_mode = "sequential";  // "sequential" or "background"
-
-    // DOOM execution
-    bool doom_force_trigger = false;   // force DOOM launch regardless of detection (testing)
-
-    // Postcard generation (after DOOM execution)
-    bool doom_enable_postcard = true;
-    int doom_postcard_scale = 1;            // output resolution:1 for 1x, 2 for 2x, 3 for 3x, ..., N for Nx
+    int sdr_captures = 3;
+    std::string process_mode = "sequential";
 };
 
 // Parse KEY=VALUE config file. Lines starting with # are comments.

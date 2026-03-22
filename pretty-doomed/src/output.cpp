@@ -110,7 +110,7 @@ std::string format_summary(const DetectionResult& detection,
     s += "Input: " + input_file + "\n";
     s += "Transcription: " + transcript + "\n\n";
     s += "Detection:\n";
-    s += "  Wake word (" + cfg.wake_word + "):\n";
+    s += "  Wake word (" + cfg.detect_wake_word + "):\n";
     s += "    Exact: " + std::to_string(detection.wake_word_exact) +
          " [" + join(detection.wake_word_exact_matches, ", ") + "]\n";
     s += "    Approximate: " + std::to_string(detection.wake_word_approx) +
