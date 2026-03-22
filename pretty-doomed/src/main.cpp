@@ -158,10 +158,10 @@ int main(int argc, char** argv) {
     }
 
     if (args.verbose) {
-        log_info() << "  Wake word: " << cfg.wake_word << "\n";
-        log_info() << "  Call signs: " << cfg.call_signs.size() << " configured\n";
-        log_info() << "  Decoding: " << cfg.decoding_method << "\n";
-        log_info() << "  Fuzzy distance: " << cfg.fuzzy_max_distance << "\n";
+        log_info() << "  Wake word: " << cfg.detect_wake_word << "\n";
+        log_info() << "  Call signs: " << cfg.detect_call_signs.size() << " configured\n";
+        log_info() << "  Decoding: " << cfg.stt_decoding_method << "\n";
+        log_info() << "  Fuzzy distance: " << cfg.detect_fuzzy_max_distance << "\n";
         log_info() << "  Variants: " << variants.size() << " entries\n";
     }
 

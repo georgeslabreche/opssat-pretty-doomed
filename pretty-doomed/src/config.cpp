@@ -22,27 +22,35 @@ static std::vector<std::string> split_csv(const std::string& s) {
 }
 
 // Map a key-value pair to PipelineConfig fields.
-// Shared by both the stream and file overloads.
 static void apply_config_entry(const std::string& key, const std::string& value,
                                 PipelineConfig& cfg) {
-    if (key == "lowpass_cutoff") cfg.lowpass_cutoff = std::stof(value);
-    else if (key == "lowpass_transition") cfg.lowpass_transition = std::stof(value);
-    else if (key == "bandpass_low") cfg.bandpass_low = std::stof(value);
-    else if (key == "bandpass_high") cfg.bandpass_high = std::stof(value);
-    else if (key == "bandpass_transition") cfg.bandpass_transition = std::stof(value);
-    else if (key == "model_encoder") cfg.model_encoder = value;
-    else if (key == "model_decoder") cfg.model_decoder = value;
-    else if (key == "model_joiner") cfg.model_joiner = value;
-    else if (key == "model_tokens") cfg.model_tokens = value;
-    else if (key == "decoding_method") cfg.decoding_method = value;
-    else if (key == "num_threads") cfg.num_threads = std::stoi(value);
-    else if (key == "wake_word") cfg.wake_word = value;
-    else if (key == "call_signs") cfg.call_signs = split_csv(value);
-    else if (key == "command") cfg.commands = split_csv(value);
-    else if (key == "fuzzy_max_distance") cfg.fuzzy_max_distance = std::stoi(value);
+    // Operation
+    if (key == "operation") cfg.operation = value;
+    // DSP
+    else if (key == "dsp_lowpass_cutoff") cfg.dsp_lowpass_cutoff = std::stof(value);
+    else if (key == "dsp_lowpass_transition") cfg.dsp_lowpass_transition = std::stof(value);
+    else if (key == "dsp_bandpass_low") cfg.dsp_bandpass_low = std::stof(value);
+    else if (key == "dsp_bandpass_high") cfg.dsp_bandpass_high = std::stof(value);
+    else if (key == "dsp_bandpass_transition") cfg.dsp_bandpass_transition = std::stof(value);
+    // STT
+    else if (key == "stt_model_encoder") cfg.stt_model_encoder = value;
+    else if (key == "stt_model_decoder") cfg.stt_model_decoder = value;
+    else if (key == "stt_model_joiner") cfg.stt_model_joiner = value;
+    else if (key == "stt_model_tokens") cfg.stt_model_tokens = value;
+    else if (key == "stt_decoding_method") cfg.stt_decoding_method = value;
+    else if (key == "stt_num_threads") cfg.stt_num_threads = std::stoi(value);
+    // Detection
+    else if (key == "detect_wake_word") cfg.detect_wake_word = value;
+    else if (key == "detect_call_signs") cfg.detect_call_signs = split_csv(value);
+    else if (key == "detect_command") cfg.detect_commands = split_csv(value);
+    else if (key == "detect_fuzzy_max_distance") cfg.detect_fuzzy_max_distance = std::stoi(value);
+    // DOOM
     else if (key == "doom_keepgifframes") cfg.doom_keepgifframes = (value == "true" || value == "1");
     else if (key == "doom_demo_order") cfg.doom_demo_order = split_csv(value);
-    // SDR capture
+    else if (key == "doom_force_trigger") cfg.doom_force_trigger = (value == "true" || value == "1");
+    else if (key == "doom_enable_postcard") cfg.doom_enable_postcard = (value == "true" || value == "1");
+    else if (key == "doom_postcard_scale") cfg.doom_postcard_scale = std::max(1, std::stoi(value));
+    // SDR
     else if (key == "sdr_frequency") cfg.sdr_frequency = std::stoll(value);
     else if (key == "sdr_rate") cfg.sdr_rate = std::stol(value);
     else if (key == "sdr_decimation") cfg.sdr_decimation = std::stoi(value);
@@ -65,9 +73,6 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "sdr_enable_constellation") cfg.sdr_enable_constellation = (value == "true" || value == "1");
     else if (key == "sdr_captures") cfg.sdr_captures = std::stoi(value);
     else if (key == "process_mode") cfg.process_mode = value;
-    else if (key == "doom_force_trigger") cfg.doom_force_trigger = (value == "true" || value == "1");
-    else if (key == "doom_enable_postcard") cfg.doom_enable_postcard = (value == "true" || value == "1");
-    else if (key == "doom_postcard_scale") cfg.doom_postcard_scale = std::max(1, std::stoi(value));
     else {
         const std::string frames_prefix = "doom_frames_";
         const std::string maxframes_prefix = "doom_maxframes_";

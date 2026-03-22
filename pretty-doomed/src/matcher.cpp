@@ -85,7 +85,7 @@ DetectionResult detect(const std::string& transcript,
     std::string upper_transcript = to_upper(transcript);
     std::vector<std::string> words = split_words(upper_transcript);
 
-    std::string wake_upper = to_upper(cfg.wake_word);
+    std::string wake_upper = to_upper(cfg.detect_wake_word);
 
     // Prepare command patterns (single-word and multi-word)
     struct CmdPattern {
@@ -94,7 +94,7 @@ DetectionResult detect(const std::string& transcript,
         std::vector<std::string> variants_list;
     };
     std::vector<CmdPattern> cmd_patterns;
-    for (const auto& cmd : cfg.commands) {
+    for (const auto& cmd : cfg.detect_commands) {
         CmdPattern cp;
         cp.name = to_upper(cmd);
         cp.pattern_words = split_words(cp.name);
@@ -110,7 +110,7 @@ DetectionResult detect(const std::string& transcript,
         const auto& word = words[i];
 
         // Check wake word
-        MatchType wake_mt = fuzzy_match(word, wake_upper, wake_variants, cfg.fuzzy_max_distance);
+        MatchType wake_mt = fuzzy_match(word, wake_upper, wake_variants, cfg.detect_fuzzy_max_distance);
         if (wake_mt == MatchType::EXACT) {
             result.wake_word_exact++;
             result.wake_word_exact_matches.push_back(word);
@@ -123,7 +123,7 @@ DetectionResult detect(const std::string& transcript,
         for (const auto& cp : cmd_patterns) {
             if (cp.pattern_words.size() == 1) {
                 // Single-word command
-                MatchType mt = fuzzy_match(word, cp.pattern_words[0], cp.variants_list, cfg.fuzzy_max_distance);
+                MatchType mt = fuzzy_match(word, cp.pattern_words[0], cp.variants_list, cfg.detect_fuzzy_max_distance);
                 if (mt == MatchType::EXACT) {
                     result.command_exact_counts[cp.name]++;
                     result.command_exact_matches[cp.name].push_back(word);
@@ -139,7 +139,7 @@ DetectionResult detect(const std::string& transcript,
                     bool all_exact = true;
                     for (size_t j = 0; j < n; j++) {
                         auto pw_variants = get_variants(cp.pattern_words[j], variants);
-                        MatchType mt = fuzzy_match(words[i + j], cp.pattern_words[j], pw_variants, cfg.fuzzy_max_distance);
+                        MatchType mt = fuzzy_match(words[i + j], cp.pattern_words[j], pw_variants, cfg.detect_fuzzy_max_distance);
                         if (mt == MatchType::NONE) {
                             all_match = false;
                             break;
@@ -167,10 +167,10 @@ DetectionResult detect(const std::string& transcript,
         }
 
         // Check call signs
-        for (const auto& cs : cfg.call_signs) {
+        for (const auto& cs : cfg.detect_call_signs) {
             std::string cs_upper = to_upper(cs);
             auto cs_variants = get_variants(cs_upper, variants);
-            if (fuzzy_match(word, cs_upper, cs_variants, cfg.fuzzy_max_distance) != MatchType::NONE) {
+            if (fuzzy_match(word, cs_upper, cs_variants, cfg.detect_fuzzy_max_distance) != MatchType::NONE) {
                 result.call_sign_counts[cs_upper]++;
                 result.call_sign_matches[cs_upper].push_back(word);
             }

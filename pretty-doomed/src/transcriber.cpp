@@ -17,20 +17,20 @@ static long long file_size_kb(const std::string& path) {
 
 Transcriber::Transcriber(const PipelineConfig& cfg) {
     log_info() << "Loading STT model...\n";
-    log_info() << "  Encoder: " << cfg.model_encoder << " (" << file_size_kb(cfg.model_encoder) << " KB)\n";
-    log_info() << "  Decoder: " << cfg.model_decoder << " (" << file_size_kb(cfg.model_decoder) << " KB)\n";
-    log_info() << "  Joiner:  " << cfg.model_joiner << " (" << file_size_kb(cfg.model_joiner) << " KB)\n";
-    log_info() << "  Tokens:  " << cfg.model_tokens << "\n";
+    log_info() << "  Encoder: " << cfg.stt_model_encoder << " (" << file_size_kb(cfg.stt_model_encoder) << " KB)\n";
+    log_info() << "  Decoder: " << cfg.stt_model_decoder << " (" << file_size_kb(cfg.stt_model_decoder) << " KB)\n";
+    log_info() << "  Joiner:  " << cfg.stt_model_joiner << " (" << file_size_kb(cfg.stt_model_joiner) << " KB)\n";
+    log_info() << "  Tokens:  " << cfg.stt_model_tokens << "\n";
 
     SherpaOnnxOfflineRecognizerConfig config;
     memset(&config, 0, sizeof(config));
-    config.model_config.transducer.encoder = cfg.model_encoder.c_str();
-    config.model_config.transducer.decoder = cfg.model_decoder.c_str();
-    config.model_config.transducer.joiner  = cfg.model_joiner.c_str();
-    config.model_config.tokens = cfg.model_tokens.c_str();
-    config.model_config.num_threads = cfg.num_threads;
+    config.model_config.transducer.encoder = cfg.stt_model_encoder.c_str();
+    config.model_config.transducer.decoder = cfg.stt_model_decoder.c_str();
+    config.model_config.transducer.joiner  = cfg.stt_model_joiner.c_str();
+    config.model_config.tokens = cfg.stt_model_tokens.c_str();
+    config.model_config.num_threads = cfg.stt_num_threads;
     config.model_config.debug = 0;
-    config.decoding_method = cfg.decoding_method.c_str();
+    config.decoding_method = cfg.stt_decoding_method.c_str();
 
     auto load_start = std::chrono::steady_clock::now();
     recognizer_ = SherpaOnnxCreateOfflineRecognizer(&config);

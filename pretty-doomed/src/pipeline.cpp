@@ -73,10 +73,10 @@ bool process_wav(const std::string& input_file,
     log_info() << "Filtering (GNU Radio)...\n";
     auto dsp_start = std::chrono::steady_clock::now();
     auto filtered = apply_lowpass(samples, sample_rate,
-                                   cfg.lowpass_cutoff, cfg.lowpass_transition);
+                                   cfg.dsp_lowpass_cutoff, cfg.dsp_lowpass_transition);
     filtered = apply_bandpass(filtered, sample_rate,
-                               cfg.bandpass_low, cfg.bandpass_high,
-                               cfg.bandpass_transition);
+                               cfg.dsp_bandpass_low, cfg.dsp_bandpass_high,
+                               cfg.dsp_bandpass_transition);
 
     compute_audio_stats(filtered, audio_stats.rms_filtered, audio_stats.peak_filtered);
 
@@ -98,7 +98,7 @@ bool process_wav(const std::string& input_file,
         return false;
     }
 
-    log_info() << "Transcribing (" << cfg.decoding_method << ")...\n";
+    log_info() << "Transcribing (" << cfg.stt_decoding_method << ")...\n";
     auto stt_start = std::chrono::steady_clock::now();
     std::string transcript = stt.transcribe(resampled, 16000);
     auto stt_end = std::chrono::steady_clock::now();
@@ -160,12 +160,12 @@ bool process_wav(const std::string& input_file,
     write_file(output_dir + "/summary.txt",
                format_summary(detection, totals, cfg, input_file, transcript, ascii_art));
 
-    // Launch DOOM if command detected (or forced for testing)
-    bool launch_doom = totals.command_detected || cfg.doom_force_trigger;
+    // Launch operation if command detected (or forced for testing)
+    bool trigger = totals.command_detected || cfg.doom_force_trigger;
     if (cfg.doom_force_trigger && !totals.command_detected) {
-        log_info() << "Force-triggering DOOM (doom_force_trigger=true)\n";
+        log_info() << "Force-triggering (doom_force_trigger=true)\n";
     }
-    if (launch_doom) {
+    if (trigger && cfg.operation == "doom") {
         // Capture detection timestamp immediately
         time_t det_time = time(nullptr);
         struct tm* det_tm = gmtime(&det_time);
@@ -215,6 +215,8 @@ bool process_wav(const std::string& input_file,
                 log_warning() << "No DOOM frame found, skipping postcard\n";
             }
         }
+    } else if (trigger) {
+        log_warning() << "Unknown operation: " << cfg.operation << "\n";
     } else {
         log_info() << "No command detected.\n";
     }

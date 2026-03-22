@@ -83,10 +83,10 @@ TEST_CASE("fuzzy_match within edit distance of variant") {
 
 TEST_CASE("detect full transcript") {
     PipelineConfig cfg;
-    cfg.wake_word = "PRETTY";
-    cfg.call_signs = {"NIGHT", "DELTA"};
-    cfg.commands = {"DOOM"};
-    cfg.fuzzy_max_distance = 2;
+    cfg.detect_wake_word = "PRETTY";
+    cfg.detect_call_signs = {"NIGHT", "DELTA"};
+    cfg.detect_commands = {"DOOM"};
+    cfg.detect_fuzzy_max_distance = 2;
 
     VariantsMap variants;
     variants["PRETTY"] = {"PRETY", "BRETTY"};
@@ -174,9 +174,9 @@ TEST_CASE("detect full transcript") {
 
     SUBCASE("no call signs configured") {
         PipelineConfig cfg2;
-        cfg2.wake_word = "PRETTY";
-        cfg2.commands = {"DOOM"};
-        cfg2.fuzzy_max_distance = 2;
+        cfg2.detect_wake_word = "PRETTY";
+        cfg2.detect_commands = {"DOOM"};
+        cfg2.detect_fuzzy_max_distance = 2;
 
         auto r = detect("PRETTY PLAY DOOM", cfg2, variants);
         CHECK(r.wake_word_exact == 1);
@@ -186,10 +186,10 @@ TEST_CASE("detect full transcript") {
 
     SUBCASE("multi-word command pattern") {
         PipelineConfig cfg2;
-        cfg2.wake_word = "PRETTY";
-        cfg2.call_signs = {"NIGHT", "DELTA"};
-        cfg2.commands = {"DOOM", "PLAY DOOM"};
-        cfg2.fuzzy_max_distance = 2;
+        cfg2.detect_wake_word = "PRETTY";
+        cfg2.detect_call_signs = {"NIGHT", "DELTA"};
+        cfg2.detect_commands = {"DOOM", "PLAY DOOM"};
+        cfg2.detect_fuzzy_max_distance = 2;
 
         auto r = detect("PRETTY NIGHT PLAY DOOM", cfg2, variants);
         CHECK(r.wake_word_exact == 1);
@@ -201,9 +201,9 @@ TEST_CASE("detect full transcript") {
 
     SUBCASE("multi-word command approximate match") {
         PipelineConfig cfg2;
-        cfg2.wake_word = "PRETTY";
-        cfg2.commands = {"DOOM", "PLAY DOOM"};
-        cfg2.fuzzy_max_distance = 2;
+        cfg2.detect_wake_word = "PRETTY";
+        cfg2.detect_commands = {"DOOM", "PLAY DOOM"};
+        cfg2.detect_fuzzy_max_distance = 2;
 
         // "PLAX" is approximate for "PLAY", "DOOM" is exact
         // Multi-word match: one approx word makes entire phrase approximate
@@ -215,9 +215,9 @@ TEST_CASE("detect full transcript") {
 
     SUBCASE("multi-word command no phrase match") {
         PipelineConfig cfg2;
-        cfg2.wake_word = "PRETTY";
-        cfg2.commands = {"DOOM", "PLAY DOOM"};
-        cfg2.fuzzy_max_distance = 2;
+        cfg2.detect_wake_word = "PRETTY";
+        cfg2.detect_commands = {"DOOM", "PLAY DOOM"};
+        cfg2.detect_fuzzy_max_distance = 2;
 
         // "DOOM" alone matches single-word, but no "PLAY DOOM" phrase
         auto r = detect("PRETTY NIGHT DOOM", cfg2, variants);

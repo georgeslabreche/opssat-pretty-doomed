@@ -130,7 +130,7 @@ TEST_CASE("format_scores multiple comma-separated matches") {
 
 TEST_CASE("format_summary command detected") {
     PipelineConfig cfg;
-    cfg.wake_word = "PRETTY";
+    cfg.detect_wake_word = "PRETTY";
 
     DetectionResult d;
     d.wake_word_exact = 1;
@@ -153,7 +153,7 @@ TEST_CASE("format_summary command detected") {
 
 TEST_CASE("format_summary no command") {
     PipelineConfig cfg;
-    cfg.wake_word = "PRETTY";
+    cfg.detect_wake_word = "PRETTY";
 
     DetectionResult d;
     d.wake_word_exact = 1;
@@ -167,7 +167,7 @@ TEST_CASE("format_summary no command") {
 
 TEST_CASE("format_summary with call signs") {
     PipelineConfig cfg;
-    cfg.wake_word = "PRETTY";
+    cfg.detect_wake_word = "PRETTY";
 
     DetectionResult d;
     d.wake_word_exact = 1;
