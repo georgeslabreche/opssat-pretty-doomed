@@ -70,6 +70,7 @@ cat >> "$RUN_DIR/config.cfg" <<EOF
 # Run overrides
 sdr_captures=2
 process_mode=sequential
+doom_force_trigger=true
 EOF
 
 ${PRETTY_DOOMED} \
@@ -92,6 +93,7 @@ cat >> "$RUN_DIR/config.cfg" <<EOF
 # Run overrides
 sdr_captures=2
 process_mode=background
+doom_force_trigger=true
 EOF
 
 ${PRETTY_DOOMED} \

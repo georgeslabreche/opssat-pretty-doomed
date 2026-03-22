@@ -14,6 +14,7 @@
 #include "matcher.h"
 #include "output.h"
 #include "executor.h"
+#include "postcard.h"
 
 using namespace pretty;
 
@@ -50,7 +51,8 @@ bool process_wav(const std::string& input_file,
                  Transcriber& stt,
                  const std::string& config_file,
                  const std::string& doom_binary,
-                 const std::string& demos_dir) {
+                 const std::string& demos_dir,
+                 const std::string& sc16_path) {
     log_info() << "--- Processing: " << input_file << " ---\n";
     auto proc_start = std::chrono::steady_clock::now();
 
@@ -158,17 +160,60 @@ bool process_wav(const std::string& input_file,
     write_file(output_dir + "/summary.txt",
                format_summary(detection, totals, cfg, input_file, transcript, ascii_art));
 
-    // Launch DOOM if command detected
-    if (totals.command_detected) {
+    // Launch DOOM if command detected (or forced for testing)
+    bool launch_doom = totals.command_detected || cfg.doom_force_trigger;
+    if (cfg.doom_force_trigger && !totals.command_detected) {
+        log_info() << "Force-triggering DOOM (doom_force_trigger=true)\n";
+    }
+    if (launch_doom) {
+        // Capture detection timestamp immediately
+        time_t det_time = time(nullptr);
+        struct tm* det_tm = gmtime(&det_time);
+        char det_ts[48];
+        snprintf(det_ts, sizeof(det_ts),
+            "%04d-%02d-%02d %02d:%02d:%02d UTC",
+            det_tm->tm_year + 1900, det_tm->tm_mon + 1, det_tm->tm_mday,
+            det_tm->tm_hour, det_tm->tm_min, det_tm->tm_sec);
+
         log_info() << "Command detected! Launching DOOM...\n";
         if (!ascii_art.empty()) {
             std::cout << ascii_art << std::endl;
         }
-        int result = run_doom(doom_binary, demos_dir, output_dir,
-                              cfg.doom_frames, cfg.doom_maxframes,
-                              cfg.doom_keepgifframes, cfg.doom_demo_order);
-        if (result != 0) {
-            log_warning() << "DOOM had " << result << " failure(s)\n";
+        DoomResult doom_result = run_doom(doom_binary, demos_dir, output_dir,
+                                          cfg.doom_frames, cfg.doom_maxframes,
+                                          cfg.doom_keepgifframes, cfg.doom_demo_order);
+        if (doom_result.failures != 0) {
+            log_warning() << "DOOM had " << doom_result.failures << " failure(s)\n";
+        }
+
+        // Generate postcard
+        if (cfg.doom_enable_postcard && !doom_result.demo_dir.empty()) {
+            std::string frame = find_doom_frame(doom_result.demo_dir);
+            if (!frame.empty()) {
+                // Derive assets dir from config_file path
+                std::string cfg_dir = config_file;
+                auto cpos = cfg_dir.find_last_of('/');
+                std::string base_dir = (cpos != std::string::npos)
+                    ? cfg_dir.substr(0, cpos + 1) : "";
+
+                PostcardArgs pargs;
+                pargs.frame_path = frame;
+                pargs.sc16_path = sc16_path;
+                pargs.transcription = transcript;
+                pargs.demo_name = doom_result.demo_name;
+                pargs.timestamp = det_ts;
+                pargs.logo_esa = base_dir + "assets/logo-esa.png";
+                pargs.logo_doom = base_dir + "assets/logo-doom.png";
+                pargs.logo_pretty = base_dir + "assets/logo-opssat-pretty.png";
+                pargs.output_path = output_dir + "/postcard.png";
+                pargs.scale = cfg.doom_postcard_scale;
+
+                if (!generate_postcard(pargs)) {
+                    log_warning() << "Postcard generation failed\n";
+                }
+            } else {
+                log_warning() << "No DOOM frame found, skipping postcard\n";
+            }
         }
     } else {
         log_info() << "No command detected.\n";

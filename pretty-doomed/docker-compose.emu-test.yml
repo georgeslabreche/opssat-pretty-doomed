@@ -42,5 +42,6 @@ services:
       - ../doom/src:/app/doom-src
       - ../doom/build:/app/doom-build
       - ../doom/demos:/app/demos
+      - ./assets:/app/assets
     working_dir: /app
     tty: true

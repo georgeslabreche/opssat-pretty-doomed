@@ -196,7 +196,8 @@ int main(int argc, char** argv) {
             if (fp) dup2(fileno(stdout), fileno(stderr));
 
             bool detected = process_wav(cap.wav_path, capture_dir, cfg, variants, stt,
-                                        args.config_file, args.doom_binary, args.demos_dir);
+                                        args.config_file, args.doom_binary, args.demos_dir,
+                                        cap.sc16_path);
 
             restore_log(saved_fd);
             return detected;

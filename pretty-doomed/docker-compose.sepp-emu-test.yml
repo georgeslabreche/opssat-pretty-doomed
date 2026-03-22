@@ -46,6 +46,7 @@ services:
       - ../doom/src:/app/doom-src
       - ../doom/build:/app/doom-build
       - ../doom/demos:/app/demos
+      - ./assets:/app/assets
       - sherpa-onnx-src:/opt/sherpa-onnx-src
     working_dir: /app
     tty: true
