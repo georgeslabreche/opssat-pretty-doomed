@@ -40,7 +40,8 @@ DetectionTotals compute_totals(const DetectionResult& detection) {
     for (const auto& [cmd, count] : detection.command_approx_counts) {
         t.command_approx += count;
     }
-    t.points_exact = detection.wake_word_exact + t.command_exact;
+    // Exact matches worth 2 points, fuzzy matches worth 1 point
+    t.points_exact = (detection.wake_word_exact + t.command_exact) * 2;
     t.points_approx = detection.wake_word_approx + t.command_approx;
     t.points = t.points_exact + t.points_approx;
     t.command_detected = (t.command_exact + t.command_approx) >= 1;

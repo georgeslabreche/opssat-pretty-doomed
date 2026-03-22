@@ -21,9 +21,9 @@ TEST_CASE("compute_totals exact matches only") {
     auto t = compute_totals(d);
     CHECK(t.command_exact == 5);
     CHECK(t.command_approx == 0);
-    CHECK(t.points_exact == 7);  // 2 wake + 5 command
+    CHECK(t.points_exact == 14);  // (2 wake + 5 command) * 2
     CHECK(t.points_approx == 0);
-    CHECK(t.points == 7);
+    CHECK(t.points == 14);
     CHECK(t.command_detected == true);
 }
 
@@ -51,9 +51,9 @@ TEST_CASE("compute_totals mixed exact and approximate") {
     auto t = compute_totals(d);
     CHECK(t.command_exact == 2);
     CHECK(t.command_approx == 3);
-    CHECK(t.points_exact == 3);   // 1 wake + 2 command
-    CHECK(t.points_approx == 4);  // 1 wake + 3 command
-    CHECK(t.points == 7);
+    CHECK(t.points_exact == 6);   // (1 wake + 2 command) * 2
+    CHECK(t.points_approx == 4);  // (1 wake + 3 command) * 1
+    CHECK(t.points == 10);
     CHECK(t.command_detected == true);
 }
 
@@ -63,7 +63,7 @@ TEST_CASE("compute_totals wake word only - no command") {
 
     auto t = compute_totals(d);
     CHECK(t.command_detected == false);
-    CHECK(t.points == 3);
+    CHECK(t.points == 6);  // 3 exact * 2
 }
 
 TEST_CASE("format_scores basic output") {
@@ -85,8 +85,8 @@ TEST_CASE("format_scores basic output") {
     CHECK(scores.find("command_DOOM_exact_matches=DOOM\n") != std::string::npos);
     CHECK(scores.find("command_DOOM_approx=0\n") != std::string::npos);
     CHECK(scores.find("command_DOOM_approx_matches=\n") != std::string::npos);
-    CHECK(scores.find("total_points=2\n") != std::string::npos);
-    CHECK(scores.find("total_points_exact=2\n") != std::string::npos);
+    CHECK(scores.find("total_points=4\n") != std::string::npos);    // (1 wake + 1 cmd) * 2
+    CHECK(scores.find("total_points_exact=4\n") != std::string::npos);
     CHECK(scores.find("total_points_approx=0\n") != std::string::npos);
 }
 
@@ -147,7 +147,7 @@ TEST_CASE("format_summary command detected") {
     CHECK(summary.find("Wake word (PRETTY):") != std::string::npos);
     CHECK(summary.find("Exact: 1 [PRETTY]") != std::string::npos);
     CHECK(summary.find("Command [DOOM]:") != std::string::npos);
-    CHECK(summary.find("Total points: 2 (exact=2, approx=0)") != std::string::npos);
+    CHECK(summary.find("Total points: 4 (exact=4, approx=0)") != std::string::npos);
     CHECK(summary.find("Result: COMMAND DETECTED - launching DOOM") != std::string::npos);
 }
 
