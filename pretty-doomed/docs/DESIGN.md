@@ -255,7 +255,7 @@ toGround/run-00003/
 
 ### scores.txt
 
-Machine-readable detection scores with exact and approximate match breakdown:
+Machine-readable detection scores with exact and approximate match breakdown. Points are weighted: exact matches score 2 points each, fuzzy/approximate matches score 1 point each.
 
 ```
 wake_word_exact=4
@@ -270,10 +270,12 @@ command_PLAY_DOOM_exact=2
 command_PLAY_DOOM_exact_matches=PLAY DOOM,PLAY DOOM
 command_PLAY_DOOM_approx=5
 command_PLAY_DOOM_approx_matches=UPLI DO,PLAY DO,PLAY DO,PLAY DO,PLAY DO
-total_points=18
-total_points_exact=8
+total_points=26
+total_points_exact=16
 total_points_approx=10
 ```
+
+In this example: 8 exact matches * 2 = 16 points_exact, 10 approx matches * 1 = 10 points_approx, total = 26.
 
 ## SEPP Deployment
 
