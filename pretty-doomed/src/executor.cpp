@@ -200,18 +200,18 @@ static int validate_statdump(const std::string& results_path,
     }
 }
 
-int run_doom(const std::string& doom_binary,
-             const std::string& demos_dir,
-             const std::string& output_dir,
-             const std::unordered_map<std::string, std::string>& frames_map,
-             const std::unordered_map<std::string, int>& maxframes_map,
-             bool keepgifframes,
-             const std::vector<std::string>& demo_order) {
+DoomResult run_doom(const std::string& doom_binary,
+                    const std::string& demos_dir,
+                    const std::string& output_dir,
+                    const std::unordered_map<std::string, std::string>& frames_map,
+                    const std::unordered_map<std::string, int>& maxframes_map,
+                    bool keepgifframes,
+                    const std::vector<std::string>& demo_order) {
     std::string wad_path = demos_dir + "/doom.wad";
     struct stat st;
     if (stat(wad_path.c_str(), &st) != 0) {
         std::cerr << "Error: doom.wad not found in " << demos_dir << std::endl;
-        return -1;
+        return {-1, "", ""};
     }
 
     // Use custom demo order if provided, otherwise alphabetical from directory
@@ -219,7 +219,7 @@ int run_doom(const std::string& doom_binary,
         ? find_demo_files(demos_dir) : demo_order;
     if (demos.empty()) {
         std::cerr << "Warning: No demo files found in " << demos_dir << std::endl;
-        return 0;
+        return {0, "", ""};
     }
 
     // Cycle through demos: pick one per run via state file
@@ -271,5 +271,27 @@ int run_doom(const std::string& doom_binary,
                                   demo);
 
     std::cout << "[" << ts() << "] " << "  Completed demo: " << demo << std::endl;
-    return failures;
+    return {failures, demo, demo_output_dir};
+}
+
+std::string find_doom_frame(const std::string& demo_dir) {
+    DIR* dir = opendir(demo_dir.c_str());
+    if (!dir) return "";
+
+    std::string gif_path, jpg_path;
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        std::string name = entry->d_name;
+        if (name.size() > 4) {
+            std::string ext = name.substr(name.size() - 4);
+            if (ext == ".gif" && gif_path.empty())
+                gif_path = demo_dir + "/" + name;
+            else if (ext == ".jpg" && jpg_path.empty())
+                jpg_path = demo_dir + "/" + name;
+        }
+    }
+    closedir(dir);
+
+    // Prefer GIF over JPG
+    return !gif_path.empty() ? gif_path : jpg_path;
 }

@@ -1,0 +1,39 @@
+=== PRETTY DOOMed Summary ===
+
+Input: input/georges_01.wav
+Transcription:  PRETTY THIS IS GEORGE PLAY DOOM PLAY DOOM PLAY DOOM PRETTY THIS IS GEORGE PLAY DOOM PLAY DOOM PLAY DOOM
+
+Detection:
+  Wake word (PRETTY):
+    Exact: 2 [PRETTY, PRETTY]
+    Approximate: 0 []
+  Command [DOOM]:
+    Exact: 6 [DOOM, DOOM, DOOM, DOOM, DOOM, DOOM]
+    Approximate: 0 []
+  Command [PLAY DOOM]:
+    Exact: 6 [PLAY DOOM, PLAY DOOM, PLAY DOOM, PLAY DOOM, PLAY DOOM, PLAY DOOM]
+    Approximate: 0 []
+
+Total points: 14 (exact=14, approx=0)
+
+Result: COMMAND DETECTED - launching DOOM
+
+=================     ===============     ===============   ========  ========
+\\ . . . . . . .\\   //. . . . . . .\\   //. . . . . . .\\  \\. . .\\// . . //
+||. . ._____. . .|| ||. . ._____. . .|| ||. . ._____. . .|| || . . .\/ . . .||
+|| . .||   ||. . || || . .||   ||. . || || . .||   ||. . || ||. . . . . . . ||
+||. . ||   || . .|| ||. . ||   || . .|| ||. . ||   || . .|| || . | . . . . .||
+|| . .||   ||. _-|| ||-_ .||   ||. . || || . .||   ||. _-|| ||-_.|\ . . . . ||
+||. . ||   ||-’  || ||  ‘-||   || . .|| ||. . ||   ||-’  || ||  ‘|\_ . .|. .||
+|| . _||   ||    || ||    ||   ||_ . || || . _||   ||    || ||   |\ ‘-_/| . ||
+||_-’ ||  .|/    || ||    \|.  || ‘-_|| ||_-’ ||  .|/    || ||   | \  / |-_.||
+||    ||_-’      || ||      ‘-_||    || ||    ||_-’      || ||   | \  / |  ‘||
+||    ‘’         || ||         ‘’    || ||    ‘’         || ||   | \  / |   ||
+||            .===’ ‘===.         .===’.‘===.         .===’ /==. |  \/  |   ||
+||         .==’   \_|-_ ‘===. .===’   _|_   ‘===. .===’ _-|/   ‘==  \/  |   ||
+||      .==’    _-’    ‘-_  ‘=’    _-’   ‘-_    ‘=’  _-’   ‘-_  /|  \/  |   ||
+||   .==’    _-’          ‘-__\._-’         ‘-_./__-’         ‘’ |. /|  |   ||
+||.==’    _-’                                                     ‘’ |  /==.||
+==’    _-’                                                            \/   ‘==
+\   _-’                                                                ‘-_   /
+ ‘’’                                                                      ‘‘’
