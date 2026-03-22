@@ -28,6 +28,7 @@ main.cpp (orchestrator)
 ├── matcher.h        [pure C++17]
 ├── executor.h       [pure C++17]
 ├── output.h         [pure C++17]
+├── postcard.h       [stb, FFTW]
 ├── capture.h        [GNU Radio, libiio]
 └── pipeline.h       [all of the above]
 ```
@@ -43,6 +44,7 @@ main.cpp (orchestrator)
 | Matcher | `matcher.cpp` | Fuzzy matching with Levenshtein distance + variant lookup, command detection | None |
 | Executor | `executor.cpp` | Fork+exec DOOM binary for each demo file | None |
 | Output | `output.cpp` | Summary + log output formatting (ASCII art, scores) | None |
+| Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. | stb, FFTW |
 | Capture | `capture.cpp` | AD9361 SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files, generates spectrogram/constellation BMP. | GNU Radio, libiio |
 | Pipeline | `pipeline.cpp` | WAV processing pipeline: DSP filtering, STT transcription, command detection, DOOM execution. Orchestrates the per-capture processing sequence. | All |
 | Main | `main.cpp` | CLI arg parsing, input mode dispatch (file vs SDR), multi-capture loop, process_mode (sequential/background), output file writing | All |
@@ -133,6 +135,9 @@ Used with the `-s` flag. All optional, with defaults matching sdr-capture.
 | `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
 | `sdr_captures` | 3 | Number of sequential SDR captures |
 | `process_mode` | sequential | Processing mode: `sequential` or `background` |
+| `doom_force_trigger` | false | Force DOOM launch regardless of detection (for testing) |
+| `doom_enable_postcard` | true | Generate DOOM-themed composite postcard after each run |
+| `doom_postcard_scale` | 1 | Postcard output resolution multiplier (1 for 1x, 2 for 2x...) |
 
 ### `variants.cfg` -- Fuzzy Match Variants
 
@@ -215,6 +220,7 @@ toGround/run-00001/
 ├── summary.txt             # Human-readable summary
 ├── doom.log                # DOOM stdout/stderr (if triggered)
 ├── results.log             # Statdump validation (OK/ERROR per demo)
+├── postcard.png            # DOOM-themed composite postcard (if enabled)
 └── e1m7-607/               # DOOM demo output (one per run, cycling)
     ├── stats.txt
     ├── frame-NNNNNN.jpg    # Snapshot (random, cycling, or fixed)
@@ -239,6 +245,7 @@ toGround/run-00003/
 │   ├── transcription.txt   # STT output
 │   ├── scores.txt
 │   ├── summary.txt
+│   ├── postcard.png        # DOOM-themed composite postcard (if enabled)
 │   └── e1m7-607/           # DOOM output (if command detected)
 ├── capture-002/
 │   └── ...

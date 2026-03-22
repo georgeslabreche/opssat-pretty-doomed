@@ -1,0 +1,48 @@
+[2026-03-21 23:49:25.344] === PRETTY DOOMed ===
+[2026-03-21 23:49:25.344] Loading config: config.cfg
+[2026-03-21 23:49:25.346] Loading STT model...
+[2026-03-21 23:49:25.346]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-03-21 23:49:25.348]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-03-21 23:49:25.348]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-03-21 23:49:25.349]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-03-21 23:49:26.155] STT model loaded (806 ms)
+[2026-03-21 23:49:26.155] --- Processing: input/georges_01.wav ---
+[2026-03-21 23:49:26.155] Reading audio: input/georges_01.wav
+[2026-03-21 23:49:26.162]   48000 Hz, 514048 samples (10.7093s)
+[2026-03-21 23:49:26.162] Filtering (GNU Radio)...
+[2026-03-21 23:49:26.996] Resampling to 16 kHz...
+[2026-03-21 23:49:26.996]   171349 samples, DSP time: 0.8s
+[2026-03-21 23:49:26.996] Transcribing (modified_beam_search)...
+[2026-03-21 23:49:27.180]   STT time: 0.1s
+[2026-03-21 23:49:27.180]   Transcription:  PRETTY THIS IS GEORGE PLAY DOOM PLAY DOOM PLAY DOOM PRETTY THIS IS GEORGE PLAY DOOM PLAY DOOM PLAY DOOM
+[2026-03-21 23:49:27.183] Detecting command...
+[2026-03-21 23:49:27.183]   Wake word: 2 (exact=2, approx=0)
+[2026-03-21 23:49:27.183]   Command [DOOM]: 6 (exact=6, approx=0)
+[2026-03-21 23:49:27.183]   Command [PLAY DOOM]: 6 (exact=6, approx=0)
+[2026-03-21 23:49:27.187] Command detected! Launching DOOM...
+=================     ===============     ===============   ========  ========
+\\ . . . . . . .\\   //. . . . . . .\\   //. . . . . . .\\  \\. . .\\// . . //
+||. . ._____. . .|| ||. . ._____. . .|| ||. . ._____. . .|| || . . .\/ . . .||
+|| . .||   ||. . || || . .||   ||. . || || . .||   ||. . || ||. . . . . . . ||
+||. . ||   || . .|| ||. . ||   || . .|| ||. . ||   || . .|| || . | . . . . .||
+|| . .||   ||. _-|| ||-_ .||   ||. . || || . .||   ||. _-|| ||-_.|\ . . . . ||
+||. . ||   ||-’  || ||  ‘-||   || . .|| ||. . ||   ||-’  || ||  ‘|\_ . .|. .||
+|| . _||   ||    || ||    ||   ||_ . || || . _||   ||    || ||   |\ ‘-_/| . ||
+||_-’ ||  .|/    || ||    \|.  || ‘-_|| ||_-’ ||  .|/    || ||   | \  / |-_.||
+||    ||_-’      || ||      ‘-_||    || ||    ||_-’      || ||   | \  / |  ‘||
+||    ‘’         || ||         ‘’    || ||    ‘’         || ||   | \  / |   ||
+||            .===’ ‘===.         .===’.‘===.         .===’ /==. |  \/  |   ||
+||         .==’   \_|-_ ‘===. .===’   _|_   ‘===. .===’ _-|/   ‘==  \/  |   ||
+||      .==’    _-’    ‘-_  ‘=’    _-’   ‘-_    ‘=’  _-’   ‘-_  /|  \/  |   ||
+||   .==’    _-’          ‘-__\._-’         ‘-_./__-’         ‘’ |. /|  |   ||
+||.==’    _-’                                                     ‘’ |  /==.||
+==’    _-’                                                            \/   ‘==
+\   _-’                                                                ‘-_   /
+ ‘’’                                                                      ‘‘’
+[2026-03-21 23:49:27]   Running DOOM demo: impfight (2/5)
+[2026-03-21 23:49:27]   Completed demo: impfight
+[2026-03-21 23:49:27.248] Pipeline time: 1.0s (DSP + STT + detection)
+[2026-03-21 23:49:27.248] Total time: 1.9s
+[2026-03-21 23:49:27.248] === Done ===
+[2026-03-21 23:49:27.248] Unloading STT model...
+[2026-03-21 23:49:27.260] STT model unloaded

@@ -65,6 +65,9 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "sdr_enable_constellation") cfg.sdr_enable_constellation = (value == "true" || value == "1");
     else if (key == "sdr_captures") cfg.sdr_captures = std::stoi(value);
     else if (key == "process_mode") cfg.process_mode = value;
+    else if (key == "doom_force_trigger") cfg.doom_force_trigger = (value == "true" || value == "1");
+    else if (key == "doom_enable_postcard") cfg.doom_enable_postcard = (value == "true" || value == "1");
+    else if (key == "doom_postcard_scale") cfg.doom_postcard_scale = std::max(1, std::stoi(value));
     else {
         const std::string frames_prefix = "doom_frames_";
         const std::string maxframes_prefix = "doom_maxframes_";

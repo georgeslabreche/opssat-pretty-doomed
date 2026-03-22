@@ -1,0 +1,12 @@
+services:
+  postcard:
+    build: .
+    container_name: postcard-sandbox
+    volumes:
+      - ./src:/app/src
+      - ./assets:/app/assets
+      - ./samples:/app/samples
+      - ./build:/app/build
+      - ./Makefile:/app/Makefile
+    working_dir: /app
+    tty: true

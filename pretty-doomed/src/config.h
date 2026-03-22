@@ -62,6 +62,13 @@ struct PipelineConfig {
     bool sdr_enable_constellation = true;
     int sdr_captures = 3;              // number of sequential SDR captures
     std::string process_mode = "sequential";  // "sequential" or "background"
+
+    // DOOM execution
+    bool doom_force_trigger = false;   // force DOOM launch regardless of detection (testing)
+
+    // Postcard generation (after DOOM execution)
+    bool doom_enable_postcard = true;
+    int doom_postcard_scale = 1;            // output resolution:1 for 1x, 2 for 2x, 3 for 3x, ..., N for Nx
 };
 
 // Parse KEY=VALUE config file. Lines starting with # are comments.

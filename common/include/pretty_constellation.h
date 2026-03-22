@@ -24,8 +24,7 @@ struct ConstellationConfig {
     int image_size = 256;           // output image width and height (square)
     int max_points = 50000;         // max samples to plot (uniform subsample)
     float range = 0.0f;             // axis range [-range, +range]; 0 = auto from data
-    uint8_t bg_r = 255, bg_g = 255, bg_b = 255;   // background color (white)
-    uint8_t dot_r = 70, dot_g = 130, dot_b = 180;  // dot color (steelblue)
+    uint8_t bg_r = 15, bg_g = 10, bg_b = 5;        // near-black warm background
 };
 
 // Derive constellation path from sc16 path: /dir/capture.sc16 -> /dir/constellation.bmp
@@ -171,18 +170,20 @@ inline bool generate_constellation(const std::string& sc16_path,
         pixels[p * 3 + 2] = cfg.bg_b;
     }
 
-    // Draw axis crosshairs (light gray)
+    // Draw axis crosshairs
     int center = size / 2;
+    uint8_t ax_r = 60, ax_g = 10, ax_b = 5;  // subtle dark red axes
     for (int i = 0; i < size; i++) {
         // Horizontal axis (Q=0)
         int ph = (center * size + i) * 3;
-        pixels[ph + 0] = 220; pixels[ph + 1] = 220; pixels[ph + 2] = 220;
+        pixels[ph + 0] = ax_r; pixels[ph + 1] = ax_g; pixels[ph + 2] = ax_b;
         // Vertical axis (I=0)
         int pv = (i * size + center) * 3;
-        pixels[pv + 0] = 220; pixels[pv + 1] = 220; pixels[pv + 2] = 220;
+        pixels[pv + 0] = ax_r; pixels[pv + 1] = ax_g; pixels[pv + 2] = ax_b;
     }
 
-    // Plot dots with alpha blending (additive darkening on white background)
+    // Plot dots with alpha blending
+    int half = size / 2;
     for (size_t k = 0; k < i_vals.size(); k++) {
         float fi = (float)i_vals[k] / 32768.0f;
         float fq = (float)q_vals[k] / 32768.0f;
@@ -193,11 +194,34 @@ inline bool generate_constellation(const std::string& sc16_path,
 
         if (px < 0 || px >= size || py < 0 || py >= size) continue;
 
+        // DOOM fireball: hot center fading to dark edges
+        float dx = (float)(px - half) / half;
+        float dy = (float)(py - half) / half;
+        float dist = std::sqrt(dx * dx + dy * dy);
+        if (dist > 1.0f) dist = 1.0f;
+
+        uint8_t dr, dg, db;
+        if (dist < 0.15f) {
+            float t = dist / 0.15f;
+            dr = 255; dg = (uint8_t)(255 - t * 30); db = (uint8_t)(200 - t * 120);
+        } else if (dist < 0.3f) {
+            float t = (dist - 0.15f) / 0.15f;
+            dr = 255; dg = (uint8_t)(225 - t * 80); db = (uint8_t)(80 - t * 60);
+        } else if (dist < 0.5f) {
+            float t = (dist - 0.3f) / 0.2f;
+            dr = (uint8_t)(255 - t * 30); dg = (uint8_t)(145 - t * 90); db = (uint8_t)(20 - t * 15);
+        } else if (dist < 0.7f) {
+            float t = (dist - 0.5f) / 0.2f;
+            dr = (uint8_t)(225 - t * 80); dg = (uint8_t)(55 - t * 40); db = 5;
+        } else {
+            float t = (dist - 0.7f) / 0.3f;
+            dr = (uint8_t)(145 - t * 80); dg = (uint8_t)(15 - t * 10); db = (uint8_t)(5 - t * 3);
+        }
+
         int idx = (py * size + px) * 3;
-        // Blend: move pixel color toward dot color by ~30%
-        pixels[idx + 0] = (uint8_t)(pixels[idx + 0] * 0.7f + cfg.dot_r * 0.3f);
-        pixels[idx + 1] = (uint8_t)(pixels[idx + 1] * 0.7f + cfg.dot_g * 0.3f);
-        pixels[idx + 2] = (uint8_t)(pixels[idx + 2] * 0.7f + cfg.dot_b * 0.3f);
+        pixels[idx + 0] = dr;
+        pixels[idx + 1] = dg;
+        pixels[idx + 2] = db;
     }
 
     if (!detail_constellation::write_bmp(output_path, pixels, size, size)) {

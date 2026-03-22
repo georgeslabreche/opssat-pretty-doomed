@@ -66,7 +66,7 @@ SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SR
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
-OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o
+OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o $(BUILDDIR)/postcard.o
 OBJS_MAIN = $(BUILDDIR)/main.o
 
 TARGET = $(BUILDDIR)/pretty-doomed
@@ -130,6 +130,9 @@ $(BUILDDIR)/output.o: $(SRCDIR)/output.cpp $(SRCDIR)/output.h $(SRCDIR)/matcher.
 $(BUILDDIR)/executor.o: $(SRCDIR)/executor.cpp $(SRCDIR)/executor.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(BUILDDIR)/postcard.o: $(SRCDIR)/postcard.cpp $(SRCDIR)/postcard.h $(SRCDIR)/postcard_image.h $(SRCDIR)/postcard_sc16.h $(SRCDIR)/doom_palette.h $(SRCDIR)/bitmap_font.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -DPOSTCARD_USE_FFTW -c $< -o $@
+
 # Objects with external deps
 $(BUILDDIR)/dsp.o: $(SRCDIR)/dsp.cpp $(SRCDIR)/dsp.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
@@ -153,13 +156,17 @@ $(BUILDDIR)/main.o: $(SRCDIR)/main.cpp | $(BUILDDIR)
 # Unit tests - pure C++17 modules only
 #############################################
 
-TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp
+TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp $(TESTDIR)/test_postcard.cpp
 TEST_OBJS = $(patsubst $(TESTDIR)/%.cpp,$(BUILDDIR)/%.o,$(TEST_SRCS))
 
 $(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
 
-$(TEST_TARGET): $(TEST_OBJS) $(OBJS_PURE) | $(BUILDDIR)
+# Test-specific postcard object (no FFTW dependency)
+$(BUILDDIR)/postcard_test.o: $(SRCDIR)/postcard.cpp $(SRCDIR)/postcard.h $(SRCDIR)/postcard_image.h $(SRCDIR)/postcard_sc16.h $(SRCDIR)/doom_palette.h $(SRCDIR)/bitmap_font.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
+
+$(TEST_TARGET): $(TEST_OBJS) $(OBJS_PURE) $(BUILDDIR)/postcard_test.o | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 test: $(TEST_TARGET)
@@ -260,6 +267,9 @@ package-prepare: $(TARGET) doom
 	cp variants.cfg $(PACKAGE_DIR)/
 	cp ascii.txt $(PACKAGE_DIR)/
 	chmod +x $(PACKAGE_DIR)/run
+	# Postcard assets
+	mkdir -p $(PACKAGE_DIR)/assets
+	cp assets/*.png $(PACKAGE_DIR)/assets/
 	# GNU Radio + VOLK + AD9361 libs (pre-built or from /opt/gnuradio)
 	cp -P /app/libs-gnuradio/lib/*.so* $(PACKAGE_DIR)/libs/ 2>/dev/null || \
 	cp -P /opt/gnuradio/lib/*.so* $(PACKAGE_DIR)/libs/
