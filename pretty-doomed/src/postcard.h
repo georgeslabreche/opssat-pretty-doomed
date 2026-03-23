@@ -14,7 +14,7 @@ struct PostcardArgs {
     std::string sc16_path;       // capture.sc16 (empty = skip scatter/spectrogram)
     std::string transcription;   // voice transcription text content
     std::string demo_name;       // e.g., "e1m7-607"
-    std::string timestamp;       // e.g., "COMMAND DETECTED AT 2026-03-21 23:49:07 UTC"
+    std::string timestamp;       // e.g. Georges' birthday, "2026-04-09 12:00:00 UTC"
     std::string logo_esa;        // assets/logo-esa.png
     std::string logo_doom;       // assets/logo-doom.png
     std::string logo_pretty;     // assets/logo-opssat-pretty.png

@@ -187,6 +187,7 @@ static Image load_image(const char* path) {
         int frames = 0, channels;
         uint8_t* data = stbi_load_gif_from_memory(buf.data(), (int)file_size,
             &delays, &img.w, &img.h, &frames, &channels, 4);
+        (void)channels;
         if (!data || frames <= 0) {
             fprintf(stderr, "Warning: cannot load GIF %s: %s\n", path, stbi_failure_reason());
             if (data) stbi_image_free(data);
@@ -207,6 +208,7 @@ static Image load_image(const char* path) {
 
     int channels;
     uint8_t* data = stbi_load(path, &img.w, &img.h, &channels, 4);
+    (void)channels;
     if (!data) {
         fprintf(stderr, "Warning: cannot load %s: %s\n", path, stbi_failure_reason());
         return img;
