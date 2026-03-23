@@ -71,10 +71,6 @@ The `Transcriber` instance is created once at startup and reused across all capt
 
 ## Configuration
 
-All parameters are externalized in two config files, not compiled into the binary.
-
-### Configuration
-
 All config keys use semantic prefixes (`dsp_`, `stt_`, `detect_`, `doom_`, `sdr_`). An `operation` key selects what the voice command triggers (only `doom` for now).
 
 See [CONFIG.md](CONFIG.md) for the full configuration reference.
@@ -135,6 +131,7 @@ Unit tests use [doctest](https://github.com/doctest/doctest), a single-header C+
 | config | `test_config.cpp` | KEY=VALUE parsing, variants parsing, edge cases |
 | executor | `test_executor.cpp` | Demo file discovery, frame resolution, cycling logic |
 | output | `test_output.cpp` | Summary formatting, ASCII art rendering |
+| postcard | `test_postcard.cpp` | Postcard generation, frame discovery, graceful failure handling |
 | dsp | `test_dsp.cpp` | FIR convolution correctness, resampling ratios |
 
 ### Running Tests
@@ -228,6 +225,7 @@ exp4023-pretty-DOOMed-v1/
 ├── opssat-doom             # DOOM binary (static)
 ├── config.cfg
 ├── variants.cfg
+├── assets/                 # Logo images for postcard generation
 ├── libs/                   # Bundled shared libraries (GNU Radio, Boost, etc.)
 ├── models/                 # Speech-to-text models
 │   └── sherpa-onnx/
@@ -252,3 +250,9 @@ exp4023-pretty-DOOMed-v1/
 6. **Externalized config** -- All thresholds, call signs, and variants in text files, not compiled constants. Allows tuning without rebuilding.
 
 7. **Static linking for sherpa-onnx/ONNX Runtime** -- The pre-built `libonnxruntime.so` targets glibc. Loading it at runtime on Alpine/musl causes a segfault due to deep ABI incompatibilities that cannot be resolved with stub libraries. Sherpa-ONNX and ONNX Runtime are built as static libraries (`BUILD_SHARED_LIBS=OFF`) and linked directly into the `pretty-doomed` binary, resolving all ONNX Runtime symbols at link time via glibc compatibility stubs (`glibc_compat.o`). GNU Radio and other dependencies remain as bundled shared libraries.
+
+8. **Operation feature flag** -- The `operation` config key selects what the voice command triggers. Currently only `doom` is implemented, but the architecture supports future operations (each with its own prefixed config keys).
+
+9. **DOOM-themed postcard** -- After each DOOM run, a composite postcard image is generated using the DOOM PLAYPAL palette. Includes gameplay frame, I/Q blood splatter, FFTW spectrogram, logos, and run metadata. Configurable via `doom_enable_postcard` and `doom_postcard_scale`.
+
+10. **DOOM fireball constellation** -- The I/Q constellation BMP uses a radial color gradient inspired by DOOM fireballs: white-hot center fading through orange and blood red to dark maroon at the edges.
