@@ -73,34 +73,50 @@ static void write_demo_index(const std::string& state_file, size_t next_idx) {
     }
 }
 
+// Resolve a random frame spec to a frame number.
+std::string resolve_random(const std::string& demo,
+                                   const std::unordered_map<std::string, int>& maxframes_map) {
+    auto it = maxframes_map.find(demo);
+    int maxf = (it != maxframes_map.end()) ? it->second : 500;
+    int lo = 100;
+    int hi = std::max(lo + 1, maxf - 50);
+    srand(static_cast<unsigned>(time(nullptr)));
+    int frame = lo + rand() % (hi - lo + 1);
+    return std::to_string(frame);
+}
+
 // Resolve a frames spec for a given demo run.
-// "-1" → random frame in [100, maxframes-50].
-// Comma-separated integers (no dashes) → cycle through list by run_cycle.
-// Otherwise → pass through unchanged (single number or GIF ranges).
-static std::string resolve_frames(const std::string& spec,
+// Comma-separated specs cycle through across runs. Each item can be:
+//   "-1"       = random frame (requires doom_maxframes_<demo>)
+//   "N-M"      = GIF range (dash range)
+//   "N"        = single frame snapshot
+std::string resolve_frames(const std::string& spec,
                                    const std::string& demo,
                                    size_t run_cycle,
                                    const std::unordered_map<std::string, int>& maxframes_map) {
+    // Single "-1" (no comma) -> random
     if (spec == "-1") {
-        auto it = maxframes_map.find(demo);
-        int maxf = (it != maxframes_map.end()) ? it->second : 500;
-        int lo = 100;
-        int hi = std::max(lo + 1, maxf - 50);
-        srand(static_cast<unsigned>(time(nullptr)));
-        int frame = lo + rand() % (hi - lo + 1);
-        return std::to_string(frame);
+        return resolve_random(demo, maxframes_map);
     }
 
-    // Comma-separated list without dashes → cycling list
-    if (spec.find('-') == std::string::npos && spec.find(',') != std::string::npos) {
+    // Comma-separated -> cycle through items
+    if (spec.find(',') != std::string::npos) {
         std::vector<std::string> items;
         std::istringstream ss(spec);
         std::string token;
         while (std::getline(ss, token, ',')) {
+            // Trim whitespace
+            while (!token.empty() && token[0] == ' ') token.erase(0, 1);
+            while (!token.empty() && token.back() == ' ') token.pop_back();
             if (!token.empty()) items.push_back(token);
         }
         if (!items.empty()) {
-            return items[run_cycle % items.size()];
+            std::string picked = items[run_cycle % items.size()];
+            // Resolve "-1" within a cycling list
+            if (picked == "-1") {
+                return resolve_random(demo, maxframes_map);
+            }
+            return picked;
         }
     }
 
