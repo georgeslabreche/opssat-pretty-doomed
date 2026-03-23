@@ -62,3 +62,40 @@ TEST_CASE("find_demo_files nonexistent directory") {
     auto demos = find_demo_files("/tmp/nonexistent_dir_12345");
     CHECK(demos.empty());
 }
+
+TEST_CASE("resolve_frames single -1 returns random frame") {
+    std::unordered_map<std::string, int> maxframes = {{"test", 1000}};
+    std::string result = resolve_frames("-1", "test", 0, maxframes);
+    int frame = std::stoi(result);
+    CHECK(frame >= 100);
+    CHECK(frame <= 950);
+}
+
+TEST_CASE("resolve_frames cycling integers") {
+    std::unordered_map<std::string, int> maxframes;
+    CHECK(resolve_frames("400,300,500", "test", 0, maxframes) == "400");
+    CHECK(resolve_frames("400,300,500", "test", 1, maxframes) == "300");
+    CHECK(resolve_frames("400,300,500", "test", 2, maxframes) == "500");
+    CHECK(resolve_frames("400,300,500", "test", 3, maxframes) == "400"); // wraps
+}
+
+TEST_CASE("resolve_frames cycling with dash ranges") {
+    std::unordered_map<std::string, int> maxframes = {{"test", 4096}};
+    CHECK(resolve_frames("646-675,2324-2353,-1", "test", 0, maxframes) == "646-675");
+    CHECK(resolve_frames("646-675,2324-2353,-1", "test", 1, maxframes) == "2324-2353");
+    // run_cycle 2 picks "-1" which resolves to a random frame
+    std::string random = resolve_frames("646-675,2324-2353,-1", "test", 2, maxframes);
+    int frame = std::stoi(random);
+    CHECK(frame >= 100);
+    CHECK(frame <= 4046);
+}
+
+TEST_CASE("resolve_frames single range passes through") {
+    std::unordered_map<std::string, int> maxframes;
+    CHECK(resolve_frames("7992-8025", "test", 0, maxframes) == "7992-8025");
+}
+
+TEST_CASE("resolve_frames single number passes through") {
+    std::unordered_map<std::string, int> maxframes;
+    CHECK(resolve_frames("500", "test", 0, maxframes) == "500");
+}
