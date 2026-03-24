@@ -42,6 +42,7 @@ struct PipelineConfig {
     bool doom_force_trigger = false;
     bool doom_enable_postcard = true;
     int doom_postcard_scale = 1;
+    std::string doom_assets_dir = "assets";
 
     // SDR: capture settings
     long long sdr_frequency = 1296000000;

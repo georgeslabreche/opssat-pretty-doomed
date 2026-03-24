@@ -50,6 +50,7 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "doom_force_trigger") cfg.doom_force_trigger = (value == "true" || value == "1");
     else if (key == "doom_enable_postcard") cfg.doom_enable_postcard = (value == "true" || value == "1");
     else if (key == "doom_postcard_scale") cfg.doom_postcard_scale = std::max(1, std::stoi(value));
+    else if (key == "doom_assets_dir") cfg.doom_assets_dir = value;
     // SDR
     else if (key == "sdr_frequency") cfg.sdr_frequency = std::stoll(value);
     else if (key == "sdr_rate") cfg.sdr_rate = std::stol(value);

@@ -190,21 +190,15 @@ bool process_wav(const std::string& input_file,
         if (cfg.doom_enable_postcard && !doom_result.demo_dir.empty()) {
             std::string frame = find_doom_frame(doom_result.demo_dir);
             if (!frame.empty()) {
-                // Derive assets dir from config_file path
-                std::string cfg_dir = config_file;
-                auto cpos = cfg_dir.find_last_of('/');
-                std::string base_dir = (cpos != std::string::npos)
-                    ? cfg_dir.substr(0, cpos + 1) : "";
-
                 PostcardArgs pargs;
                 pargs.frame_path = frame;
                 pargs.sc16_path = sc16_path;
                 pargs.transcription = transcript;
                 pargs.demo_name = doom_result.demo_name;
                 pargs.timestamp = det_ts;
-                pargs.logo_esa = base_dir + "assets/logo-esa.png";
-                pargs.logo_doom = base_dir + "assets/logo-doom.png";
-                pargs.logo_pretty = base_dir + "assets/logo-opssat-pretty.png";
+                pargs.logo_esa = cfg.doom_assets_dir + "/logo-esa.png";
+                pargs.logo_doom = cfg.doom_assets_dir + "/logo-doom.png";
+                pargs.logo_pretty = cfg.doom_assets_dir + "/logo-opssat-pretty.png";
                 pargs.output_path = output_dir + "/postcard.png";
                 pargs.scale = cfg.doom_postcard_scale;
 

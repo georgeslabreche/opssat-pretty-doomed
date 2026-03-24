@@ -325,6 +325,29 @@ package-tar:
 	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"
 	@ls -lh package/$(PACKAGE_NAME).tar.gz
 
+# Incremental patch package: only changed files.
+# Requires package-prepare to have been run first.
+# Usage: make package-patch PATCH_FROM=v1 PACKAGE_VERSION=v2 PATCH_FILES="run pretty-doomed config.cfg"
+PATCH_FROM ?= v1
+PATCH_FILES ?=
+PATCH_NAME = exp4023-pretty-DOOMed-$(PATCH_FROM)-to-$(PACKAGE_VERSION)
+package-patch:
+	@if [ -z "$(PATCH_FILES)" ]; then \
+		echo "Error: PATCH_FILES not set."; \
+		echo "Usage: make package-patch PATCH_FROM=v1 PACKAGE_VERSION=v2 PATCH_FILES=\"run pretty-doomed config.cfg\""; \
+		exit 1; \
+	fi
+	@for f in $(PATCH_FILES); do \
+		if [ ! -e "$(PACKAGE_DIR)/$$f" ]; then \
+			echo "Error: $(PACKAGE_DIR)/$$f not found. Run package-prepare first."; \
+			exit 1; \
+		fi; \
+	done
+	cd $(PACKAGE_DIR) && COPYFILE_DISABLE=1 tar --owner=exp --group=exp \
+		-czvf ../$(PATCH_NAME).tar.gz $(PATCH_FILES)
+	@echo "Patch created: package/$(PATCH_NAME).tar.gz"
+	@ls -lh package/$(PATCH_NAME).tar.gz
+
 #############################################
 # Infrastructure
 #############################################

@@ -28,6 +28,35 @@ DEMOS="${SCRIPT_DIR}/demos"
 
 mkdir -p "$TOGROUND"
 
+# --- Resource monitor: per-core CPU + memory to CSV every second ---
+start_monitor() {
+    _DIR="$1"
+    _TIMEOUT="${2:-3600}"
+    _PARENT=$$
+    echo "epoch,timestamp,cpu0_user,cpu0_nice,cpu0_system,cpu0_idle,cpu0_iowait,cpu1_user,cpu1_nice,cpu1_system,cpu1_idle,cpu1_iowait,mem_total_kb,mem_available_kb,mem_free_kb" > "$_DIR/resource.csv"
+    {
+        _ELAPSED=0
+        while [ $_ELAPSED -lt $_TIMEOUT ]; do
+            # Exit if parent process died (orphan guard)
+            kill -0 $_PARENT 2>/dev/null || break
+            _EPOCH=$(date '+%s')
+            _TS=$(date '+%Y-%m-%d %H:%M:%S')
+            _CPU0=$(awk '/^cpu0/ {print $2","$3","$4","$5","$6}' /proc/stat)
+            _CPU1=$(awk '/^cpu1/ {print $2","$3","$4","$5","$6}' /proc/stat)
+            _MEM=$(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} /MemFree/{f=$2} END{print t","a","f}' /proc/meminfo)
+            echo "$_EPOCH,$_TS,$_CPU0,$_CPU1,$_MEM"
+            sleep 1
+            _ELAPSED=$((_ELAPSED + 1))
+        done
+    } >> "$_DIR/resource.csv" 0<&- &
+    echo $!
+}
+
+stop_monitor() {
+    kill "$1" 2>/dev/null
+    wait "$1" 2>/dev/null
+}
+
 # --- Helper: next run ID ---
 next_run_id() {
     LAST_RUN=0
@@ -48,6 +77,7 @@ if [ -f "$WAV_FILE" ]; then
     RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
     mkdir -p "$RUN_DIR"
     echo "Run $(printf '%05d' "$RUNID"): georges_01.wav (file input)"
+    MON_PID=$(start_monitor "$RUN_DIR" 3600)
     ${PRETTY_DOOMED} \
         -i "$WAV_FILE" \
         -c "$CONFIG" \
@@ -55,51 +85,55 @@ if [ -f "$WAV_FILE" ]; then
         -o "$RUN_DIR" \
         -d "$DEMOS" \
         -e "${DOOM_BINARY}"
+    stop_monitor "$MON_PID"
 fi
 
 # --- Phase 2: SDR capture, sequential mode (2 x 20s) ---
-RUNID=$(next_run_id)
-RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
-mkdir -p "$RUN_DIR"
-echo "Run $(printf '%05d' "$RUNID"): SDR capture (sequential, 2x20s)"
+# Append overrides (last value wins in config parser)
+cat >> "$CONFIG" <<EOF
 
-# Create config with overrides
-cp -f "$CONFIG" "$RUN_DIR/config.cfg"
-cat >> "$RUN_DIR/config.cfg" <<EOF
-
-# Run overrides
+# Phase 2 overrides
 sdr_captures=2
 process_mode=sequential
 doom_force_trigger=true
 EOF
 
+RUNID=$(next_run_id)
+RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$RUN_DIR"
+echo "Run $(printf '%05d' "$RUNID"): SDR capture (sequential, 2x20s)"
+MON_PID=$(start_monitor "$RUN_DIR" 3600)
+
 ${PRETTY_DOOMED} \
     -s \
-    -c "$RUN_DIR/config.cfg" \
+    -c "$CONFIG" \
     -f "$VARIANTS" \
     -o "$RUN_DIR" \
     -d "$DEMOS" \
     -e "${DOOM_BINARY}"
 
+stop_monitor "$MON_PID"
+
 # --- Phase 3: SDR capture, background mode (2 x 20s) ---
+# Append overrides (overrides Phase 2's process_mode)
+cat >> "$CONFIG" <<EOF
+
+# Phase 3 overrides
+process_mode=background
+EOF
+
 RUNID=$(next_run_id)
 RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
 mkdir -p "$RUN_DIR"
 echo "Run $(printf '%05d' "$RUNID"): SDR capture (background, 2x20s)"
-
-cp -f "$CONFIG" "$RUN_DIR/config.cfg"
-cat >> "$RUN_DIR/config.cfg" <<EOF
-
-# Run overrides
-sdr_captures=2
-process_mode=background
-doom_force_trigger=true
-EOF
+MON_PID=$(start_monitor "$RUN_DIR" 3600)
 
 ${PRETTY_DOOMED} \
     -s \
-    -c "$RUN_DIR/config.cfg" \
+    -c "$CONFIG" \
     -f "$VARIANTS" \
     -o "$RUN_DIR" \
     -d "$DEMOS" \
     -e "${DOOM_BINARY}"
+
+stop_monitor "$MON_PID"
