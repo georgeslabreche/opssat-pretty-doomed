@@ -15,6 +15,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <memory>
 #include <getopt.h>
 
 #include <csignal>
@@ -165,13 +166,6 @@ int main(int argc, char** argv) {
         log_info() << "  Variants: " << variants.size() << " entries\n";
     }
 
-    // Load STT model once (reused across all captures/processing)
-    Transcriber stt(cfg);
-    if (!stt.is_ready()) {
-        log_error() << "STT model failed to load\n";
-        return 1;
-    }
-
     bool any_detected = false;
 
     if (args.sdr_capture) {
@@ -181,6 +175,17 @@ int main(int argc, char** argv) {
 
         log_info() << "SDR Capture mode: " << num_captures << " capture(s) of "
                    << cfg.sdr_duration << "s, processing=" << cfg.process_mode << "\n";
+
+        // Background mode: load STT before captures (needed for overlapped processing).
+        // Sequential mode: defer loading until after all captures complete.
+        std::unique_ptr<Transcriber> stt;
+        if (background) {
+            stt = std::make_unique<Transcriber>(cfg);
+            if (!stt->is_ready()) {
+                log_error() << "STT model failed to load\n";
+                return 1;
+            }
+        }
 
         // Helper: process a capture's WAV with log redirection (thread-safe)
         auto do_process = [&](int idx, const CaptureResult& cap) -> bool {
@@ -195,7 +200,7 @@ int main(int argc, char** argv) {
             FILE* fp = freopen((capture_dir + "/run.log").c_str(), "a", stdout);
             if (fp) dup2(fileno(stdout), fileno(stderr));
 
-            bool detected = process_wav(cap.wav_path, capture_dir, cfg, variants, stt,
+            bool detected = process_wav(cap.wav_path, capture_dir, cfg, variants, *stt,
                                         args.config_file, args.doom_binary, args.demos_dir,
                                         cap.sc16_path);
 
@@ -280,7 +285,13 @@ int main(int argc, char** argv) {
         }
 
         if (!background) {
-            // Sequential: process all captures now
+            // Sequential: load STT model now (deferred from before captures)
+            stt = std::make_unique<Transcriber>(cfg);
+            if (!stt->is_ready()) {
+                log_error() << "STT model failed to load\n";
+                return 1;
+            }
+
             log_info() << "All captures complete, processing " << captures.size() << " WAV(s)\n";
 
             for (size_t i = 0; i < captures.size() && g_running; i++) {
@@ -295,8 +306,13 @@ int main(int argc, char** argv) {
             }
         }
     } else {
-        // Single file mode
-        any_detected = process_wav(args.input_file, args.output_dir, cfg, variants, stt,
+        // Single file mode: load STT and process
+        Transcriber stt_file(cfg);
+        if (!stt_file.is_ready()) {
+            log_error() << "STT model failed to load\n";
+            return 1;
+        }
+        any_detected = process_wav(args.input_file, args.output_dir, cfg, variants, stt_file,
                                    args.config_file, args.doom_binary, args.demos_dir);
     }
 

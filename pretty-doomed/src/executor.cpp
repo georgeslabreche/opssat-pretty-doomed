@@ -238,13 +238,17 @@ DoomResult run_doom(const std::string& doom_binary,
         return {0, "", ""};
     }
 
-    // Cycle through demos: pick one per run via state file
-    std::string parent_dir = output_dir;
-    auto slash = parent_dir.find_last_of('/');
-    if (slash != std::string::npos) {
-        parent_dir = parent_dir.substr(0, slash);
+    // Cycle through demos: state file at toGround/ level (shared across runs)
+    std::string state_dir = output_dir;
+    // Walk up past capture-NNN and run-NNNNN directories to reach toGround/
+    for (int i = 0; i < 3; i++) {
+        auto slash = state_dir.find_last_of('/');
+        if (slash == std::string::npos) break;
+        std::string dirname = state_dir.substr(slash + 1);
+        if (dirname.find("capture-") != 0 && dirname.find("run-") != 0) break;
+        state_dir = state_dir.substr(0, slash);
     }
-    std::string state_file = parent_dir + "/doom_demo_index.txt";
+    std::string state_file = state_dir + "/doom_demo_index.txt";
 
     size_t raw_idx = read_demo_index(state_file);
     size_t demo_idx = raw_idx % demos.size();
