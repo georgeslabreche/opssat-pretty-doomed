@@ -1,0 +1,50 @@
+[2026-03-24 17:26:13.706] === Capture 2/3 ===
+[2026-03-24 17:26:13.706] SDR Capture: 20s at 200000 Hz effective
+[2026-03-24 17:26:13.706]   Frequency:   1296 MHz
+[2026-03-24 17:26:13.706]   SDR rate:    2400000 Hz, decimation 12x
+[2026-03-24 17:26:13.707]   I/Q samples: 4000000, audio samples: 320000
+[2026-03-24 17:26:13.707]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-03-24 17:26:13.707]   LPF taps: 385, bandpass taps: 193
+[2026-03-24 17:26:13.787] AD9361 RX config written via libiio
+[2026-03-24 17:26:13.788] AD9361 RX LO readback: 1295999998 Hz
+[2026-03-24 17:26:13.788] WARNING: RX LO mismatch — requested 1296000000 Hz, got 1295999998 Hz
+[2026-03-24 17:26:13.789] AD9361 sample rate readback: 2400000 Hz
+[2026-03-24 17:26:13.789] AD9361 RX RF bandwidth readback: 200000 Hz
+[2026-03-24 17:26:13.789] AD9361 RX gain control mode: manual
+[2026-03-24 17:26:13.790] AD9361 RX hardware gain: 50.000000 dB
+[2026-03-24 17:26:13.790] AD9361 RX RSSI: 84.50 dB
+[2026-03-24 17:26:13.791] Building flowgraph...
+[2026-03-24 17:26:13.817] Starting capture...
+[2026-03-24 17:26:13.831] Timeout: 110s (5x duration + 10)
+[2026-03-24 17:26:18.840] Progress [5s]: I/Q 396500/4000000, audio 31686/320000
+[2026-03-24 17:26:23.848] Progress [10s]: I/Q 805350/4000000, audio 64342/320000
+[2026-03-24 17:26:28.858] Progress [15s]: I/Q 1206400/4000000, audio 96478/320000
+[2026-03-24 17:26:33.868] Progress [20s]: I/Q 1607450/4000000, audio 128562/320000
+[2026-03-24 17:26:38.877] Progress [25s]: I/Q 2007850/4000000, audio 160594/320000
+[2026-03-24 17:26:43.884] Progress [30s]: I/Q 2412150/4000000, audio 192938/320000
+[2026-03-24 17:26:48.892] Progress [35s]: I/Q 2808650/4000000, audio 224658/320000
+[2026-03-24 17:26:53.901] Progress [40s]: I/Q 3193791/4000000, audio 255469/320000
+[2026-03-24 17:26:58.907] Progress [45s]: I/Q 3562341/4000000, audio 284953/320000
+[2026-03-24 17:27:03.912] Progress [50s]: I/Q 3949091/4000000, audio 315841/320000
+[2026-03-24 17:27:05.113] Capture complete (I/Q: 4000000/4000000, audio: 320000/320000, 50s)
+[2026-03-24 17:27:05.213] Normalizing audio...
+[2026-03-24 17:27:05.228] RMS normalize: rms=0.577991, scale=0.173013, target=-20 dBFS
+[2026-03-24 17:27:05.412] IQ diag:  4000000 samples analyzed
+[2026-03-24 17:27:05.412] IQ RMS:   I=1154.49 (-17.02 dBFS)  Q=679.296 (-21.6266 dBFS)
+[2026-03-24 17:27:05.413] IQ zeros: I=0.073675%  Q=0.079125%
+[2026-03-24 17:27:05.594] Spectrogram: 1024x256 (768 KB), 20s, freq res 781.25 Hz
+[2026-03-24 17:27:05.686] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-03-24 17:27:05.687] SDR capture OK
+[2026-03-24 17:28:57.207] --- Processing: /home/exp/toGround/run-00002/capture-002/capture.wav ---
+[2026-03-24 17:28:57.207] Reading audio: /home/exp/toGround/run-00002/capture-002/capture.wav
+[2026-03-24 17:28:57.219]   16000 Hz, 320000 samples (20s)
+[2026-03-24 17:28:57.224] Filtering (GNU Radio)...
+[2026-03-24 17:28:58.280] Resampling to 16 kHz...
+[2026-03-24 17:28:58.286]   320000 samples, DSP time: 1.0s
+[2026-03-24 17:28:58.286] Transcribing (modified_beam_search)...
+[2026-03-24 17:29:34.135]   STT time: 35.8s
+[2026-03-24 17:29:34.135]   Transcription:  AND I
+[2026-03-24 17:29:34.136] Detecting command...
+[2026-03-24 17:29:34.136]   Wake word: 0 (exact=0, approx=0)
+[2026-03-24 17:29:34.137] No command detected.
+[2026-03-24 17:29:34.137] Pipeline time: 36.9s (DSP + STT + detection)

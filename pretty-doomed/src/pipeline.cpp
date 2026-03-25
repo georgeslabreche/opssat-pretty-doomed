@@ -209,6 +209,31 @@ bool process_wav(const std::string& input_file,
                 log_warning() << "No DOOM frame found, skipping postcard\n";
             }
         }
+
+        // Append to toGround/results.txt
+        {
+            // Walk up from output_dir past capture-NNN and run-NNNNN to reach toGround/
+            std::string results_dir = output_dir;
+            for (int i = 0; i < 3; i++) {
+                auto slash = results_dir.find_last_of('/');
+                if (slash == std::string::npos) break;
+                std::string dirname = results_dir.substr(slash + 1);
+                if (dirname.find("capture-") != 0 && dirname.find("run-") != 0) break;
+                results_dir = results_dir.substr(0, slash);
+            }
+            std::string results_path = results_dir + "/results.txt";
+            std::ofstream results(results_path, std::ios::app);
+            if (results) {
+                std::string trigger_type = totals.command_detected ? "detected" : "force";
+                results << det_ts
+                        << " | " << output_dir
+                        << " | demo=" << doom_result.demo_name
+                        << " | trigger=" << trigger_type
+                        << " | failures=" << doom_result.failures
+                        << " | transcript=" << transcript
+                        << "\n";
+            }
+        }
     } else if (trigger) {
         log_warning() << "Unknown operation: " << cfg.operation << "\n";
     } else {

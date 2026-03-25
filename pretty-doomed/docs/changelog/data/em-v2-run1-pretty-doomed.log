@@ -1,0 +1,53 @@
+[2026-03-24 17:24:10.935] === PRETTY DOOMed ===
+[2026-03-24 17:24:10.935] Loading config: /home/exp/config.cfg
+[2026-03-24 17:24:10.937] Loading STT model...
+[2026-03-24 17:24:10.937]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-03-24 17:24:10.937]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-03-24 17:24:10.937]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-03-24 17:24:10.937]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-03-24 17:24:27.521] STT model loaded (16583 ms)
+[2026-03-24 17:24:27.521] --- Processing: /home/exp/input/georges_01.wav ---
+[2026-03-24 17:24:27.521] Reading audio: /home/exp/input/georges_01.wav
+[2026-03-24 17:24:27.541]   48000 Hz, 514048 samples (10.7093s)
+[2026-03-24 17:24:27.550] Filtering (GNU Radio)...
+[2026-03-24 17:24:32.401] Resampling to 16 kHz...
+[2026-03-24 17:24:32.419]   171349 samples, DSP time: 4.8s
+[2026-03-24 17:24:32.420] Transcribing (modified_beam_search)...
+[2026-03-24 17:24:51.126]   STT time: 18.7s
+[2026-03-24 17:24:51.127]   Transcription:  PRETTY THIS IS GEORGE PLAY DOOM PLAY DOOM PLAY DOOM PRETTY THIS IS GEORGE PLAY DOOM PLAY DOOM PLAY DOOM
+[2026-03-24 17:24:51.127] Detecting command...
+[2026-03-24 17:24:51.129]   Wake word: 2 (exact=2, approx=0)
+[2026-03-24 17:24:51.129]   Command [DOOM]: 6 (exact=6, approx=0)
+[2026-03-24 17:24:51.129]   Command [PLAY DOOM]: 6 (exact=6, approx=0)
+[2026-03-24 17:24:51.130] Command detected! Launching DOOM...
+=================     ===============     ===============   ========  ========
+\\ . . . . . . .\\   //. . . . . . .\\   //. . . . . . .\\  \\. . .\\// . . //
+||. . ._____. . .|| ||. . ._____. . .|| ||. . ._____. . .|| || . . .\/ . . .||
+|| . .||   ||. . || || . .||   ||. . || || . .||   ||. . || ||. . . . . . . ||
+||. . ||   || . .|| ||. . ||   || . .|| ||. . ||   || . .|| || . | . . . . .||
+|| . .||   ||. _-|| ||-_ .||   ||. . || || . .||   ||. _-|| ||-_.|\ . . . . ||
+||. . ||   ||-’  || ||  ‘-||   || . .|| ||. . ||   ||-’  || ||  ‘|\_ . .|. .||
+|| . _||   ||    || ||    ||   ||_ . || || . _||   ||    || ||   |\ ‘-_/| . ||
+||_-’ ||  .|/    || ||    \|.  || ‘-_|| ||_-’ ||  .|/    || ||   | \  / |-_.||
+||    ||_-’      || ||      ‘-_||    || ||    ||_-’      || ||   | \  / |  ‘||
+||    ‘’         || ||         ‘’    || ||    ‘’         || ||   | \  / |   ||
+||            .===’ ‘===.         .===’.‘===.         .===’ /==. |  \/  |   ||
+||         .==’   \_|-_ ‘===. .===’   _|_   ‘===. .===’ _-|/   ‘==  \/  |   ||
+||      .==’    _-’    ‘-_  ‘=’    _-’   ‘-_    ‘=’  _-’   ‘-_  /|  \/  |   ||
+||   .==’    _-’          ‘-__\._-’         ‘-_./__-’         ‘’ |. /|  |   ||
+||.==’    _-’                                                     ‘’ |  /==.||
+==’    _-’                                                            \/   ‘==
+\   _-’                                                                ‘-_   /
+ ‘’’                                                                      ‘‘’
+[2026-03-24 17:24:51]   Running DOOM demo: gl-e1m2b (1/7)
+[2026-03-24 17:25:10]   Completed demo: gl-e1m2b
+[2026-03-24 17:25:10.322] Generating postcard (scale=2)...
+[2026-03-24 17:25:10.322]   Frame: /home/exp/toGround/run-00001/gl-e1m2b/frames-000480-000540.gif
+[2026-03-24 17:25:10.322]   SC16:  none (scatter/spectrogram skipped)
+  GIF: 61 frames, picked frame 47
+[2026-03-24 17:25:17.481] Postcard: /home/exp/toGround/run-00001/postcard.png (2520x1900), 7.15971s
+[2026-03-24 17:25:17.489] Pipeline time: 49.9s (DSP + STT + detection)
+[2026-03-24 17:25:17.491] Unloading STT model...
+[2026-03-24 17:25:17.642] STT model unloaded
+[2026-03-24 17:25:17.642] Total time: 66.7s
+[2026-03-24 17:25:17.642] === Done ===

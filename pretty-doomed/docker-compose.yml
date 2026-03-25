@@ -6,6 +6,7 @@ services:
       - ./src:/app/src
       - ../common:/app/common
       - ./tests:/app/tests
+      - ./VERSION:/app/VERSION
       - ./Makefile:/app/Makefile
       - ./build/local:/app/build/local
       - ./models:/app/models
