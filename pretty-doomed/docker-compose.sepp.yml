@@ -9,6 +9,7 @@ services:
       - ./tests:/app/tests
       - ../common:/app/common
       - ../sandbox/gnuradio/build-libs-armv7/output:/app/libs-gnuradio
+      - ./VERSION:/app/VERSION
       - ./Makefile:/app/Makefile
       - ./build/local:/app/build/local
       - ./build/sepp:/app/build/sepp

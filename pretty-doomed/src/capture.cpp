@@ -89,6 +89,7 @@ bool run_capture(const PipelineConfig& cfg,
     long long audio_samples = (iq_samples / (long long)decimation) * (long long)interpolation;
     double duration_sec = (double)iq_samples / effective_rate;
 
+    log_info() << "Configuring SDR...\n";
     log_info() << "SDR Capture: " << duration_sec << "s at " << effective_rate << " Hz effective\n";
     log_info() << "  Frequency:   " << cfg.sdr_frequency / 1e6 << " MHz\n";
     log_info() << "  SDR rate:    " << cfg.sdr_rate << " Hz, decimation " << cfg.sdr_decimation << "x\n";
@@ -258,6 +259,7 @@ bool run_capture(const PipelineConfig& cfg,
         log_info() << "Received signal " << g_signal_received << ", stopping...\n";
     }
 
+    log_info() << "Stopping flowgraph...\n";
     tb->stop();
 
     // Wait for flowgraph with grace period
@@ -285,14 +287,12 @@ bool run_capture(const PipelineConfig& cfg,
 
     bool early_stop = timed_out || interrupted;
 
-    // Post-processing: RMS normalize
-    log_info() << "Normalizing audio...\n";
-    if (!rms_normalize(wav_file, -20.0)) {
-        log_warning() << "Audio normalization failed\n";
-    }
-
-    // I/Q diagnostics
-    {
+    // I/Q artifact generation (diagnostics, spectrogram, constellation)
+    auto generate_artifacts = [
+        iq_file, effective_rate,
+        enable_spec = cfg.sdr_enable_spectrogram,
+        enable_const = cfg.sdr_enable_constellation
+    ]() {
         Sc16Stats iq_stats = analyze_sc16(iq_file);
         if (iq_stats.valid) {
             double rms_i_db = (iq_stats.rms_i > 0) ? 20.0 * std::log10(iq_stats.rms_i / IQ_SCALE) : -999.0;
@@ -304,20 +304,38 @@ bool run_capture(const PipelineConfig& cfg,
             double zero_pct_q = 100.0 * iq_stats.zero_q / iq_stats.samples;
             log_info() << "IQ zeros: I=" << zero_pct_i << "%  Q=" << zero_pct_q << "%\n";
         }
-    }
 
-    // Generate BMP artifacts
-    if (cfg.sdr_enable_spectrogram) {
-        std::string spec_file = make_spectrogram_filename(iq_file);
-        if (!generate_spectrogram(iq_file, spec_file, (long long)effective_rate)) {
-            log_warning() << "Spectrogram generation failed\n";
+        if (enable_spec) {
+            std::string spec_file = make_spectrogram_filename(iq_file);
+            log_info() << "Spectrogram: " << spec_file << "\n";
+            if (!generate_spectrogram(iq_file, spec_file, (long long)effective_rate)) {
+                log_warning() << "Spectrogram generation failed\n";
+            }
         }
-    }
-    if (cfg.sdr_enable_constellation) {
-        std::string const_file = make_constellation_filename(iq_file);
-        if (!generate_constellation(iq_file, const_file)) {
-            log_warning() << "Constellation generation failed\n";
+        if (enable_const) {
+            std::string const_file = make_constellation_filename(iq_file);
+            log_info() << "Constellation: " << const_file << "\n";
+            if (!generate_constellation(iq_file, const_file)) {
+                log_warning() << "Constellation generation failed\n";
+            }
         }
+    };
+
+    // Normalize audio
+    log_info() << "Normalizing audio...\n";
+
+    if (cfg.process_mode == "background") {
+        // Background mode: artifacts run async, can overlap with pipeline processing
+        result.artifact_future = std::async(std::launch::async, generate_artifacts).share();
+        if (!rms_normalize(wav_file, -20.0)) {
+            log_warning() << "Audio normalization failed\n";
+        }
+    } else {
+        // Sequential mode: normalize then artifacts inline
+        if (!rms_normalize(wav_file, -20.0)) {
+            log_warning() << "Audio normalization failed\n";
+        }
+        generate_artifacts();
     }
 
     result.wav_path = wav_file;

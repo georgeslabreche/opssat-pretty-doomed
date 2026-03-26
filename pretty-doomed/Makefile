@@ -6,7 +6,8 @@
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
 
-PACKAGE_VERSION ?= v1
+APP_VERSION := $(shell cat VERSION 2>/dev/null || echo 0)
+PACKAGE_VERSION ?= v$(APP_VERSION)
 PACKAGE_NAME = exp4023-pretty-DOOMed-$(PACKAGE_VERSION)
 
 # Shared headers from common/ (Docker: /app/common, CI/local: ../common)
@@ -128,7 +129,7 @@ $(BUILDDIR)/output.o: $(SRCDIR)/output.cpp $(SRCDIR)/output.h $(SRCDIR)/matcher.
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILDDIR)/executor.o: $(SRCDIR)/executor.cpp $(SRCDIR)/executor.h | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/postcard.o: $(SRCDIR)/postcard.cpp $(SRCDIR)/postcard.h $(SRCDIR)/postcard_image.h $(SRCDIR)/postcard_sc16.h $(SRCDIR)/doom_palette.h $(SRCDIR)/bitmap_font.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -DPOSTCARD_USE_FFTW -c $< -o $@
@@ -149,8 +150,8 @@ $(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h | $(BUILDDIR)
 $(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/audio_io.h $(SRCDIR)/dsp.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/transcriber.h | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
+$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -DAPP_VERSION=$(APP_VERSION) -c $< -o $@
 
 #############################################
 # Unit tests - pure C++17 modules only
@@ -263,6 +264,7 @@ package-prepare: $(TARGET) doom
 	upx --best $(PACKAGE_DIR)/opssat-doom
 	# Config + scripts
 	cp run $(PACKAGE_DIR)/
+	cp VERSION $(PACKAGE_DIR)/
 	cp config.cfg $(PACKAGE_DIR)/
 	cp variants.cfg $(PACKAGE_DIR)/
 	cp ascii.txt $(PACKAGE_DIR)/
@@ -327,14 +329,14 @@ package-tar:
 
 # Incremental patch package: only changed files.
 # Requires package-prepare to have been run first.
-# Usage: make package-patch PATCH_FROM=v1 PACKAGE_VERSION=v2 PATCH_FILES="run pretty-doomed config.cfg"
-PATCH_FROM ?= v1
+# Usage: make package-patch PATCH_FROM=v2 PACKAGE_VERSION=v3 PATCH_FILES="run pretty-doomed config.cfg"
+PATCH_FROM ?= v2
 PATCH_FILES ?=
 PATCH_NAME = exp4023-pretty-DOOMed-$(PATCH_FROM)-to-$(PACKAGE_VERSION)
 package-patch:
 	@if [ -z "$(PATCH_FILES)" ]; then \
 		echo "Error: PATCH_FILES not set."; \
-		echo "Usage: make package-patch PATCH_FROM=v1 PACKAGE_VERSION=v2 PATCH_FILES=\"run pretty-doomed config.cfg\""; \
+		echo "Usage: make package-patch PATCH_FROM=v2 PACKAGE_VERSION=v3 PATCH_FILES=\"run pretty-doomed config.cfg\""; \
 		exit 1; \
 	fi
 	@for f in $(PATCH_FILES); do \

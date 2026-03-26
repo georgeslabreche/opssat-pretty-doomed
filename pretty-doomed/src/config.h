@@ -27,6 +27,7 @@ struct PipelineConfig {
     std::string stt_model_tokens;
     std::string stt_decoding_method = "modified_beam_search";
     int stt_num_threads = 1;
+    bool stt_concurrent_load = false;
 
     // Detection: command recognition
     std::string detect_wake_word = "PRETTY";

@@ -1,0 +1,22 @@
+[2026-03-24 17:25:18.477] === PRETTY DOOMed ===
+[2026-03-24 17:25:18.477] Loading config: /home/exp/config.cfg
+[2026-03-24 17:25:18.479] SDR Capture mode: 3 capture(s) of 20s, processing=sequential
+[2026-03-24 17:25:18.483] Capture 1/3
+[2026-03-24 17:26:08.702] Waiting 5s for IIO cleanup...
+[2026-03-24 17:26:13.706] Capture 2/3
+[2026-03-24 17:27:05.690] Waiting 5s for IIO cleanup...
+[2026-03-24 17:27:10.695] Capture 3/3
+[2026-03-24 17:28:01.688] Loading STT model...
+[2026-03-24 17:28:01.688]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-03-24 17:28:01.688]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-03-24 17:28:01.688]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-03-24 17:28:01.688]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-03-24 17:28:18.326] STT model loaded (16637 ms)
+[2026-03-24 17:28:18.327] All captures complete, processing 3 WAV(s)
+[2026-03-24 17:28:18.327] Processing capture 1/3
+[2026-03-24 17:28:57.206] Processing capture 2/3
+[2026-03-24 17:29:34.138] Processing capture 3/3
+[2026-03-24 17:30:11.086] Unloading STT model...
+[2026-03-24 17:30:11.225] STT model unloaded
+[2026-03-24 17:30:11.226] Total time: 292.7s
+[2026-03-24 17:30:11.226] === Done ===

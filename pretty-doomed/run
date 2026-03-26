@@ -22,7 +22,7 @@ else
 fi
 
 TOGROUND="${SCRIPT_DIR}/toGround"
-CONFIG="${SCRIPT_DIR}/config.cfg"
+CONFIG="${PRETTY_CONFIG:-${SCRIPT_DIR}/config.cfg}"
 VARIANTS="${SCRIPT_DIR}/variants.cfg"
 DEMOS="${SCRIPT_DIR}/demos"
 
@@ -70,43 +70,36 @@ next_run_id() {
     echo $((LAST_RUN + 1))
 }
 
-# --- Phase 1: File input (georges_01.wav) ---
-WAV_FILE="${SCRIPT_DIR}/input/georges_01.wav"
-if [ -f "$WAV_FILE" ]; then
-    RUNID=$(next_run_id)
-    RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
-    mkdir -p "$RUN_DIR"
-    echo "Run $(printf '%05d' "$RUNID"): georges_01.wav (file input)"
-    MON_PID=$(start_monitor "$RUN_DIR" 3600)
-    ${PRETTY_DOOMED} \
-        -i "$WAV_FILE" \
-        -c "$CONFIG" \
-        -f "$VARIANTS" \
-        -o "$RUN_DIR" \
-        -d "$DEMOS" \
-        -e "${DOOM_BINARY}"
-    stop_monitor "$MON_PID"
-fi
+# --- Helper: create per-run config with overrides ---
+# Copies base config.cfg into the run directory and appends overrides.
+# This avoids modifying the original config.cfg (which may be read-only
+# on the SEPP after extraction from the deployment tarball).
+make_run_config() {
+    _RUN_DIR="$1"
+    shift
+    cp -f "$CONFIG" "$_RUN_DIR/config.cfg"
+    for _OVERRIDE in "$@"; do
+        echo "$_OVERRIDE" >> "$_RUN_DIR/config.cfg"
+    done
+}
 
-# --- Phase 2: SDR capture, sequential mode (2 x 20s) ---
-# Append overrides (last value wins in config parser)
-cat >> "$CONFIG" <<EOF
-
-# Phase 2 overrides
-sdr_captures=2
-process_mode=sequential
-doom_force_trigger=true
-EOF
-
+# --- Run 1: SDR capture, sequential (1 x 20s) ---
 RUNID=$(next_run_id)
 RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
 mkdir -p "$RUN_DIR"
-echo "Run $(printf '%05d' "$RUNID"): SDR capture (sequential, 2x20s)"
+
+make_run_config "$RUN_DIR" \
+    "sdr_captures=1" \
+    "process_mode=sequential" \
+    "doom_force_trigger=true" \
+    "stt_concurrent_load=false"
+
+echo "Run $(printf '%05d' "$RUNID"): SDR capture (sequential, 1x20s)"
 MON_PID=$(start_monitor "$RUN_DIR" 3600)
 
 ${PRETTY_DOOMED} \
     -s \
-    -c "$CONFIG" \
+    -c "$RUN_DIR/config.cfg" \
     -f "$VARIANTS" \
     -o "$RUN_DIR" \
     -d "$DEMOS" \
@@ -114,23 +107,47 @@ ${PRETTY_DOOMED} \
 
 stop_monitor "$MON_PID"
 
-# --- Phase 3: SDR capture, background mode (2 x 20s) ---
-# Append overrides (overrides Phase 2's process_mode)
-cat >> "$CONFIG" <<EOF
-
-# Phase 3 overrides
-process_mode=background
-EOF
-
+# --- Run 2: SDR capture, background (2 x 20s, stt_concurrent_load=false) ---
 RUNID=$(next_run_id)
 RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
 mkdir -p "$RUN_DIR"
-echo "Run $(printf '%05d' "$RUNID"): SDR capture (background, 2x20s)"
+
+make_run_config "$RUN_DIR" \
+    "sdr_captures=2" \
+    "process_mode=background" \
+    "doom_force_trigger=true" \
+    "stt_concurrent_load=false"
+
+echo "Run $(printf '%05d' "$RUNID"): SDR capture (background, 2x20s, stt_concurrent_load=false)"
 MON_PID=$(start_monitor "$RUN_DIR" 3600)
 
 ${PRETTY_DOOMED} \
     -s \
-    -c "$CONFIG" \
+    -c "$RUN_DIR/config.cfg" \
+    -f "$VARIANTS" \
+    -o "$RUN_DIR" \
+    -d "$DEMOS" \
+    -e "${DOOM_BINARY}"
+
+stop_monitor "$MON_PID"
+
+# --- Run 3: SDR capture, background (2 x 20s, stt_concurrent_load=true) ---
+RUNID=$(next_run_id)
+RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$RUN_DIR"
+
+make_run_config "$RUN_DIR" \
+    "sdr_captures=2" \
+    "process_mode=background" \
+    "doom_force_trigger=true" \
+    "stt_concurrent_load=true"
+
+echo "Run $(printf '%05d' "$RUNID"): SDR capture (background, 2x20s, stt_concurrent_load=true)"
+MON_PID=$(start_monitor "$RUN_DIR" 3600)
+
+${PRETTY_DOOMED} \
+    -s \
+    -c "$RUN_DIR/config.cfg" \
     -f "$VARIANTS" \
     -o "$RUN_DIR" \
     -d "$DEMOS" \
