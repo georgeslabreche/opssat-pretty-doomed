@@ -1,0 +1,8 @@
+services:
+  tools:
+    build: .
+    volumes:
+      - .:/app
+      - ../../docs/data:/data:ro
+      - ./output:/output
+    working_dir: /app

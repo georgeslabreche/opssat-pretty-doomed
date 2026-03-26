@@ -31,7 +31,7 @@ The following plots were generated from the v2 EM run's `resource.csv` data. The
 
 **Run 1: File Input** (source: EM v2 run)
 
-![EM v2 Run 1 Resource Utilization](data/em-v2-run1-resource.png)
+![EM v2 Run 1 Resource Utilization](data/em-v2/run-00001-resource.png)
 
 Key observations:
 - CPU0 runs at 100% during STT Model Load and STT Inference. CPU1 is nearly idle throughout -- the file input pipeline is single-core.
@@ -40,7 +40,7 @@ Key observations:
 
 **Run 2: SDR Sequential** (source: EM v2 run)
 
-![EM v2 Run 2 Resource Utilization](data/em-v2-run2-resource.png)
+![EM v2 Run 2 Resource Utilization](data/em-v2/run-00002-resource.png)
 
 Key observations:
 - Both cores are active during SDR captures (GNU Radio + libiio DMA). Between captures, both cores drop to near-idle during IIO Cleanup delays.
@@ -49,7 +49,7 @@ Key observations:
 
 **Run 3: SDR Background** (source: EM v2 run)
 
-![EM v2 Run 3 Resource Utilization](data/em-v2-run3-resource.png)
+![EM v2 Run 3 Resource Utilization](data/em-v2/run-00003-resource.png)
 
 Key observations:
 - Nearly identical to Run 2 despite being in background mode. The background processing was blocked by the log mutex and stdout redirection race, preventing true concurrency. This is addressed in v3.

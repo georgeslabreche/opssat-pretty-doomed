@@ -6,10 +6,12 @@ showing what each thread/CPU is doing over time. Works with the [cN/tM] tags
 in log lines.
 
 Usage:
-    python3 scripts/plot_log_timeline.py <log_file> <output_png> <title>
-    python3 scripts/plot_log_timeline.py --batch  # process all runs in toGround/
+    python3 scripts/plots/plot_log_timeline.py <log_file> <output_png> <title>
+    python3 scripts/plots/plot_log_timeline.py --batch  # process all runs in toGround/
+    python3 scripts/plots/plot_log_timeline.py --batch --input-dir docs/data --output-dir docs/data
 """
 
+import argparse
 import re
 import sys
 import os
@@ -93,6 +95,97 @@ def parse_log(path):
     return entries
 
 
+def annotate_capture_numbers(entries):
+    """Add capture number suffix to phase names for multi-capture runs.
+
+    Detects '=== Capture N/M ===' markers.  When M > 1 every phase is
+    labelled ' #N' so the Gantt chart distinguishes capture iterations.
+    STT Model Load entries that appear before the first capture marker
+    are left un-numbered.
+    """
+    capture_re = re.compile(r"=== Capture (\d+)/(\d+) ===")
+
+    # Collect capture markers
+    markers = []  # (time, cap_num, cap_total, tid)
+    for t, cpu, tid, phase, msg in entries:
+        m = capture_re.search(msg)
+        if m:
+            markers.append((t, int(m.group(1)), int(m.group(2)), tid))
+
+    if not markers or markers[0][2] <= 1:
+        return entries  # single capture — nothing to annotate
+
+    main_tid = markers[0][3]
+    cap_boundaries = [(m[0], m[1]) for m in markers]
+
+    def capture_at(t):
+        cap = 0
+        for bt, bn in cap_boundaries:
+            if t >= bt:
+                cap = bn
+            else:
+                break
+        return cap
+
+    # For each non-main thread, assign capture from when it first appears
+    thread_capture = {}
+    for t, cpu, tid, phase, msg in entries:
+        if tid != main_tid and tid not in thread_capture:
+            thread_capture[tid] = capture_at(t)
+
+    result = []
+    main_cap = 0
+    for t, cpu, tid, phase, msg in entries:
+        m = capture_re.search(msg)
+        if m and tid == main_tid:
+            main_cap = int(m.group(1))
+
+        if phase is not None:
+            cap = main_cap if tid == main_tid else thread_capture.get(tid, 0)
+            if cap > 0:
+                phase = f"{phase} #{cap}"
+
+        result.append((t, cpu, tid, phase, msg))
+    return result
+
+
+def phase_base(name):
+    """Strip ' #N' suffix to get the base phase name."""
+    idx = name.rfind(" #")
+    return name[:idx] if idx != -1 else name
+
+
+def relocate_capture_labels(spans, tid_labels):
+    """Move capture number from bar labels to thread y-axis labels.
+
+    For threads that only process a single capture, strip ' #N' from
+    the phase names and append '[Cap #N]' to the thread label instead.
+    Threads handling multiple captures (e.g. the main capture thread)
+    keep '#N' on each bar.
+    """
+    thread_caps = defaultdict(set)
+    for phase, tid, ts, te in spans:
+        if phase_base(phase) != phase:
+            cap = phase[phase.rfind(" #") + 2:]
+            thread_caps[tid].add(cap)
+
+    single = {tid: caps.pop() for tid, caps in thread_caps.items()
+              if len(caps) == 1}
+
+    new_labels = dict(tid_labels)
+    for tid, cap in single.items():
+        if tid in new_labels:
+            new_labels[tid] += f"  [Cap #{cap}]"
+
+    new_spans = []
+    for phase, tid, ts, te in spans:
+        if tid in single:
+            phase = phase_base(phase)
+        new_spans.append((phase, tid, ts, te))
+
+    return new_spans, new_labels
+
+
 def build_phase_spans(entries):
     """Convert entries into (phase, tid, t_start, t_end) spans."""
     # Group consecutive same-phase entries per thread
@@ -135,6 +228,9 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
         main_cpu = max(set(cpus), key=cpus.count)
         tid_labels[tid] = f"CPU{main_cpu} / Thread {tid}"
 
+    # Move capture #N from bar labels to thread labels where possible
+    spans, tid_labels = relocate_capture_labels(spans, tid_labels)
+
     tid_y = {tid: i for i, tid in enumerate(tids)}
     t_max = max(e[0] for e in entries)
 
@@ -142,23 +238,11 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
 
     bar_height = 0.6
     for phase, tid, ts, te in spans:
-        color = PHASE_COLORS.get(phase, "#CCCCCC")
+        color = PHASE_COLORS.get(phase_base(phase), "#CCCCCC")
         duration = max(te - ts, 0.02)  # minimum visible width
         y = tid_y[tid]
         ax.barh(y, duration, left=ts, height=bar_height, color=color,
                 edgecolor="white", linewidth=0.5, alpha=0.85)
-
-    # Dashed vertical lines at capture boundaries (skip the first)
-    capture_re = re.compile(r"=== Capture (\d+)/(\d+) ===")
-    capture_starts = []
-    for t, cpu, tid, phase, msg in entries:
-        m = capture_re.search(msg)
-        if m:
-            capture_starts.append((t, int(m.group(1)), tid))
-    if len(capture_starts) > 1:
-        for t, cap_num, tid in capture_starts[1:]:
-            y = tid_y.get(tid, 0)
-            ax.axvline(x=t, color="#333333", linestyle="--", linewidth=1, alpha=0.6)
 
     # CPU migration markers: show when a thread switches CPU
     prev_cpu = {}
@@ -176,19 +260,26 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
     ax.invert_yaxis()
     ax.grid(axis="x", alpha=0.3)
 
-    # Legend outside plot area, with total duration per phase
-    phase_durations = defaultdict(float)
+    # Phase name + duration labels on bars
+    LABEL_PHASES = {"STT Model Load", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
     for phase, tid, ts, te in spans:
-        phase_durations[phase] += te - ts
+        if phase_base(phase) in LABEL_PHASES and (te - ts) > 0.5:
+            mid = (ts + te) / 2
+            y = tid_y[tid]
+            secs = te - ts
+            label = f"{phase}\n{secs:.1f}s"
+            ax.text(mid, y, label, ha="center", va="center",
+                    fontsize=7, fontweight="bold", color="white", alpha=0.9)
 
+    # Legend outside plot area
+    base_order = ["STT Model Load", "SDR Init", "SDR Capture", "SDR Teardown",
+                  "Normalize", "Artifacts", "DSP Filter", "STT Inference",
+                  "Detection", "DOOM", "Postcard"]
+    seen_bases = set(phase_base(s[0]) for s in spans)
     handles = []
-    for phase in ["STT Model Load", "SDR Init", "SDR Capture", "SDR Teardown",
-                   "Normalize", "Artifacts", "DSP Filter", "STT Inference",
-                   "Detection", "DOOM", "Postcard"]:
-        if any(s[0] == phase for s in spans):
-            secs = phase_durations[phase]
-            label = f"{phase} ({secs:.3f}s)"
-            handles.append(mpatches.Patch(color=PHASE_COLORS[phase], label=label))
+    for phase in base_order:
+        if phase in seen_bases:
+            handles.append(mpatches.Patch(color=PHASE_COLORS[phase], label=phase))
     if handles:
         ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.01, 1),
                   fontsize=8, framealpha=0.9)
@@ -199,36 +290,64 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
     print(f"  Saved: {output_path}")
 
 
+def collect_log_files(path):
+    """Return list of log files for a path (file or run directory)."""
+    if os.path.isdir(path):
+        logs = []
+        main_log = os.path.join(path, "pretty-doomed.log")
+        if os.path.isfile(main_log):
+            logs.append(main_log)
+        for cap in sorted(os.listdir(path)):
+            cap_log = os.path.join(path, cap, "run.log")
+            if os.path.isfile(cap_log):
+                logs.append(cap_log)
+        return logs
+    return [path]
+
+
 def process_log(log_path, output_path, title, x_max=None):
-    entries = parse_log(log_path)
+    log_files = collect_log_files(log_path)
+    entries = parse_log(log_files)
+    entries = annotate_capture_numbers(entries)
     spans = build_phase_spans(entries)
     plot_timeline(entries, spans, output_path, title, x_max=x_max)
 
 
+RUN_TITLES = {
+    "run-00001": "Run 1: SDR Capture (sequential, stt_concurrent_load=false)",
+    "run-00002": "Run 2: SDR Capture (background, stt_concurrent_load=false)",
+    "run-00003": "Run 3: SDR Capture (background, stt_concurrent_load=true)",
+}
+
+
 def main():
-    if len(sys.argv) == 4:
-        process_log(sys.argv[1], sys.argv[2], sys.argv[3])
-        return
+    parser = argparse.ArgumentParser(description="Phase timeline plot generator")
+    parser.add_argument("log_file", nargs="?", help="Log file or run directory")
+    parser.add_argument("output_png", nargs="?", help="Output PNG path")
+    parser.add_argument("title", nargs="?", help="Plot title")
+    parser.add_argument("--batch", action="store_true",
+                        help="Process all runs in input directory")
+    parser.add_argument("--input-dir",
+                        help="Directory containing run-* dirs (default: toGround/)")
+    parser.add_argument("--output-dir",
+                        help="Output directory for plots")
+    args = parser.parse_args()
 
-    if len(sys.argv) == 2 and sys.argv[1] == "--batch":
-        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        toground = os.path.join(base, "toGround")
-        local_dir = os.path.join(base, "artifacts", "plots", "local")
-        os.makedirs(local_dir, exist_ok=True)
+    if args.batch:
+        base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        toground = args.input_dir or os.path.join(base, "toGround")
 
-        # Auto-increment: find next index under local/
-        idx = 1
-        for d in os.listdir(local_dir):
-            if d.isdigit():
-                idx = max(idx, int(d) + 1)
-        outdir = os.path.join(local_dir, f"{idx:03d}")
-        os.makedirs(outdir)
-
-        run_titles = {
-            "run-00001": "Run 1: SDR Capture (sequential, stt_concurrent_load=false)",
-            "run-00002": "Run 2: SDR Capture (background, stt_concurrent_load=false)",
-            "run-00003": "Run 3: SDR Capture (background, stt_concurrent_load=true)",
-        }
+        if args.output_dir:
+            outdir = args.output_dir
+        else:
+            local_dir = os.path.join(base, "artifacts", "plots", "local")
+            os.makedirs(local_dir, exist_ok=True)
+            idx = 1
+            for d in os.listdir(local_dir):
+                if d.isdigit():
+                    idx = max(idx, int(d) + 1)
+            outdir = os.path.join(local_dir, f"{idx:03d}")
+        os.makedirs(outdir, exist_ok=True)
 
         # First pass: parse all runs and find global x_max
         jobs = []
@@ -243,8 +362,9 @@ def main():
                 if os.path.isfile(cap_log):
                     log_files.append(cap_log)
             entries = parse_log(log_files)
+            entries = annotate_capture_numbers(entries)
             spans = build_phase_spans(entries)
-            title = run_titles.get(run_dir, run_dir)
+            title = RUN_TITLES.get(run_dir, run_dir)
             out = os.path.join(outdir, f"{run_dir}-timeline.png")
             jobs.append((entries, spans, out, title))
 
@@ -256,8 +376,11 @@ def main():
 
         return
 
-    print(f"Usage: {sys.argv[0]} <log> <output.png> <title>")
-    print(f"       {sys.argv[0]} --batch")
+    if args.log_file and args.output_png and args.title:
+        process_log(args.log_file, args.output_png, args.title)
+        return
+
+    parser.print_help()
     sys.exit(1)
 
 

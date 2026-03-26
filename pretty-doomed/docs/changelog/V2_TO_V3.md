@@ -11,7 +11,7 @@ Changes derived from analyzing the v2 experiment run on the OPS-SAT Engineering 
 **Change**: Every log line now includes a `[cN/tM]` tag (CPU core and thread ID via `sched_getcpu()` and `gettid()`, Linux only). This enables:
 
 1. **Thread attribution**: In background mode, interleaved log lines from concurrent threads are unambiguous.
-2. **Timeline reconstruction**: `scripts/plot_log_timeline.py` parses these tags to generate Gantt-style plots showing which phase runs on which CPU core and thread over time. The plots are the primary tool for identifying serialization bottlenecks.
+2. **Timeline reconstruction**: `scripts/plots/plot_log_timeline.py` parses these tags to generate Gantt-style plots showing which phase runs on which CPU core and thread over time. The plots are the primary tool for identifying serialization bottlenecks.
 
 ## Concurrent STT Model Loading (Background Mode)
 
@@ -94,7 +94,7 @@ The artifact lambda captures file paths, sample rates, and config flags by value
 
 ## Timeline Visualization Script
 
-**Change**: New script `scripts/plot_log_timeline.py` generates per-run Gantt charts from log files. It parses `[cN/tM]` tags and phase-detection regex patterns to render:
+**Change**: New script `scripts/plots/plot_log_timeline.py` generates per-run Gantt charts from log files. It parses `[cN/tM]` tags and phase-detection regex patterns to render:
 
 - Per-thread phase blocks (color-coded by phase type)
 - Phase durations in the legend
@@ -111,13 +111,13 @@ The following plots were generated from a local Docker emulator test of the v3 c
 
 **Run 1: SDR Capture, sequential, stt_concurrent_load=false** (source: local emulator test)
 
-![Local v3 Run 1 Timeline](data/local-v3-run1-timeline.png)
+![Local v3 Run 1 Timeline](data/local-v3/run-00001-timeline.png)
 
 Single-thread execution. All phases (SDR Init, Capture, Teardown, Normalize, Artifacts, STT Load, DSP, STT, Detection, DOOM, Postcard) run on Thread 1.
 
 **Run 2: SDR Capture, background, stt_concurrent_load=false** (source: local emulator test)
 
-![Local v3 Run 2 Timeline](data/local-v3-run2-timeline.png)
+![Local v3 Run 2 Timeline](data/local-v3/run-00002-timeline.png)
 
 Three threads. STT Model Load (purple) blocks Thread 1 at the start -- the first capture cannot begin until the model is fully loaded:
 - **Thread 1** (main): STT Model Load, SDR Init, Capture, Teardown, Normalize
@@ -126,7 +126,7 @@ Three threads. STT Model Load (purple) blocks Thread 1 at the start -- the first
 
 **Run 3: SDR Capture, background, stt_concurrent_load=true** (source: local emulator test)
 
-![Local v3 Run 3 Timeline](data/local-v3-run3-timeline.png)
+![Local v3 Run 3 Timeline](data/local-v3/run-00003-timeline.png)
 
 Four threads. STT Model Load (purple) runs on a background thread concurrently with SDR capture on Thread 1 -- no blocking:
 - **Thread 1** (main): SDR Init, Capture, Teardown, Normalize -- starts immediately
