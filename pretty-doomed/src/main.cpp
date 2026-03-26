@@ -12,7 +12,6 @@
 #include <string>
 #include <chrono>
 #include <future>
-#include <mutex>
 #include <thread>
 #include <vector>
 #include <memory>
@@ -36,8 +35,6 @@ static std::string format_duration(std::chrono::steady_clock::duration d) {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
     return std::to_string(ms / 1000) + "." + std::to_string((ms % 1000) / 100) + "s";
 }
-
-static std::mutex g_log_mutex;
 
 // Switch stdout+stderr to a new log file. Returns the saved fd to restore later.
 static int switch_log(const std::string& path) {
@@ -141,7 +138,9 @@ int main(int argc, char** argv) {
         }
     }
 
-    log_info() << "=== PRETTY DOOMed ===\n";
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+    log_info() << "=== PRETTY DOOMed v" TOSTRING(APP_VERSION) " ===\n";
     auto pipeline_start = std::chrono::steady_clock::now();
 
     // Load config
@@ -176,35 +175,52 @@ int main(int argc, char** argv) {
         log_info() << "SDR Capture mode: " << num_captures << " capture(s) of "
                    << cfg.sdr_duration << "s, processing=" << cfg.process_mode << "\n";
 
-        // Background mode: load STT before captures (needed for overlapped processing).
+        // Background mode: load STT model.
+        //   concurrent_load=true:  load on background thread while first capture runs
+        //   concurrent_load=false: load before captures (blocks until ready)
         // Sequential mode: defer loading until after all captures complete.
         std::unique_ptr<Transcriber> stt;
+        std::future<std::unique_ptr<Transcriber>> stt_future;
         if (background) {
-            stt = std::make_unique<Transcriber>(cfg);
-            if (!stt->is_ready()) {
-                log_error() << "STT model failed to load\n";
-                return 1;
+            if (cfg.stt_concurrent_load) {
+                log_info() << "Loading STT model (concurrent with capture)...\n";
+                stt_future = std::async(std::launch::async, [&cfg]() {
+                    return std::make_unique<Transcriber>(cfg);
+                });
+            } else {
+                stt = std::make_unique<Transcriber>(cfg);
+                if (!stt->is_ready()) {
+                    log_error() << "STT model failed to load\n";
+                    return 1;
+                }
             }
         }
 
-        // Helper: process a capture's WAV with log redirection (thread-safe)
+        // Helper: process a capture's WAV.
+        // Sequential mode: redirects output to per-capture run.log.
+        // Background mode: output stays in main log (stdout is process-global,
+        // can't be safely redirected from a concurrent thread).
         auto do_process = [&](int idx, const CaptureResult& cap) -> bool {
             char subdir[32];
             std::snprintf(subdir, sizeof(subdir), "/capture-%03d", idx);
             std::string capture_dir = args.output_dir + subdir;
 
-            std::lock_guard<std::mutex> lock(g_log_mutex);
-            int saved_fd = dup(fileno(stdout));
-            std::fflush(stdout);
-            std::fflush(stderr);
-            FILE* fp = freopen((capture_dir + "/run.log").c_str(), "a", stdout);
-            if (fp) dup2(fileno(stdout), fileno(stderr));
+            int saved_fd = -1;
+            if (!background) {
+                saved_fd = dup(fileno(stdout));
+                std::fflush(stdout);
+                std::fflush(stderr);
+                FILE* fp = freopen((capture_dir + "/run.log").c_str(), "a", stdout);
+                if (fp) dup2(fileno(stdout), fileno(stderr));
+            }
 
             bool detected = process_wav(cap.wav_path, capture_dir, cfg, variants, *stt,
                                         args.config_file, args.doom_binary, args.demos_dir,
                                         cap.sc16_path);
 
-            restore_log(saved_fd);
+            if (saved_fd >= 0) {
+                restore_log(saved_fd);
+            }
             return detected;
         };
 
@@ -221,39 +237,43 @@ int main(int argc, char** argv) {
             std::string mkdir_cmd = "mkdir -p " + capture_dir;
             system(mkdir_cmd.c_str());
 
-            {
-                std::lock_guard<std::mutex> lock(g_log_mutex);
+            // Sequential mode: redirect output to per-capture log.
+            // Background mode: all output stays in the main log with a prefix.
+            int saved_fd = -1;
+            if (!background) {
                 log_info() << "Capture " << i << "/" << num_captures << "\n";
-            }
-
-            // Switch to per-capture log for this capture
-            int saved_fd;
-            {
-                std::lock_guard<std::mutex> lock(g_log_mutex);
                 saved_fd = switch_log(capture_dir + "/run.log");
             }
 
             log_info() << "=== Capture " << i << "/" << num_captures << " ===\n";
             CaptureResult result;
             if (!run_capture(cfg, capture_dir, result)) {
-                log_error() << "Capture " << i << " failed\n";
+                log_warning() << "Capture " << i << " failed, retrying in 2s...\n";
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                if (!run_capture(cfg, capture_dir, result)) {
+                    log_error() << "Capture " << i << " failed on retry\n";
+                }
             }
             captures.push_back(result);
 
-            {
-                std::lock_guard<std::mutex> lock(g_log_mutex);
+            if (saved_fd >= 0) {
                 restore_log(saved_fd);
             }
 
             // Background mode: kick off processing while next capture runs
             if (background && !captures.back().wav_path.empty()) {
+                // Ensure STT model is ready before first processing call
+                if (!stt && stt_future.valid()) {
+                    stt = stt_future.get();
+                    if (!stt->is_ready()) {
+                        log_error() << "STT model failed to load\n";
+                        return 1;
+                    }
+                }
                 if (bg_future.valid()) {
                     if (bg_future.get()) any_detected = true;
-                    {
-                        std::lock_guard<std::mutex> lock(g_log_mutex);
-                        log_info() << "Background processing of capture " << bg_capture_idx
-                                   << " complete (" << format_duration(std::chrono::steady_clock::now() - bg_start) << ")\n";
-                    }
+                    log_info() << "Background processing of capture " << bg_capture_idx
+                               << " complete (" << format_duration(std::chrono::steady_clock::now() - bg_start) << ")\n";
                 }
                 bg_capture_idx = i;
                 bg_start = std::chrono::steady_clock::now();
@@ -262,19 +282,9 @@ int main(int argc, char** argv) {
                 bg_future = std::async(std::launch::async, [&, idx, cap]() {
                     return do_process(idx, cap);
                 });
-                {
-                    std::lock_guard<std::mutex> lock(g_log_mutex);
-                    log_info() << "Background processing of capture " << i << " started\n";
-                }
+                log_info() << "Background processing of capture " << i << " started\n";
             }
 
-            if (i < num_captures && g_running) {
-                {
-                    std::lock_guard<std::mutex> lock(g_log_mutex);
-                    log_info() << "Waiting 5s for IIO cleanup...\n";
-                }
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-            }
         }
 
         // Wait for final background processing
@@ -305,8 +315,16 @@ int main(int argc, char** argv) {
                 }
             }
         }
+
+        // Wait for any outstanding artifact futures (background mode)
+        for (auto& cap : captures) {
+            if (cap.artifact_future.valid()) {
+                cap.artifact_future.get();
+            }
+        }
     } else {
         // Single file mode: load STT and process
+        log_info() << "File input mode, processing=" << cfg.process_mode << "\n";
         Transcriber stt_file(cfg);
         if (!stt_file.is_ready()) {
             log_error() << "STT model failed to load\n";

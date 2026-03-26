@@ -7,6 +7,9 @@ models/**/*.onnx
 # OS files
 .DS_Store
 
+# Python
+__pycache__/
+
 # Pre-built ARM32 libs (copied for SEPP builds)
 libs-gnuradio/
 

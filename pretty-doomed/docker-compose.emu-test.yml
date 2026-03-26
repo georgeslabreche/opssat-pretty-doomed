@@ -29,6 +29,7 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ../common:/app/common
+      - ./VERSION:/app/VERSION
       - ./Makefile:/app/Makefile
       - ./build/local:/app/build/local
       - ./models:/app/models

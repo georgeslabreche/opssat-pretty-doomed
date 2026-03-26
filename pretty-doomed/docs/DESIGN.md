@@ -64,10 +64,31 @@ These are fully unit-testable without installing GNU Radio, sherpa-onnx, or libs
 
 In SDR capture mode (`-s`), main.cpp drives a multi-capture loop controlled by `sdr_captures`. Two processing modes are available via `process_mode`:
 
-- **sequential**: all N captures run first, then all N are processed through the pipeline. Simpler, no concurrency.
-- **background**: after the first capture completes, processing of the previous capture runs on a background thread while the next capture runs. Reduces total wall time on multi-core systems (e.g., the OPS-SAT SEPP dual-core ARM).
+- **sequential**: all N captures run first, then all N are processed through the pipeline. Simpler, no concurrency. Each capture and its processing output is redirected to a per-capture `run.log` file.
+- **background**: after each capture completes, processing runs on a background thread (`std::async`) while the next capture starts. Reduces total wall time on multi-core systems (e.g., the OPS-SAT SEPP dual-core ARM). The STT model is loaded before captures begin (sequential mode defers loading until after all captures complete).
 
-The `Transcriber` instance is created once at startup and reused across all captures, avoiding repeated model loading (~27 MB).
+The `Transcriber` instance is created once and reused across all captures, avoiding repeated model loading (~27 MB).
+
+#### Logging in background mode
+
+Background mode writes all output (captures and processing) to the single `pretty-doomed.log` file. Per-capture `run.log` files are not created because `stdout` is a process-global resource that cannot be safely redirected per-thread. When capture N+1 and processing of capture N run concurrently, their log lines interleave in chronological order.
+
+Every log line includes a `[cN/tM]` tag (CPU core and thread ID) so interleaved output is unambiguous:
+
+```
+[2026-03-24 17:25:46.623][c1/t1]  Background processing of capture 1 started
+[2026-03-24 17:25:46.623][c1/t1]  Waiting 5s for IIO cleanup...
+[2026-03-24 17:25:46.623][c0/t38] --- Processing: capture-001/capture.wav ---
+[2026-03-24 17:25:46.623][c0/t38] Reading audio: capture-001/capture.wav
+  ...
+[2026-03-24 17:25:51.632][c1/t1]  === Capture 2/2 ===
+[2026-03-24 17:25:51.632][c1/t1]  SDR Capture: 1s at 200000 Hz effective
+[2026-03-24 17:25:52.651][c0/t38] Transcribing (modified_beam_search)...
+```
+
+The `[cN/tM]` tags appear on all platforms running Linux (using `sched_getcpu()` and `gettid()`). On non-Linux builds the tags are omitted.
+
+**Note on external processes**: The `[cN/tM]` tags only apply to threads within the `pretty-doomed` process. The DOOM binary runs as a separate process via `fork()+exec()`, so the DOOM phase in log-derived timelines reflects wall time spent waiting in the parent thread, not DOOM's actual CPU or thread utilization. For DOOM core attribution, cross-reference with the `resource.csv` per-core CPU data collected by the run script's resource monitor.
 
 ## Configuration
 
@@ -144,12 +165,23 @@ The test binary links only pure C++17 modules, no Docker or external libraries n
 
 ## Output Structure
 
+### Cross-Run Files
+
+```
+toGround/
+├── doom_demo_index.txt     # Demo cycling state (persists across runs)
+└── results.txt             # Append-only log of DOOM executions (timestamp, run, demo, trigger type, transcript)
+```
+
+`results.txt` is appended to after each successful DOOM execution, across all runs and captures.
+
 ### File Input Mode
 
 Each pipeline run produces:
 
 ```
 toGround/run-00001/
+├── resource.csv            # Per-second CPU + memory utilization (from run script monitor)
 ├── pretty-doomed.log       # Full pipeline log
 ├── processed.wav           # Filtered audio
 ├── transcription.txt       # Transcription text
@@ -164,14 +196,14 @@ toGround/run-00001/
     └── frames-007992-008025.gif  # Animated GIF (if dash range configured)
 ```
 
-### SDR Capture Mode
+### SDR Capture Mode (sequential)
 
-In SDR mode, each capture gets its own subdirectory with capture artifacts (WAV, sc16, spectrogram, constellation) alongside the pipeline outputs:
+In sequential mode, each capture gets its own subdirectory. Stdout is redirected to a per-capture `run.log` containing both capture and processing output:
 
 ```
-toGround/run-00003/
+toGround/run-00002/
+├── resource.csv            # Per-second CPU + memory utilization
 ├── pretty-doomed.log       # Dispatch log (capture/processing progress)
-├── config.cfg              # Effective config (base + overrides)
 ├── capture-001/            # Per-capture directory
 │   ├── run.log             # Detailed capture + processing log
 │   ├── capture.wav         # FM-demodulated audio
@@ -184,6 +216,31 @@ toGround/run-00003/
 │   ├── summary.txt
 │   ├── postcard.png        # DOOM-themed composite postcard (if enabled)
 │   └── e1m7-607/           # DOOM output (if command detected)
+├── capture-002/
+│   └── ...
+└── capture-003/
+    └── ...
+```
+
+### SDR Capture Mode (background)
+
+In background mode, there are no per-capture `run.log` files. All output goes to `pretty-doomed.log` with `[cN/tM]` tags to distinguish interleaved capture and processing threads:
+
+```
+toGround/run-00003/
+├── resource.csv            # Per-second CPU + memory utilization
+├── pretty-doomed.log       # All output (captures + processing, tagged by thread)
+├── capture-001/
+│   ├── capture.wav
+│   ├── capture.sc16
+│   ├── spectrogram.bmp
+│   ├── constellation.bmp
+│   ├── processed.wav
+│   ├── transcription.txt
+│   ├── scores.txt
+│   ├── summary.txt
+│   ├── postcard.png
+│   └── e1m7-607/
 ├── capture-002/
 │   └── ...
 └── capture-003/
@@ -213,6 +270,14 @@ total_points_approx=10
 ```
 
 In this example: 8 exact matches * 2 = 16 points_exact, 10 approx matches * 1 = 10 points_approx, total = 26.
+
+## Versioning
+
+The `VERSION` file at the project root contains the version number (integer). It is the single source of truth used by:
+
+- **Makefile**: reads `VERSION` into `APP_VERSION`, sets `PACKAGE_VERSION=v$(APP_VERSION)` for package naming (`exp4023-pretty-DOOMed-v3`)
+- **Compile-time banner**: passed as `-DAPP_VERSION` to `main.cpp`, displayed at startup (`=== PRETTY DOOMed v3 ===`)
+- **Changelog**: version-specific docs in `docs/changelog/` (e.g., `V2_TO_V3.md`)
 
 ## SEPP Deployment
 

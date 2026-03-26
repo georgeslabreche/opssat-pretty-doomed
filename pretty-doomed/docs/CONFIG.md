@@ -32,7 +32,8 @@ Currently supported operations:
 | `stt_model_joiner` | (required) | Sherpa-ONNX joiner model path |
 | `stt_model_tokens` | (required) | Sherpa-ONNX tokens file path |
 | `stt_decoding_method` | modified_beam_search | Decoding method |
-| `stt_num_threads` | 1 | Number of inference threads |
+| `stt_num_threads` | 1 | Number of ONNX Runtime inference threads. Set to 2 on dual-core systems (e.g., OPS-SAT SEPP) to use both cores during STT inference. |
+| `stt_concurrent_load` | false | In background mode, load STT model on a background thread concurrently with the first SDR capture. Saves ~16s on the SEPP but increases CPU contention during capture. No effect in sequential mode. |
 
 ## Detection: Command Recognition
 
@@ -78,7 +79,7 @@ Used with the `-s` flag.
 | `sdr_enable_spectrogram` | true | Generate spectrogram BMP |
 | `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
 | `sdr_captures` | 3 | Number of sequential SDR captures |
-| `process_mode` | sequential | Processing mode: `sequential` or `background` |
+| `process_mode` | sequential | Processing mode: `sequential` (all captures then all processing) or `background` (overlap capture N+1 with processing of capture N). Background mode writes all output to the main log with `[cN/tM]` thread tags instead of per-capture `run.log` files. |
 
 ## Variants File (`variants.cfg`)
 

@@ -2,6 +2,7 @@
 #define CAPTURE_H
 
 #include <string>
+#include <future>
 #include "config.h"
 
 struct CaptureResult {
@@ -9,6 +10,7 @@ struct CaptureResult {
     std::string sc16_path;
     double duration_sec = 0.0;
     bool success = false;
+    std::shared_future<void> artifact_future;  // I/Q diagnostics + BMP artifacts
 };
 
 // Capture RF audio from AD9361, demodulate FM, write WAV and sc16.

@@ -41,7 +41,7 @@ docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed make clean 
 docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
 sleep 3
 
-# Run SDR capture against emulator
+# Single SDR capture against emulator
 docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed \
     ./build/local/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
     -o toGround/emu-test -d demos -e doom-build/local/opssat-doom
@@ -54,6 +54,22 @@ cat toGround/emu-test/pretty-doomed.log
 cat toGround/emu-test/capture-001/run.log
 ls toGround/emu-test/capture-001/
 ```
+
+### Full run script test
+
+The `run` script accepts a config file via the `PRETTY_CONFIG` environment variable (defaults to `config.cfg`). To test the full 3-run sequence against the emulator:
+
+```bash
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+sleep 3
+
+docker-compose -f docker-compose.emu-test.yml run --rm \
+    -e PRETTY_CONFIG=/app/config.emu.cfg pretty-doomed ./run
+
+docker-compose -f docker-compose.emu-test.yml down
+```
+
+This executes all 3 runs with resource monitoring, per-run config copies, and `doom_force_trigger=true`. The emulator has finite sample data, so captures in Runs 2-3 may time out -- restart the emulator between runs if needed. On real hardware this is not an issue.
 
 ### Config differences (config.emu.cfg vs config.cfg)
 
@@ -115,15 +131,22 @@ All x86_64 emulator limitations apply, plus:
 
 Tests on the OPS-SAT flatsat with real AD9361 hardware. Uses `config.cfg` with default SDR parameters.
 
-The `run` script executes three phases:
+The `run` script executes three runs. Each run copies `config.cfg` to its run directory and appends per-run overrides (last value wins). All runs force-trigger DOOM regardless of detection.
 
-1. **File input** (georges_01.wav): verifies DOOM command detection on known audio
-2. **SDR sequential** (2 x 20s captures): capture all, then process all
-3. **SDR background** (2 x 20s captures): process previous capture while next one runs
+1. **Run 1: SDR sequential** (1 x 20s capture): single capture, sequential processing
+2. **Run 2: SDR background** (2 x 20s captures, `stt_concurrent_load=false`): STT model loaded before first capture
+3. **Run 3: SDR background** (2 x 20s captures, `stt_concurrent_load=true`): STT model loaded concurrently with first capture
 
 ```bash
 # On the SEPP (after deploying the package)
 ./run
+```
+
+The `run` script accepts a config file via `PRETTY_CONFIG` (defaults to `config.cfg`):
+
+```bash
+# Use a different base config
+PRETTY_CONFIG=config.emu.cfg ./run
 ```
 
 ### Expected output structure
@@ -131,16 +154,11 @@ The `run` script executes three phases:
 ```
 toGround/
 ├── doom_demo_index.txt          # Demo cycling state
-├── run-00001/                   # File input (georges_01.wav)
+├── results.txt                  # Append-only log of DOOM executions
+├── run-00001/                   # SDR sequential (1x20s)
+│   ├── resource.csv             # Per-second CPU + memory utilization
+│   ├── config.cfg               # Per-run config copy (base + overrides)
 │   ├── pretty-doomed.log
-│   ├── processed.wav
-│   ├── transcription.txt
-│   ├── scores.txt
-│   ├── summary.txt
-│   └── e1m7-607/               # DOOM output (expected: command detected)
-├── run-00002/                   # SDR sequential (2x20s)
-│   ├── pretty-doomed.log       # Dispatch: capture 1/2, capture 2/2, processing
-│   ├── config.cfg              # Effective config (base + overrides)
 │   ├── capture-001/
 │   │   ├── run.log             # Detailed capture + processing log
 │   │   ├── capture.wav
@@ -150,12 +168,22 @@ toGround/
 │   │   ├── processed.wav
 │   │   ├── transcription.txt
 │   │   ├── scores.txt
-│   │   └── summary.txt
+│   │   ├── summary.txt
+│   │   ├── postcard.png
+│   │   └── gl-e1m2b/           # DOOM output (force-triggered)
+│   └── ...
+├── run-00002/                   # SDR background (2x20s, concurrent=false)
+│   ├── resource.csv
+│   ├── config.cfg
+│   ├── pretty-doomed.log       # All output with [cN/tM] thread tags
+│   ├── capture-001/
+│   │   └── ...
 │   └── capture-002/
 │       └── ...
-└── run-00003/                   # SDR background (2x20s)
-    ├── pretty-doomed.log        # Dispatch: includes background processing timing
+└── run-00003/                   # SDR background (2x20s, concurrent=true)
+    ├── resource.csv
     ├── config.cfg
+    ├── pretty-doomed.log
     ├── capture-001/
     │   └── ...
     └── capture-002/
@@ -164,9 +192,10 @@ toGround/
 
 ### What to check in EM results
 
-- **run-00001**: `summary.txt` should show "COMMAND DETECTED". If not, STT or detection has a regression.
-- **run-00002 vs run-00003**: compare `pretty-doomed.log` total times. Background mode should be faster (overlaps processing with capture).
-- **capture-NNN/run.log**: check I/Q diagnostics (zero fraction should be <1% for both I and Q). If Q zeros are high, there may be a TX/RX contention issue (not expected in RX-only mode).
+- **All runs**: `results.txt` should have one entry per capture with `trigger=force`. If missing, the per-run config copy failed to apply `doom_force_trigger=true`.
+- **Run 2 vs Run 3**: compare `pretty-doomed.log` total times. Run 3 (`stt_concurrent_load=true`) should start its first capture ~16s sooner than Run 2.
+- **Run 2 vs Run 3**: check `resource.csv` for CPU contention. If Run 3 shows SDR capture failures, `stt_concurrent_load` may need to be disabled.
+- **capture-NNN/run.log** (sequential) or **pretty-doomed.log** (background): check I/Q diagnostics (zero fraction should be <1% for both I and Q).
 - **constellation.bmp**: visual I/Q health check. Should show a diffuse cloud, not a horizontal line (Q dropout).
 - **transcription.txt**: STT output from captured RF. Will be noise unless someone is transmitting voice on 1296 MHz during the capture.
 

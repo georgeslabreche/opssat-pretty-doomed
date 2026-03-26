@@ -10,14 +10,10 @@
 #include <cstring>
 #include <algorithm>
 #include <sstream>
-#include <ctime>
 
-static std::string ts() {
-    time_t now = time(nullptr);
-    char buf[20];
-    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
-    return buf;
-}
+#include "pretty_log.h"
+
+using namespace pretty;
 
 static std::string abs_path(const std::string& path) {
     char* resolved = realpath(path.c_str(), nullptr);
@@ -276,8 +272,8 @@ DoomResult run_doom(const std::string& doom_binary,
         fit->second = resolve_frames(fit->second, demo, run_cycle, maxframes_map);
     }
 
-    std::cout << "[" << ts() << "] " << "  Running DOOM demo: " << demo
-              << " (" << (demo_idx + 1) << "/" << demos.size() << ")" << std::endl;
+    log_info() << "Running DOOM demo: " << demo
+              << " (" << (demo_idx + 1) << "/" << demos.size() << ")\n";
 
     int failures = exec_doom(abs_path(doom_binary), abs_path(wad_path),
                              abs_demo_path, statdump_path,
@@ -290,7 +286,7 @@ DoomResult run_doom(const std::string& doom_binary,
                                   abs_path(demos_dir + "/" + demo + ".txt"),
                                   demo);
 
-    std::cout << "[" << ts() << "] " << "  Completed demo: " << demo << std::endl;
+    log_info() << "Completed demo: " << demo << "\n";
     return {failures, demo, demo_output_dir};
 }
 
