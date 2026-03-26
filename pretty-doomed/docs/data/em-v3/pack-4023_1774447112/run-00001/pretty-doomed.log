@@ -1,0 +1,16 @@
+[2026-03-25 13:50:09.227][c1/t72] === PRETTY DOOMed v3 ===
+[2026-03-25 13:50:09.227][c1/t72] Loading config: /home/exp/toGround/run-00001/config.cfg
+[2026-03-25 13:50:09.229][c1/t72] SDR Capture mode: 1 capture(s) of 20s, processing=sequential
+[2026-03-25 13:50:09.233][c1/t72] Capture 1/1
+[2026-03-25 13:51:02.725][c1/t72] Loading STT model...
+[2026-03-25 13:51:02.725][c1/t72]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-03-25 13:51:02.725][c1/t72]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-03-25 13:51:02.725][c1/t72]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-03-25 13:51:02.726][c1/t72]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-03-25 13:51:19.216][c0/t72] STT model loaded (16490 ms)
+[2026-03-25 13:51:19.216][c0/t72] All captures complete, processing 1 WAV(s)
+[2026-03-25 13:51:19.216][c0/t72] Processing capture 1/1
+[2026-03-25 13:52:27.181][c0/t72] Unloading STT model...
+[2026-03-25 13:52:27.331][c0/t72] STT model unloaded
+[2026-03-25 13:52:27.331][c0/t72] Total time: 138.1s
+[2026-03-25 13:52:27.331][c0/t72] === Done ===
