@@ -69,7 +69,7 @@ docker-compose -f docker-compose.emu-test.yml run --rm \
 docker-compose -f docker-compose.emu-test.yml down
 ```
 
-This executes all 3 runs with resource monitoring, per-run config copies, and `doom_force_trigger=true`. The emulator has finite sample data, so captures in Runs 2-3 may time out -- restart the emulator between runs if needed. On real hardware this is not an issue.
+This executes all 3 runs with resource monitoring, per-run config copies, and `doom_force_trigger=true`. The emulator has finite sample data, so captures in Runs 2-3 may time out. Restart the emulator between runs if needed. On real hardware this is not an issue.
 
 ### Config differences (config.emu.cfg vs config.cfg)
 
@@ -190,11 +190,26 @@ toGround/
         └── ...
 ```
 
+### Capture duration vs wall time
+
+SDR captures on the SEPP take significantly longer than the configured `sdr_duration`. A 20-second capture (4M I/Q samples at 200 kHz effective rate) typically completes in 50 to 70 seconds of wall time. The ARM cores cannot process IIO DMA buffers fast enough to match the configured 2.4 MSPS sample rate, so the GNU Radio flowgraph receives samples at roughly 40% of the expected throughput.
+
+This has two implications:
+
+1. **The capture window is longer than configured.** The SDR is actively receiving RF for the full wall-time duration (50 to 70s), not just the configured 20s. All transmitted audio during that window is captured. Someone transmitting a voice command must do so during this extended window.
+
+2. **CPU contention slows later captures.** In background mode, capture #2 runs concurrently with STT inference for capture #1 on the other core. This memory bus and cache contention further reduces DMA throughput. In the v3 EM run, capture #1 completed in about 51s while capture #2 took about 72s for the same 20s of configured audio.
+
+The `sdr_timeout_multiplier` config parameter (default 5) accounts for this: `timeout = multiplier * sdr_duration + 10`. With 20s duration and 5x multiplier, the timeout is 110s.
+
+No I/Q data is lost. The flowgraph buffers all samples as they arrive. The resulting audio is the same 20 seconds at 16 kHz regardless of wall time. Check the `Progress` lines in the log to monitor actual throughput: `Progress [Ns]: I/Q current/total`.
+
 ### What to check in EM results
 
 - **All runs**: `results.txt` should have one entry per capture with `trigger=force`. If missing, the per-run config copy failed to apply `doom_force_trigger=true`.
 - **Run 2 vs Run 3**: compare `pretty-doomed.log` total times. Run 3 (`stt_concurrent_load=true`) should start its first capture ~16s sooner than Run 2.
 - **Run 2 vs Run 3**: check `resource.csv` for CPU contention. If Run 3 shows SDR capture failures, `stt_concurrent_load` may need to be disabled.
+- **Capture wall time**: check `Progress` lines for I/Q throughput. If captures take >100s for 20s configured duration, CPU contention may be too high.
 - **capture-NNN/run.log** (sequential) or **pretty-doomed.log** (background): check I/Q diagnostics (zero fraction should be <1% for both I and Q).
 - **constellation.bmp**: visual I/Q health check. Should show a diffuse cloud, not a horizontal line (Q dropout).
 - **transcription.txt**: STT output from captured RF. Will be noise unless someone is transmitting voice on 1296 MHz during the capture.
