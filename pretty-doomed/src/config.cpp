@@ -75,6 +75,13 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "sdr_enable_constellation") cfg.sdr_enable_constellation = (value == "true" || value == "1");
     else if (key == "sdr_captures") cfg.sdr_captures = std::stoi(value);
     else if (key == "process_mode") cfg.process_mode = value;
+    // SDR: hardware FIR
+    else if (key == "sdr_hw_fir_enable") cfg.sdr_hw_fir_enable = (value == "true" || value == "1");
+    else if (key == "sdr_hw_fir_rate") cfg.sdr_hw_fir_rate = std::stol(value);
+    else if (key == "sdr_hw_fir_fpass") cfg.sdr_hw_fir_fpass = std::stol(value);
+    else if (key == "sdr_hw_fir_fstop") cfg.sdr_hw_fir_fstop = std::stol(value);
+    else if (key == "sdr_hw_fir_wnom_tx") cfg.sdr_hw_fir_wnom_tx = std::stol(value);
+    else if (key == "sdr_hw_fir_wnom_rx") cfg.sdr_hw_fir_wnom_rx = std::stol(value);
     else {
         const std::string frames_prefix = "doom_frames_";
         const std::string maxframes_prefix = "doom_maxframes_";

@@ -14,6 +14,11 @@ def fig_to_svg(fig, save_path=None):
     fig.savefig(buf, format="svg")
     plt.close(fig)
     svg_str = buf.getvalue().decode("utf-8")
+    # Strip XML/DOCTYPE preamble so SVGs can be embedded inline in HTML
+    # without corrupting the browser's DOM parser.
+    import re
+    svg_str = re.sub(r'<\?xml[^?]*\?>\s*', '', svg_str)
+    svg_str = re.sub(r'<!DOCTYPE[^>]*>\s*', '', svg_str)
     if save_path:
         with open(save_path, "w") as f:
             f.write(svg_str)

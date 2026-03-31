@@ -45,7 +45,7 @@ main.cpp (orchestrator)
 | Executor | `executor.cpp` | Fork+exec DOOM binary for each demo file | None |
 | Output | `output.cpp` | Summary + log output formatting (ASCII art, scores) | None |
 | Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. | stb, FFTW |
-| Capture | `capture.cpp` | AD9361 SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files, generates spectrogram/constellation BMP. | GNU Radio, libiio |
+| Capture | `capture.cpp` | AD9361 SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Optional hardware FIR decimation via libad9361. Writes WAV and sc16 files, generates spectrogram/constellation BMP. | GNU Radio, libiio, libad9361 |
 | Pipeline | `pipeline.cpp` | WAV processing pipeline: DSP filtering, STT transcription, command detection, DOOM execution. Orchestrates the per-capture processing sequence. | All |
 | Main | `main.cpp` | CLI arg parsing, input mode dispatch (file vs SDR), multi-capture loop, process_mode (sequential/background), output file writing | All |
 
@@ -275,8 +275,8 @@ In this example: 8 exact matches * 2 = 16 points_exact, 10 approx matches * 1 = 
 
 The `VERSION` file at the project root contains the version number (integer). It is the single source of truth used by:
 
-- **Makefile**: reads `VERSION` into `APP_VERSION`, sets `PACKAGE_VERSION=v$(APP_VERSION)` for package naming (`exp4023-pretty-DOOMed-v3`)
-- **Compile-time banner**: passed as `-DAPP_VERSION` to `main.cpp`, displayed at startup (`=== PRETTY DOOMed v3 ===`)
+- **Makefile**: reads `VERSION` into `APP_VERSION`, sets `PACKAGE_VERSION=v$(APP_VERSION)` for package naming (`exp4023-pretty-DOOMed-v4`)
+- **Compile-time banner**: passed as `-DAPP_VERSION` to `main.cpp`, displayed at startup (`=== PRETTY DOOMed v4 ===`)
 - **Changelog**: version-specific docs in `docs/changelog/` (e.g., `V2_TO_V3.md`)
 
 ## SEPP Deployment
@@ -320,4 +320,6 @@ exp4023-pretty-DOOMed-v1/
 
 9. **DOOM-themed postcard** -- After each DOOM run, a composite postcard image is generated using the DOOM PLAYPAL palette. Includes gameplay frame, I/Q blood splatter, FFTW spectrogram, logos, and run metadata. Configurable via `doom_enable_postcard` and `doom_postcard_scale`.
 
-10. **DOOM fireball constellation** -- The I/Q constellation BMP uses a radial color gradient inspired by DOOM fireballs: white-hot center fading through orange and blood red to dark maroon at the edges.
+10. **Optional hardware FIR decimation** -- The AD9361 has a programmable FIR filter that can decimate in hardware before DMA, reducing the sample rate the ARM cores must process. Configurable via `sdr_hw_fir_enable`. When disabled (default), the pipeline operates at 2.4 MSPS with 12x software decimation. When enabled, the AD9361 decimates to a lower rate (e.g. 600 kSPS) and software decimation is reduced accordingly (e.g. 3x for 200 kHz effective). The AD9361 minimum baseband rate without the FIR is 2.083 MSPS; rates below this require the hardware FIR. The FIR is configured per-capture via `ad9361_set_bb_rate_custom_filter_manual()` from `libad9361-iio` and disabled at the end of each run.
+
+11. **DOOM fireball constellation** -- The I/Q constellation BMP uses a radial color gradient inspired by DOOM fireballs: white-hot center fading through orange and blood red to dark maroon at the edges.
