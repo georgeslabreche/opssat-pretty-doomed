@@ -66,9 +66,10 @@ inline bool write_iio_rx_config(struct iio_device* phy,
         return false;
     }
 
-    ret = iio_channel_attr_write(rx0, "gain_control_mode", "manual");
-    if (ret < 0) {
-        log_error() << "FATAL: could not write gain_control_mode (ret=" << ret << ")\n";
+    // iio_channel_attr_write() returns ssize_t (unlike _longlong/_double which return int)
+    ssize_t wret = iio_channel_attr_write(rx0, "gain_control_mode", "manual");
+    if (wret < 0) {
+        log_error() << "FATAL: could not write gain_control_mode (ret=" << wret << ")\n";
         return false;
     }
 
