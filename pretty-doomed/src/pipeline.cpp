@@ -44,24 +44,22 @@ static void write_file(const std::string& path, const std::string& content) {
     }
 }
 
-bool process_wav(const std::string& input_file,
-                 const std::string& output_dir,
-                 const PipelineConfig& cfg,
-                 const VariantsMap& variants,
-                 Transcriber& stt,
-                 const std::string& config_file,
-                 const std::string& doom_binary,
-                 const std::string& demos_dir,
-                 const std::string& sc16_path) {
+PipelineStageResult process_wav_stt(const std::string& input_file,
+                                    const std::string& output_dir,
+                                    const PipelineConfig& cfg,
+                                    const VariantsMap& variants,
+                                    Transcriber& stt,
+                                    const std::string& config_file) {
+    PipelineStageResult result;
+
     log_info() << "--- Processing: " << input_file << " ---\n";
-    auto proc_start = std::chrono::steady_clock::now();
 
     // Read audio
     log_info() << "Reading audio: " << input_file << "\n";
     std::vector<float> samples;
     int sample_rate;
     if (!read_wav(input_file, samples, sample_rate)) {
-        return false;
+        return result;
     }
     log_info() << "  " << sample_rate << " Hz, " << samples.size()
                << " samples (" << static_cast<float>(samples.size()) / sample_rate << "s)\n";
@@ -95,28 +93,28 @@ bool process_wav(const std::string& input_file,
                       << " samples, need at least 8000). Skipping transcription.\n";
         write_file(output_dir + "/transcription.txt", "");
         write_file(output_dir + "/summary.txt", "Audio too short for transcription.\n");
-        return false;
+        return result;
     }
 
     log_info() << "Transcribing (" << cfg.stt_decoding_method << ")...\n";
     auto stt_start = std::chrono::steady_clock::now();
-    std::string transcript = stt.transcribe(resampled, 16000);
+    result.transcript = stt.transcribe(resampled, 16000);
     auto stt_end = std::chrono::steady_clock::now();
     log_info() << "  STT time: " << format_duration(stt_end - stt_start) << "\n";
 
-    if (transcript.empty()) {
+    if (result.transcript.empty()) {
         log_error() << "Transcription produced no output\n";
         write_file(output_dir + "/transcription.txt", "");
         write_file(output_dir + "/summary.txt", "Transcription failed.\n");
-        return false;
+        return result;
     }
 
-    log_info() << "  Transcription: " << transcript << "\n";
-    write_file(output_dir + "/transcription.txt", transcript + "\n");
+    log_info() << "  Transcription: " << result.transcript << "\n";
+    write_file(output_dir + "/transcription.txt", result.transcript + "\n");
 
     // Detect command
     log_info() << "Detecting command...\n";
-    DetectionResult detection = detect(transcript, cfg, variants);
+    DetectionResult detection = detect(result.transcript, cfg, variants);
 
     int wake_total = detection.wake_word_exact + detection.wake_word_approx;
     log_info() << "  Wake word: " << wake_total
@@ -158,15 +156,18 @@ bool process_wav(const std::string& input_file,
     DetectionTotals totals = compute_totals(detection);
     write_file(output_dir + "/scores.txt", format_scores(detection, totals, audio_stats));
     write_file(output_dir + "/summary.txt",
-               format_summary(detection, totals, cfg, input_file, transcript, ascii_art));
+               format_summary(detection, totals, cfg, input_file, result.transcript, ascii_art));
 
-    // Launch operation if command detected (or forced for testing)
-    bool trigger = totals.command_detected || cfg.doom_force_trigger;
+    result.command_detected = totals.command_detected;
+    result.trigger = totals.command_detected || cfg.doom_force_trigger;
+    result.ascii_art = ascii_art;
+
     if (cfg.doom_force_trigger && !totals.command_detected) {
         log_info() << "Force-triggering (doom_force_trigger=true)\n";
     }
-    if (trigger && cfg.operation == "doom") {
-        // Capture detection timestamp immediately
+
+    // Capture detection timestamp for the execution stage
+    if (result.trigger) {
         time_t det_time = time(nullptr);
         struct tm* det_tm = gmtime(&det_time);
         char det_ts[48];
@@ -174,74 +175,114 @@ bool process_wav(const std::string& input_file,
             "%04d-%02d-%02d %02d:%02d:%02d UTC",
             det_tm->tm_year + 1900, det_tm->tm_mon + 1, det_tm->tm_mday,
             det_tm->tm_hour, det_tm->tm_min, det_tm->tm_sec);
-
-        log_info() << "Command detected! Launching DOOM...\n";
-        if (!ascii_art.empty()) {
-            std::cout << ascii_art << std::endl;
-        }
-        DoomResult doom_result = run_doom(doom_binary, demos_dir, output_dir,
-                                          cfg.doom_frames, cfg.doom_maxframes,
-                                          cfg.doom_keepgifframes, cfg.doom_demo_order);
-        if (doom_result.failures != 0) {
-            log_warning() << "DOOM had " << doom_result.failures << " failure(s)\n";
-        }
-
-        // Generate postcard
-        if (cfg.doom_enable_postcard && !doom_result.demo_dir.empty()) {
-            std::string frame = find_doom_frame(doom_result.demo_dir);
-            if (!frame.empty()) {
-                PostcardArgs pargs;
-                pargs.frame_path = frame;
-                pargs.sc16_path = sc16_path;
-                pargs.transcription = transcript;
-                pargs.demo_name = doom_result.demo_name;
-                pargs.timestamp = det_ts;
-                pargs.logo_esa = cfg.doom_assets_dir + "/logo-esa.png";
-                pargs.logo_doom = cfg.doom_assets_dir + "/logo-doom.png";
-                pargs.logo_pretty = cfg.doom_assets_dir + "/logo-opssat-pretty.png";
-                pargs.output_path = output_dir + "/postcard.png";
-                pargs.scale = cfg.doom_postcard_scale;
-
-                if (!generate_postcard(pargs)) {
-                    log_warning() << "Postcard generation failed\n";
-                }
-            } else {
-                log_warning() << "No DOOM frame found, skipping postcard\n";
-            }
-        }
-
-        // Append to toGround/results.txt
-        {
-            // Walk up from output_dir past capture-NNN and run-NNNNN to reach toGround/
-            std::string results_dir = output_dir;
-            for (int i = 0; i < 3; i++) {
-                auto slash = results_dir.find_last_of('/');
-                if (slash == std::string::npos) break;
-                std::string dirname = results_dir.substr(slash + 1);
-                if (dirname.find("capture-") != 0 && dirname.find("run-") != 0) break;
-                results_dir = results_dir.substr(0, slash);
-            }
-            std::string results_path = results_dir + "/results.txt";
-            std::ofstream results(results_path, std::ios::app);
-            if (results) {
-                std::string trigger_type = totals.command_detected ? "detected" : "force";
-                results << det_ts
-                        << " | " << output_dir
-                        << " | demo=" << doom_result.demo_name
-                        << " | trigger=" << trigger_type
-                        << " | failures=" << doom_result.failures
-                        << " | transcript=" << transcript
-                        << "\n";
-            }
-        }
-    } else if (trigger) {
-        log_warning() << "Unknown operation: " << cfg.operation << "\n";
-    } else {
-        log_info() << "No command detected.\n";
+        result.detection_timestamp = det_ts;
     }
+
+    return result;
+}
+
+void process_wav_exec(const PipelineStageResult& stage1,
+                      const std::string& output_dir,
+                      const PipelineConfig& cfg,
+                      const std::string& doom_binary,
+                      const std::string& demos_dir,
+                      const std::string& sc16_path) {
+    if (!stage1.trigger) {
+        if (!stage1.transcript.empty()) {
+            log_info() << "No command detected.\n";
+        }
+        return;
+    }
+
+    if (cfg.operation != "doom") {
+        log_warning() << "Unknown operation: " << cfg.operation << "\n";
+        return;
+    }
+
+    log_info() << "Command detected! Launching DOOM...\n";
+    if (!stage1.ascii_art.empty()) {
+        std::cout << stage1.ascii_art << std::endl;
+    }
+
+    // NOTE: exec stages can run concurrently if DOOM + Postcard for capture N
+    // takes longer than STT for capture N+1. This means run_doom() calls could
+    // overlap, creating a race on doom_demo_index.txt (demo cycling state).
+    // On the EM this is unlikely (~40s STT vs ~13-41s DOOM+Postcard) but not
+    // impossible. If demo ordering matters, serialize exec stages or pre-assign
+    // demo indices during the STT stage.
+    DoomResult doom_result = run_doom(doom_binary, demos_dir, output_dir,
+                                      cfg.doom_frames, cfg.doom_maxframes,
+                                      cfg.doom_keepgifframes, cfg.doom_demo_order);
+    if (doom_result.failures != 0) {
+        log_warning() << "DOOM had " << doom_result.failures << " failure(s)\n";
+    }
+
+    // Generate postcard
+    if (cfg.doom_enable_postcard && !doom_result.demo_dir.empty()) {
+        std::string frame = find_doom_frame(doom_result.demo_dir);
+        if (!frame.empty()) {
+            PostcardArgs pargs;
+            pargs.frame_path = frame;
+            pargs.sc16_path = sc16_path;
+            pargs.transcription = stage1.transcript;
+            pargs.demo_name = doom_result.demo_name;
+            pargs.timestamp = stage1.detection_timestamp;
+            pargs.logo_esa = cfg.doom_assets_dir + "/logo-esa.png";
+            pargs.logo_doom = cfg.doom_assets_dir + "/logo-doom.png";
+            pargs.logo_pretty = cfg.doom_assets_dir + "/logo-opssat-pretty.png";
+            pargs.output_path = output_dir + "/postcard.png";
+            pargs.scale = cfg.doom_postcard_scale;
+
+            if (!generate_postcard(pargs)) {
+                log_warning() << "Postcard generation failed\n";
+            }
+        } else {
+            log_warning() << "No DOOM frame found, skipping postcard\n";
+        }
+    }
+
+    // Append to toGround/results.txt
+    {
+        std::string results_dir = output_dir;
+        for (int i = 0; i < 3; i++) {
+            auto slash = results_dir.find_last_of('/');
+            if (slash == std::string::npos) break;
+            std::string dirname = results_dir.substr(slash + 1);
+            if (dirname.find("capture-") != 0 && dirname.find("run-") != 0) break;
+            results_dir = results_dir.substr(0, slash);
+        }
+        std::string results_path = results_dir + "/results.txt";
+        std::ofstream results(results_path, std::ios::app);
+        if (results) {
+            std::string trigger_type = stage1.command_detected ? "detected" : "force";
+            results << stage1.detection_timestamp
+                    << " | " << output_dir
+                    << " | demo=" << doom_result.demo_name
+                    << " | trigger=" << trigger_type
+                    << " | failures=" << doom_result.failures
+                    << " | transcript=" << stage1.transcript
+                    << "\n";
+        }
+    }
+}
+
+bool process_wav(const std::string& input_file,
+                 const std::string& output_dir,
+                 const PipelineConfig& cfg,
+                 const VariantsMap& variants,
+                 Transcriber& stt,
+                 const std::string& config_file,
+                 const std::string& doom_binary,
+                 const std::string& demos_dir,
+                 const std::string& sc16_path) {
+    auto proc_start = std::chrono::steady_clock::now();
+
+    PipelineStageResult stage1 = process_wav_stt(input_file, output_dir, cfg, variants,
+                                                  stt, config_file);
+    process_wav_exec(stage1, output_dir, cfg, doom_binary, demos_dir, sc16_path);
 
     auto proc_end = std::chrono::steady_clock::now();
     log_info() << "Pipeline time: " << format_duration(proc_end - proc_start)
                << " (DSP + STT + detection)\n";
-    return totals.command_detected;
+    return stage1.command_detected;
 }

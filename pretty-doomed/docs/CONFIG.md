@@ -60,7 +60,7 @@ Scoring: exact matches = 2 points, fuzzy matches = 1 point.
 
 ## SDR: Capture Settings
 
-Used with the `-s` flag. AD9361 configuration (`ad9361_configure()` in `sdr.cpp`) runs once before the capture loop by default. Setting `sdr_init_per_capture=true` re-configures the AD9361 from scratch at the beginning of each capture as a defensive measure against IIO driver state issues. The per-capture overhead is negligible for the software-only path, but with hardware FIR enabled `ad9361_set_bb_rate_custom_filter_manual()` adds ~4.5s per capture on ARM32.
+Used with the `-s` flag. AD9361 configuration (`ad9361_configure()` in `sdr.cpp`) runs once before the capture loop by default. Setting `sdr_init_per_capture=true` re-configures the AD9361 from scratch at the beginning of each capture as a defensive measure against IIO driver state issues. The per-capture overhead is negligible for the software-only path, but with hardware FIR enabled `ad9361_set_bb_rate_custom_filter_manual()` adds ~4.5s per capture on ARM32. Note: the GNU Radio flowgraph (IIO buffer connection, signal processing blocks) is still created and destroyed per capture regardless of this setting. The init-once optimization applies to the AD9361 register configuration (LO, gain, sample rate, FIR taps), not the flowgraph lifecycle. GNU Radio `top_block` does not support stop-then-restart, so the flowgraph must be rebuilt each capture.
 
 | Key | Default | Description |
 |-----|---------|-------------|
