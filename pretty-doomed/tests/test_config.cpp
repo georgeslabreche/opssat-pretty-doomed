@@ -154,6 +154,22 @@ TEST_CASE("load_config preserves hw_fir defaults when not set") {
     CHECK(cfg.sdr_hw_fir_wnom_rx == 0);
 }
 
+TEST_CASE("load_config parses sdr_init_per_capture") {
+    std::istringstream input("sdr_init_per_capture=true\n");
+
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.sdr_init_per_capture == true);
+}
+
+TEST_CASE("load_config preserves sdr_init_per_capture default") {
+    std::istringstream input("sdr_rate=2400000\n");
+
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.sdr_init_per_capture == false);
+}
+
 TEST_CASE("load_variants handles empty input") {
     std::istringstream input("");
 
