@@ -24,12 +24,10 @@
 #include "pretty_log.h"
 #include "pretty_signal.h"
 
-#include <iio.h>
-#include <ad9361.h>
-
 #include "config.h"
 #include "transcriber.h"
 #include "capture.h"
+#include "sdr.h"
 #include "pipeline.h"
 
 using namespace pretty;
@@ -177,7 +175,17 @@ int main(int argc, char** argv) {
 
         log_info() << "SDR Capture mode: " << num_captures << " capture(s) of "
                    << cfg.sdr_duration << "s, processing=" << cfg.process_mode
-                   << ", decimation=" << (cfg.sdr_hw_fir_enable ? "hardware FIR" : "software") << "\n";
+                   << ", decimation=" << (cfg.sdr_hw_fir_enable ? "hardware FIR" : "software")
+                   << ", sdr_init=" << (cfg.sdr_init_per_capture ? "per-capture" : "once") << "\n";
+
+        // Configure AD9361 once before the capture loop (default).
+        // Per-capture mode skips this and re-inits inside run_capture() instead.
+        if (!cfg.sdr_init_per_capture) {
+            if (!ad9361_configure(cfg)) {
+                log_error() << "AD9361 configuration failed\n";
+                return 1;
+            }
+        }
 
         // Background mode: load STT model.
         //   concurrent_load=true:  load on background thread while first capture runs
@@ -298,6 +306,11 @@ int main(int argc, char** argv) {
                        << " complete (" << format_duration(std::chrono::steady_clock::now() - bg_start) << ")\n";
         }
 
+        // Disable hardware FIR now that all captures are done.
+        // Processing uses WAV files, not the AD9361, so free the hardware state
+        // sooner for subsequent experiments.
+        ad9361_cleanup_fir(cfg);
+
         if (!background) {
             // Sequential: load STT model now (deferred from before captures)
             stt = std::make_unique<Transcriber>(cfg);
@@ -336,24 +349,6 @@ int main(int argc, char** argv) {
         }
         any_detected = process_wav(args.input_file, args.output_dir, cfg, variants, stt_file,
                                    args.config_file, args.doom_binary, args.demos_dir);
-    }
-
-    // Restore AD9361 to non-FIR state so subsequent experiments aren't affected
-    if (args.sdr_capture && cfg.sdr_hw_fir_enable) {
-        struct iio_context* cleanup_ctx = iio_create_context_from_uri(cfg.sdr_uri.c_str());
-        if (cleanup_ctx) {
-            struct iio_device* cleanup_phy = iio_context_find_device(cleanup_ctx, "ad9361-phy");
-            if (cleanup_phy) {
-                ad9361_set_trx_fir_enable(cleanup_phy, 0);
-                int fir_enabled = 0;
-                if (ad9361_get_trx_fir_enable(cleanup_phy, &fir_enabled) == 0 && !fir_enabled) {
-                    log_info() << "AD9361 hardware FIR disabled (cleanup)\n";
-                } else {
-                    log_warning() << "AD9361 hardware FIR may still be enabled after cleanup\n";
-                }
-            }
-            iio_context_destroy(cleanup_ctx);
-        }
     }
 
     auto pipeline_end = std::chrono::steady_clock::now();
