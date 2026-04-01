@@ -23,5 +23,8 @@ package/
 toGround/
 output/
 
+# Local notes
+TODO.md
+
 # Artifacts from development
 artifacts

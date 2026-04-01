@@ -31,7 +31,7 @@ PHASE_PATTERNS = [
     ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:")),
     ("SDR Init",       re.compile(r"=== Capture \d+/\d+ ===")),
     ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:")),
-    ("SDR Init",       re.compile(r"AD9361|Building flowgraph")),
+    ("SDR Init",       re.compile(r"AD9361(?! hardware FIR disabled)|Building flowgraph")),
     ("SDR Capture",        re.compile(r"Starting capture|Capture complete|Timeout:|Progress \[")),
     ("SDR Teardown",       re.compile(r"Stopping flowgraph")),
     ("Normalize",      re.compile(r"Normalizing audio|RMS normalize:")),
@@ -40,7 +40,7 @@ PHASE_PATTERNS = [
     ("STT Inference",  re.compile(r"Transcribing \(|STT time:")),
     ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|Command detected")),
     ("DOOM",           re.compile(r"Running DOOM demo:|Completed demo:")),
-    ("Postcard",       re.compile(r"Generating postcard|Postcard:")),
+    ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16:")),
 ]
 
 PHASE_COLORS = {
@@ -98,12 +98,18 @@ def parse_log(path):
 def annotate_capture_numbers(entries):
     """Add capture number suffix to phase names for multi-capture runs.
 
-    Detects '=== Capture N/M ===' markers.  When M > 1 every phase is
-    labelled ' #N' so the Gantt chart distinguishes capture iterations.
-    STT Model Load entries that appear before the first capture marker
-    are left un-numbered.
+    Detects '=== Capture N/M ===' markers and '--- Processing: .../capture-NNN/...'
+    markers.  When M > 1 every phase is labelled ' #N' so the Gantt chart
+    distinguishes capture iterations.  STT Model Load is never numbered
+    (it is not capture-specific).
+
+    In sequential mode, processing phases appear after all captures are done.
+    The '--- Processing:' marker resets the capture number so that processing
+    of capture 1 is correctly labelled #1 even though it occurs after the
+    '=== Capture 2/2 ===' marker.
     """
     capture_re = re.compile(r"=== Capture (\d+)/(\d+) ===")
+    processing_re = re.compile(r"--- Processing: .*/capture-(\d+)/")
 
     # Collect capture markers
     markers = []  # (time, cap_num, cap_total, tid)
@@ -133,6 +139,9 @@ def annotate_capture_numbers(entries):
         if tid != main_tid and tid not in thread_capture:
             thread_capture[tid] = capture_at(t)
 
+    # Phases that should never be numbered
+    unnumbered_phases = {"STT Model Load"}
+
     result = []
     main_cap = 0
     for t, cpu, tid, phase, msg in entries:
@@ -140,7 +149,12 @@ def annotate_capture_numbers(entries):
         if m and tid == main_tid:
             main_cap = int(m.group(1))
 
-        if phase is not None:
+        # Sequential mode: '--- Processing: .../capture-NNN/...' resets capture number
+        mp = processing_re.search(msg)
+        if mp and tid == main_tid:
+            main_cap = int(mp.group(1))
+
+        if phase is not None and phase not in unnumbered_phases:
             cap = main_cap if tid == main_tid else thread_capture.get(tid, 0)
             if cap > 0:
                 phase = f"{phase} #{cap}"
@@ -194,6 +208,11 @@ def build_phase_spans(entries):
 
     for t, cpu, tid, phase, msg in entries:
         if phase is None:
+            # Close active phase on this thread (unrecognized log line ends the span)
+            if tid in active:
+                prev_phase, prev_start, prev_end = active[tid]
+                spans.append((prev_phase, tid, prev_start, prev_end))
+                del active[tid]
             continue
 
         if tid in active:
@@ -261,15 +280,21 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
     ax.grid(axis="x", alpha=0.3)
 
     # Phase name + duration labels on bars
-    LABEL_PHASES = {"STT Model Load", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
+    LABEL_PHASES = {"STT Model Load", "SDR Init", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
+    x_range = (x_max if x_max else t_max)
     for phase, tid, ts, te in spans:
-        if phase_base(phase) in LABEL_PHASES and (te - ts) > 0.5:
-            mid = (ts + te) / 2
-            y = tid_y[tid]
-            secs = te - ts
+        if phase_base(phase) not in LABEL_PHASES or (te - ts) < 0.5:
+            continue
+        secs = te - ts
+        bar_frac = secs / x_range if x_range > 0 else 0
+        mid = (ts + te) / 2
+        y = tid_y[tid]
+        if bar_frac > 0.04:
             label = f"{phase}\n{secs:.1f}s"
-            ax.text(mid, y, label, ha="center", va="center",
-                    fontsize=7, fontweight="bold", color="white", alpha=0.9)
+        else:
+            label = f"{secs:.1f}s"
+        ax.text(mid, y, label, ha="center", va="center",
+                fontsize=7, fontweight="bold", color="white", alpha=0.9)
 
     # Legend outside plot area
     base_order = ["STT Model Load", "SDR Init", "SDR Capture", "SDR Teardown",
@@ -313,11 +338,7 @@ def process_log(log_path, output_path, title, x_max=None):
     plot_timeline(entries, spans, output_path, title, x_max=x_max)
 
 
-RUN_TITLES = {
-    "run-00001": "Run 1: SDR Capture (sequential, stt_concurrent_load=false)",
-    "run-00002": "Run 2: SDR Capture (background, stt_concurrent_load=false)",
-    "run-00003": "Run 3: SDR Capture (background, stt_concurrent_load=true)",
-}
+RUN_TITLES = {}
 
 
 def main():

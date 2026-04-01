@@ -1,181 +1,103 @@
-# v3 EM Test Results
+# v4 EM Test Results
 
-Results from the v3 experiment run on the OPS-SAT Engineering Model (EM), ARM32 dual-core SEPP. Data from SMILE artifact `pack-4023_1774447112`. See [TESTING.md](TESTING.md) for test environment details.
+Results from the v4 experiment run on the OPS-SAT Engineering Model (EM), ARM32 dual-core SEPP. Data from SMILE artifact `pack-4023_1774937270`. See [TESTING.md](TESTING.md) for test environment details.
 
-For the v2 EM results that motivated v3, see [changelog/V1_TO_V2.md](changelog/V1_TO_V2.md#em-resource-utilization-v2-run). For the v3 changes, see [changelog/V2_TO_V3.md](changelog/V2_TO_V3.md).
+For v3 EM results, see [changelog/data/em-v3/](changelog/data/em-v3/). Source data for v4 is in [data/em-v4/](data/em-v4/). For the v4 changes (hardware FIR decimation), see [changelog/V3_TO_V4.md](changelog/V3_TO_V4.md).
 
 ## Run Configuration
 
-| | Run 1 | Run 2 | Run 3 |
+| | Run 1 (baseline) | Run 2 (hw FIR, background) | Run 3 (hw FIR, sequential) |
 |---|---|---|---|
-| Process mode | sequential | background | background |
-| Captures | 1 x 20s | 2 x 20s | 2 x 20s |
-| stt_concurrent_load | false | false | true |
+| Decimation | Software only (2.4 MSPS, 12x) | Hardware FIR (600 kSPS, 3x) | Hardware FIR (600 kSPS, 3x) |
+| Process mode | background | background | sequential |
+| Captures | 2 x 20s | 2 x 20s | 2 x 20s |
+| stt_concurrent_load | true | true | false |
 | doom_force_trigger | true | true | true |
 
-All runs: 1296 MHz, 2.4 MSPS SDR rate, 12x decimation, 200 kHz effective sample rate.
+All runs: 1296 MHz, 200 kHz effective sample rate, 16 kHz audio output.
 
 ## Timing Summary
 
-All values from log timestamps. Capture wall times are self-reported by the application. DOOM demo durations vary by demo -- not comparable across runs.
-
-| Metric | Run 1 | Run 2 | Run 3 |
+| Metric | Run 1 (baseline) | Run 2 (hw FIR bg) | Run 3 (hw FIR seq) |
 |---|---|---|---|
-| STT model load | 16,490 ms | 16,363 ms | 22,158 ms |
-| Capture 1 wall time | 50s | 51s | 55s |
-| Capture 2 wall time | -- | 72s | 67s |
-| Cap 1 DSP filter | 1.0s | 1.3s | 1.2s |
-| Cap 1 STT inference | 37.9s | 41.0s | 42.5s |
-| Cap 1 DOOM demo | gl-e1m2b (19.2s) | e1m7-607 (13.4s) | impfight (0.3s) |
-| Cap 1 postcard | 9.8s | 9.2s | 8.4s |
-| Cap 2 DSP filter | -- | 1.1s | 1.1s |
-| Cap 2 STT inference | -- | 36.1s | 36.1s |
-| Cap 2 DOOM demo | -- | gl-e1m2 (5.0s) | m1-fast (0.2s) |
-| Cap 2 postcard | -- | 8.9s | 7.9s |
-| **Total time** | **138.1s** | **192.8s** | **170.0s** |
+| STT model load | 23,725 ms | 21,271 ms | 16,631 ms |
+| HW FIR config (cap 1) | n/a | 4.6s | 4.4s |
+| HW FIR config (cap 2) | n/a | 4.8s | 4.5s |
+| Capture 1 wall time | 56s | 20s | 20s |
+| Capture 2 wall time | 74s | 20s | 20s |
+| LPF taps | 385 | 97 | 97 |
+| Cap 1 DSP filter | 1.4s | 1.2s | 1.0s |
+| Cap 1 STT inference | 42.1s | 40.8s | 37.8s |
+| Cap 2 DSP filter | 1.0s | 1.0s | 1.0s |
+| Cap 2 STT inference | 36.2s | 36.0s | 35.9s |
+| **Total time** | **191.0s** | **126.1s** | **159.5s** |
 
-## Run 1: SDR Capture, sequential
+## Key Result: Capture Wall Time
 
-Single-thread execution. All phases run on Thread 72.
+The hardware FIR reduced capture wall time from 56-74s (baseline) to 20s (hw FIR). This matches the configured `sdr_duration=20`, suggesting that the ARM can process the DMA stream in real-time at 600 kSPS.
 
-Log: `SDR Capture mode: 1 capture(s) of 20s, processing=sequential`
-
-Phase order: SDR Init, SDR Capture, SDR Teardown, Normalize, Artifacts, STT Model Load, DSP Filter, STT Inference, Detection, DOOM, Postcard.
-
-### Timeline
-
-![Run 1 Timeline](data/em-v3/pack-4023_1774447112/run-00001-timeline.png)
-
-### Timeline + Resource Utilization
-
-![Run 1 Resource](data/em-v3/pack-4023_1774447112/run-00001-resource.png)
-
-CPU observations from the resource plot:
-- During SDR capture (~0-52s): both cores active (CPU0 ~50-65%, CPU1 ~40-60%). GNU Radio runs internal worker threads for the flowgraph.
-- STT model load (~53-69s): CPU0 at ~100%, CPU1 drops to near idle.
-- STT inference (~70-108s): CPU0 sustained at ~100%, CPU1 near idle.
-- DOOM (~109-128s): CPU0 at ~100%.
-- Postcard (~128-138s): CPU0 at ~100%.
-
-Memory rises from ~7% at baseline to ~20% after STT model load, peaks at ~23% during STT inference, and settles around 15-18% during DOOM and postcard generation.
-
-## Run 2: SDR Capture, background (stt_concurrent_load=false)
-
-Log: `SDR Capture mode: 2 capture(s) of 20s, processing=background`
-
-STT model load (16.4s) blocks the main thread before the first capture starts. Five threads visible in the timeline:
-- **Thread 916** (main): STT Model Load, SDR Init, Capture 1, Teardown, Normalize, SDR Init, Capture 2, Teardown, Normalize
-- **Thread 1335** (artifacts, cap 1): IQ Diag, Spectrogram, Constellation
-- **Thread 1336** (processing, cap 1): DSP Filter, STT Inference, Detection, DOOM, Postcard
-- **Thread 1755** (artifacts, cap 2): IQ Diag, Spectrogram, Constellation
-- **Thread 1756** (processing, cap 2): DSP Filter, STT Inference, Detection, DOOM, Postcard
-
-### Timeline
-
-![Run 2 Timeline](data/em-v3/pack-4023_1774447112/run-00002-timeline.png)
-
-### Timeline + Resource Utilization
-
-![Run 2 Resource](data/em-v3/pack-4023_1774447112/run-00002-resource.png)
-
-CPU observations from the resource plot:
-- STT model load (0-16s): CPU0 at ~100%, CPU1 near idle.
-- Capture 1 (~16-68s): both cores active (~50-60%).
-- Capture 2 concurrent with cap 1 processing (~68-141s): both cores high (~80-100%). Capture 2 took 72s wall time vs capture 1's 51s -- I/Q throughput dropped during concurrent processing (see I/Q throughput section below).
-- Cap 2 processing only (~141-192s): CPU0 at ~100%, CPU1 near idle (single-thread STT inference).
-
-Memory starts at ~8%, rises to ~15% after STT model load, and fluctuates between 15-24% during processing.
-
-Capture 1 processing (Thread 1336) ran concurrently with capture 2 (Thread 916): the artifact thread generated spectrogram and constellation BMPs from the sc16 file while the processing thread ran DSP and STT on the WAV file. Capture 1 processing completed (64.9s) before capture 2 finished (72s).
-
-## Run 3: SDR Capture, background (stt_concurrent_load=true)
-
-Log: `SDR Capture mode: 2 capture(s) of 20s, processing=background`
-
-STT model load runs on a background thread concurrently with the first SDR capture. Six threads visible in the timeline:
-- **Thread 2077** (main): SDR Init, Capture 1, Teardown, Normalize, SDR Init, Capture 2, Teardown, Normalize
-- **Thread 2085** (STT load): STT Model Load -- runs concurrently with capture 1
-- **Thread 2413** (artifacts, cap 1): IQ Diag, Spectrogram, Constellation
-- **Thread 2414** (processing, cap 1): DSP Filter, STT Inference, Detection, DOOM, Postcard
-- **Thread 2809** (artifacts, cap 2): IQ Diag, Spectrogram, Constellation
-- **Thread 2810** (processing, cap 2): DSP Filter, STT Inference, Detection, DOOM, Postcard
-
-### Timeline
-
-![Run 3 Timeline](data/em-v3/pack-4023_1774447112/run-00003-timeline.png)
-
-### Timeline + Resource Utilization
-
-![Run 3 Resource](data/em-v3/pack-4023_1774447112/run-00003-resource.png)
-
-CPU observations from the resource plot:
-- Concurrent STT load + capture 1 (0-22s): both cores near 100% from the start. CPU0 handles STT model loading, CPU1 handles SDR capture.
-- After STT finishes, capture 1 continues (~22-56s): CPU load drops to single-core capture pattern (~50-60%).
-- Capture 2 concurrent with cap 1 processing (~56-124s): both cores high.
-- Cap 2 processing only (~124-170s): CPU0 at ~100%, CPU1 near idle.
-
-Memory rises from ~6% at baseline to ~18-20% within the first few seconds (STT model loading + capture buffers allocated simultaneously), and peaks at ~24%.
-
-STT model loaded in 22.2s. Capture 1 took 55s. The model was ready ~34s before capture 1 completed, so no waiting occurred before processing could start.
-
-Capture 1 delivered 319,976 of 320,000 audio samples (24 short, 0.0075%). All I/Q samples were complete (4,000,000/4,000,000). All other captures across all three runs delivered full audio sample counts.
-
-## I/Q Capture Throughput
-
-The configured 20s SDR captures take longer than 20s of wall time on the EM due to ARM DMA throughput limitations (see [TESTING.md](TESTING.md#capture-duration-vs-wall-time)). Wall time varies depending on concurrent CPU load. The Progress log lines report I/Q sample counts at 5-second intervals.
-
-| Capture | Wall time | Avg I/Q throughput | Concurrent activity |
+| Capture | Baseline (Run 1) | HW FIR (Run 2) | HW FIR (Run 3) |
 |---|---|---|---|
-| Run 1, cap 1 | 50s | ~80,000 samples/s | None |
-| Run 2, cap 1 | 51s | ~78,400 samples/s | None (STT already loaded) |
-| Run 2, cap 2 | 72s | ~55,600 samples/s | Cap 1 STT inference (Thread 1336) |
-| Run 3, cap 1 | 55s | ~72,700 samples/s | STT model load (Thread 2085) |
-| Run 3, cap 2 | 67s | ~59,700 samples/s | Cap 1 STT inference (Thread 2414) |
+| Cap 1 | 56s | 20s | 20s |
+| Cap 2 | 74s | 20s | 20s |
 
-Run 3 capture 1 shows a throughput shift visible in the Progress lines. During the first ~22s while STT was loading concurrently, I/Q throughput averaged ~55,000 samples/s. After STT loading completed at the 22s mark, throughput for the remainder of the capture rose to ~83,000 samples/s.
+In the baseline, capture 2 took 74s (vs 56s for cap 1), likely due to concurrent STT inference consuming CPU (consistent with the v3 EM observations). With hardware FIR, both captures complete in 20s regardless of concurrent activity, suggesting the DMA throughput is no longer the limiting factor.
 
-## Concurrent STT Load: Run 2 vs Run 3
+## Hardware FIR Readback
 
-Run 2 and Run 3 differ only in `stt_concurrent_load`. Comparing the interval from program start to first capture complete:
+The AD9361 hardware FIR configuration was verified via readback on each capture:
 
-| Metric | Run 2 | Run 3 |
-|---|---|---|
-| Time to first capture complete | 68.2s | 56.2s |
-| Breakdown | 16.4s STT block + 51.8s capture | 55s capture (STT concurrent) |
-| STT load duration | 16,363 ms | 22,158 ms |
+```
+AD9361 hardware FIR readback: enabled
+AD9361 FIR config readback: FIR Rx: 128,4 Tx: 128,4
+AD9361 sample rate readback: 599999 Hz (within +/-10 Hz of requested 600000 Hz)
+AD9361 RX RF bandwidth readback: 350000 Hz
+```
 
-Run 3 reached first-capture-complete 12.0s sooner. The STT load took 5.8s longer when running concurrently (22.2s vs 16.4s), and capture 1 took 4s longer (55s vs 51s). Despite these overheads, overlapping the two phases saved 12.0s of wall time.
+This confirms: 128 FIR taps, 4x hardware decimation, output rate 600 kSPS (quantized to 599999 Hz), analog bandwidth 350 kHz.
 
-The 22.8s total time difference between Run 2 (192.8s) and Run 3 (170.0s) reflects multiple factors beyond the concurrent STT overlap, including different DOOM demo durations (Run 2: 13.4s + 5.0s = 18.4s, Run 3: 0.3s + 0.2s = 0.5s) and different capture 2 wall times (72s vs 67s).
+## HW FIR Init Overhead
 
-## Key Observations
+The `ad9361_set_bb_rate_custom_filter_manual()` call takes ~4.5s per capture on ARM32. Based on source code analysis of libad9361-iio, this call generates FIR taps, loads coefficients, reconfigures the clock chain, and recalibrates the analog filters (the relative cost of each sub-step on ARM32 has not been profiled). The init runs per-capture (not once per run) as a defensive measure. For a 2-capture run, the total overhead is ~9s.
 
-1. **Background mode shows concurrent execution.** The Run 2 and Run 3 timelines show artifact and processing threads active during SDR captures. This contrasts with the v2 EM run where background mode was effectively serialized due to a log mutex (see [changelog/V1_TO_V2.md](changelog/V1_TO_V2.md#em-resource-utilization-v2-run)).
+Despite this overhead, the net time saving is substantial: each capture saves ~34-54s of wall time, far exceeding the 4.5s init cost.
 
-2. **Concurrent SDR capture and processing share the dual-core CPU.** When capture and STT inference run simultaneously (Run 2 capture 2, Run 3 capture 2), I/Q throughput drops to ~56-60K samples/s vs ~78-80K samples/s with no concurrent work. This extends capture wall time (67-72s vs 50-51s).
+## Software FIR Taps
 
-3. **Concurrent STT loading also reduces capture throughput.** In Run 3, I/Q throughput during the first 22s of capture 1 (while STT loaded concurrently) was ~55K samples/s, rising to ~83K samples/s after STT loading finished. The net effect: capture 1 took 55s in Run 3 vs 51s in Run 2.
+With hardware FIR, the software LPF uses 97 taps (vs 385 in the baseline). The `firdes` function automatically generates fewer taps because the input rate is 600 kSPS instead of 2.4 MSPS. Fewer taps should reduce CPU load per sample during the software decimation stage, though this has not been independently measured.
 
-4. **STT model loading is slower under CPU contention.** The model took 22.2s to load in Run 3 (concurrent with capture) vs 16.4-16.5s in Run 1 and Run 2 (no contention). This is a 35% increase in load time.
+## Run 1: Baseline (software decimation, background)
 
-5. **All captures completed without retry.** No IIO device initialization failures occurred across all runs. The capture retry mechanism was not triggered.
+![Run 1 Timeline and Resource](data/em-v4/pack-4023_1774937270/run-00001-timeline-and-resource.png)
 
-6. **Per-run config copy works.** Each run's `config.cfg` in its output directory contains the correct overrides. This fixes the v2 EM bug where appends to the read-only config failed silently.
+Software decimation only (2.4 MSPS, 12x). Captures take 56s and 74s, consistent with the v3 EM results.
 
-7. **Results log works.** `toGround/results.txt` contains entries for all DOOM executions across all three runs.
+## Run 2: Hardware FIR (background)
+
+![Run 2 Timeline and Resource](data/em-v4/pack-4023_1774937270/run-00002-timeline-and-resource.png)
+
+Hardware FIR at 600 kSPS with 3x software decimation. Both captures complete in 20s. The SDR Init phase is visibly longer (~4.5s for FIR configuration) but the capture phase itself matches the configured duration.
+
+Total time: 126.1s (vs 191.0s baseline), a 64.9s reduction. The primary contributor is the shorter capture wall times (36s + 54s = 90s saved), partially offset by the FIR init overhead (~9s). A direct subtraction of these factors does not account for the full difference because background mode overlaps capture with processing, and other per-run variables differ (STT load time: 23.7s vs 21.3s, DOOM demos: gl-e1m2b + e1m7-607 totaling 32.8s vs gl-e1m2 + impfight totaling 5.3s).
+
+## Run 3: Hardware FIR (sequential)
+
+![Run 3 Timeline and Resource](data/em-v4/pack-4023_1774937270/run-00003-timeline-and-resource.png)
+
+Hardware FIR with sequential processing. Both captures complete in 20s, same as Run 2. Since Run 3 has no concurrent processing during capture, the consistent 20s wall time across both runs suggests the improvement is attributable to the hardware FIR rather than reduced CPU contention.
+
+The DOOM phase is not visible in this plot because the demos (m1-fast at 0.2s, m1-normal at 0.3s) are too short to render at this timescale.
+
+Total time: 159.5s. Longer than Run 2 (126.1s) because sequential mode processes each capture after all captures are done, with no overlap.
 
 ## Regenerating Plots
 
 The source data (logs and resource CSVs) is committed in `docs/data/`. To regenerate the plots:
 
 ```bash
-python3 scripts/plots/plot_log_timeline.py --batch \
-  --input-dir docs/data/em-v3/pack-4023_1774447112 \
-  --output-dir docs/data/em-v3/pack-4023_1774447112
-
-python3 scripts/plots/plot_resource.py --batch --standalone \
-  --input-dir docs/data/em-v3/pack-4023_1774447112 \
-  --output-dir docs/data/em-v3/pack-4023_1774447112
+python3 scripts/plots/plot_resource.py --batch \
+  --input-dir docs/data/em-v4/pack-4023_1774937270 \
+  --output-dir docs/data/em-v4/pack-4023_1774937270
 ```
 
-Requires `matplotlib` and `numpy` (`pip install matplotlib numpy`).
+Requires `matplotlib` and `numpy` (`pip install matplotlib numpy`). The `plot_resource.py` script generates combined timeline + CPU + memory plots. The standalone `plot_log_timeline.py` script is still available for timeline-only plots if needed.

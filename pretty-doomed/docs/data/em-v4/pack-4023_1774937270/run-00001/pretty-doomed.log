@@ -1,0 +1,149 @@
+[2026-03-31 05:59:51.220][c0/t57] === PRETTY DOOMed v4 ===
+[2026-03-31 05:59:51.220][c0/t57] Loading config: /home/exp/toGround/run-00001/config.cfg
+[2026-03-31 05:59:51.222][c0/t57] SDR Capture mode: 2 capture(s) of 20s, processing=background, decimation=software
+[2026-03-31 05:59:51.222][c0/t57] Loading STT model (concurrent with capture)...
+[2026-03-31 05:59:51.222][c1/t65] Loading STT model...
+[2026-03-31 05:59:51.222][c1/t65]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-03-31 05:59:51.222][c1/t65]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-03-31 05:59:51.223][c1/t65]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-03-31 05:59:51.223][c1/t65]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-03-31 05:59:51.227][c0/t57] === Capture 1/2 ===
+[2026-03-31 05:59:51.227][c0/t57] Configuring SDR...
+[2026-03-31 05:59:51.227][c0/t57] SDR Capture: 20s at 200000 Hz effective
+[2026-03-31 05:59:51.228][c0/t57]   Frequency:   1296 MHz
+[2026-03-31 05:59:51.228][c0/t57]   SDR rate:    2400000 Hz, decimation 12x
+[2026-03-31 05:59:51.228][c0/t57]   I/Q samples: 4000000, audio samples: 320000
+[2026-03-31 05:59:51.228][c0/t57]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-03-31 05:59:51.228][c0/t57]   LPF taps: 385, bandpass taps: 193
+[2026-03-31 05:59:51.319][c0/t57] AD9361 RX config written via libiio
+[2026-03-31 05:59:51.320][c0/t57] AD9361 RX LO readback: 1296000000 Hz
+[2026-03-31 05:59:51.321][c0/t57] AD9361 sample rate readback: 2399999 Hz
+[2026-03-31 05:59:51.321][c0/t57] AD9361 sample rate readback: 2399999 Hz (within +/-10 Hz of requested 2400000 Hz)
+[2026-03-31 05:59:51.322][c0/t57] AD9361 RX RF bandwidth readback: 200000 Hz
+[2026-03-31 05:59:51.322][c0/t57] AD9361 RX gain control mode: manual
+[2026-03-31 05:59:51.323][c0/t57] AD9361 RX hardware gain: 50.000000 dB
+[2026-03-31 05:59:51.323][c0/t57] AD9361 RX RSSI: 105.75 dB
+[2026-03-31 05:59:51.324][c0/t57] Building flowgraph...
+[2026-03-31 05:59:51.358][c0/t57] Starting capture...
+[2026-03-31 05:59:51.587][c0/t57] Timeout: 110s (5x duration + 10)
+[2026-03-31 05:59:56.597][c0/t57] Progress [5s]: I/Q 320791/4000000, audio 25629/320000
+[2026-03-31 06:00:01.613][c0/t57] Progress [10s]: I/Q 626941/4000000, audio 50121/320000
+[2026-03-31 06:00:06.627][c0/t57] Progress [15s]: I/Q 951941/4000000, audio 76121/320000
+[2026-03-31 06:00:11.633][c0/t57] Progress [20s]: I/Q 1237941/4000000, audio 99001/320000
+[2026-03-31 06:00:14.948][c0/t65] STT model loaded (23725 ms)
+[2026-03-31 06:00:16.640][c0/t57] Progress [25s]: I/Q 1557091/4000000, audio 124533/320000
+[2026-03-31 06:00:21.648][c1/t57] Progress [30s]: I/Q 1941891/4000000, audio 155317/320000
+[2026-03-31 06:00:26.656][c1/t57] Progress [35s]: I/Q 2333841/4000000, audio 186673/320000
+[2026-03-31 06:00:31.664][c1/t57] Progress [40s]: I/Q 2718641/4000000, audio 217457/320000
+[2026-03-31 06:00:36.673][c1/t57] Progress [45s]: I/Q 3110591/4000000, audio 248813/320000
+[2026-03-31 06:00:41.682][c1/t57] Progress [50s]: I/Q 3513591/4000000, audio 281053/320000
+[2026-03-31 06:00:46.589][c1/t57] Progress [55s]: I/Q 3904241/4000000, audio 312253/320000
+[2026-03-31 06:00:48.391][c1/t57] Capture complete (I/Q: 4000000/4000000, audio: 320000/320000, 56s)
+[2026-03-31 06:00:48.391][c1/t57] Stopping flowgraph...
+[2026-03-31 06:00:48.492][c1/t57] Normalizing audio...
+[2026-03-31 06:00:48.507][c1/t57] RMS normalize: rms=0.573859, scale=0.174259, target=-20 dBFS
+[2026-03-31 06:00:48.542][c1/t57] SDR capture OK
+[2026-03-31 06:00:48.546][c1/t57] Background processing of capture 1 started
+[2026-03-31 06:00:48.546][c1/t406] --- Processing: /home/exp/toGround/run-00001/capture-001/capture.wav ---
+[2026-03-31 06:00:48.546][c1/t406] Reading audio: /home/exp/toGround/run-00001/capture-001/capture.wav
+[2026-03-31 06:00:48.563][c1/t57] === Capture 2/2 ===
+[2026-03-31 06:00:48.564][c1/t57] Configuring SDR...
+[2026-03-31 06:00:48.564][c1/t57] SDR Capture: 20s at 200000 Hz effective
+[2026-03-31 06:00:48.564][c1/t57]   Frequency:   1296 MHz
+[2026-03-31 06:00:48.564][c1/t57]   SDR rate:    2400000 Hz, decimation 12x
+[2026-03-31 06:00:48.564][c1/t57]   I/Q samples: 4000000, audio samples: 320000
+[2026-03-31 06:00:48.564][c1/t57]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-03-31 06:00:48.564][c1/t57]   LPF taps: 385, bandpass taps: 193
+[2026-03-31 06:00:48.563][c1/t406]   16000 Hz, 320000 samples (20s)
+[2026-03-31 06:00:48.581][c1/t406] Filtering (GNU Radio)...
+[2026-03-31 06:00:48.638][c0/t405] IQ diag:  4000000 samples analyzed
+[2026-03-31 06:00:48.639][c0/t405] IQ RMS:   I=17.7793 (-53.2695 dBFS)  Q=17.8112 (-53.254 dBFS)
+[2026-03-31 06:00:48.639][c0/t405] IQ zeros: I=2.245%  Q=2.2265%
+[2026-03-31 06:00:48.639][c0/t405] Spectrogram: /home/exp/toGround/run-00001/capture-001/spectrogram.bmp
+[2026-03-31 06:00:48.669][c1/t57] AD9361 RX config written via libiio
+[2026-03-31 06:00:48.669][c1/t57] AD9361 RX LO readback: 1296000000 Hz
+[2026-03-31 06:00:48.672][c1/t57] AD9361 sample rate readback: 2399999 Hz
+[2026-03-31 06:00:48.673][c1/t57] AD9361 sample rate readback: 2399999 Hz (within +/-10 Hz of requested 2400000 Hz)
+[2026-03-31 06:00:48.673][c1/t57] AD9361 RX RF bandwidth readback: 200000 Hz
+[2026-03-31 06:00:48.674][c1/t57] AD9361 RX gain control mode: manual
+[2026-03-31 06:00:48.674][c1/t57] AD9361 RX hardware gain: 50.000000 dB
+[2026-03-31 06:00:48.676][c1/t57] AD9361 RX RSSI: 105.75 dB
+[2026-03-31 06:00:48.676][c1/t57] Building flowgraph...
+[2026-03-31 06:00:48.736][c1/t57] Starting capture...
+[2026-03-31 06:00:48.770][c1/t57] Timeout: 110s (5x duration + 10)
+[2026-03-31 06:00:48.970][c1/t405] Spectrogram: 1024x256 (768 KB), 20s, freq res 781.25 Hz
+[2026-03-31 06:00:48.976][c1/t405] Constellation: /home/exp/toGround/run-00001/capture-001/constellation.bmp
+[2026-03-31 06:00:49.101][c0/t405] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-03-31 06:00:49.990][c0/t406] Resampling to 16 kHz...
+[2026-03-31 06:00:50.001][c0/t406]   320000 samples, DSP time: 1.4s
+[2026-03-31 06:00:50.001][c0/t406] Transcribing (modified_beam_search)...
+[2026-03-31 06:00:53.782][c1/t57] Progress [5s]: I/Q 328900/4000000, audio 26278/320000
+[2026-03-31 06:00:58.790][c1/t57] Progress [10s]: I/Q 616850/4000000, audio 49262/320000
+[2026-03-31 06:01:03.796][c1/t57] Progress [15s]: I/Q 875550/4000000, audio 70010/320000
+[2026-03-31 06:01:08.802][c1/t57] Progress [20s]: I/Q 1134900/4000000, audio 90758/320000
+[2026-03-31 06:01:13.808][c1/t57] Progress [25s]: I/Q 1392950/4000000, audio 111402/320000
+[2026-03-31 06:01:18.814][c1/t57] Progress [30s]: I/Q 1652300/4000000, audio 132150/320000
+[2026-03-31 06:01:23.819][c1/t57] Progress [35s]: I/Q 1910350/4000000, audio 152742/320000
+[2026-03-31 06:01:28.825][c1/t57] Progress [40s]: I/Q 2170350/4000000, audio 173594/320000
+[2026-03-31 06:01:32.186][c1/t406]   STT time: 42.1s
+[2026-03-31 06:01:32.186][c1/t406]   Transcription:  I
+[2026-03-31 06:01:32.186][c1/t406] Detecting command...
+[2026-03-31 06:01:32.186][c1/t406]   Wake word: 0 (exact=0, approx=0)
+[2026-03-31 06:01:32.187][c1/t406] Force-triggering (doom_force_trigger=true)
+[2026-03-31 06:01:32.187][c1/t406] Command detected! Launching DOOM...
+[2026-03-31 06:01:32.187][c1/t406] Running DOOM demo: gl-e1m2b (1/7)
+[2026-03-31 06:01:33.830][c1/t57] Progress [45s]: I/Q 2431650/4000000, audio 194498/320000
+[2026-03-31 06:01:38.836][c1/t57] Progress [50s]: I/Q 2694900/4000000, audio 215558/320000
+[2026-03-31 06:01:43.842][c1/t57] Progress [55s]: I/Q 2958150/4000000, audio 236618/320000
+[2026-03-31 06:01:48.847][c1/t57] Progress [60s]: I/Q 3218800/4000000, audio 257470/320000
+[2026-03-31 06:01:52.053][c1/t406] Completed demo: gl-e1m2b
+[2026-03-31 06:01:52.053][c1/t406] Generating postcard (scale=2)...
+[2026-03-31 06:01:52.053][c1/t406]   Frame: /home/exp/toGround/run-00001/capture-001/gl-e1m2b/frames-000480-000540.gif
+[2026-03-31 06:01:52.053][c1/t406]   SC16:  /home/exp/toGround/run-00001/capture-001/capture.sc16
+  GIF: 61 frames, picked frame 35
+[2026-03-31 06:01:53.853][c1/t57] Progress [65s]: I/Q 3480100/4000000, audio 278374/320000
+  I/Q scatter: 121213 points from 4000000 samples
+[2026-03-31 06:01:58.859][c1/t57] Progress [70s]: I/Q 3745950/4000000, audio 299642/320000
+[2026-03-31 06:02:01.337][c1/t406] Postcard: /home/exp/toGround/run-00001/capture-001/postcard.png (2520x1800), 9.28432s
+[2026-03-31 06:02:01.346][c1/t406] Pipeline time: 72.7s (DSP + STT + detection)
+[2026-03-31 06:02:03.466][c0/t57] Capture complete (I/Q: 4000000/4000000, audio: 319974/320000, 74s)
+[2026-03-31 06:02:03.466][c0/t57] Stopping flowgraph...
+[2026-03-31 06:02:03.566][c0/t57] Normalizing audio...
+[2026-03-31 06:02:03.583][c0/t57] RMS normalize: rms=0.574346, scale=0.174111, target=-20 dBFS
+[2026-03-31 06:02:03.619][c0/t57] SDR capture OK
+[2026-03-31 06:02:03.624][c0/t57] Background processing of capture 1 complete (75.0s)
+[2026-03-31 06:02:03.625][c0/t57] Background processing of capture 2 started
+[2026-03-31 06:02:03.625][c0/t832] --- Processing: /home/exp/toGround/run-00001/capture-002/capture.wav ---
+[2026-03-31 06:02:03.625][c0/t832] Reading audio: /home/exp/toGround/run-00001/capture-002/capture.wav
+[2026-03-31 06:02:03.639][c0/t832]   16000 Hz, 319974 samples (19.9984s)
+[2026-03-31 06:02:03.644][c0/t832] Filtering (GNU Radio)...
+[2026-03-31 06:02:03.695][c1/t831] IQ diag:  4000000 samples analyzed
+[2026-03-31 06:02:03.695][c1/t831] IQ RMS:   I=17.7531 (-53.2823 dBFS)  Q=17.7323 (-53.2925 dBFS)
+[2026-03-31 06:02:03.695][c1/t831] IQ zeros: I=2.2538%  Q=2.23975%
+[2026-03-31 06:02:03.695][c1/t831] Spectrogram: /home/exp/toGround/run-00001/capture-002/spectrogram.bmp
+[2026-03-31 06:02:03.929][c1/t831] Spectrogram: 1024x256 (768 KB), 20s, freq res 781.25 Hz
+[2026-03-31 06:02:03.936][c1/t831] Constellation: /home/exp/toGround/run-00001/capture-002/constellation.bmp
+[2026-03-31 06:02:04.031][c1/t831] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-03-31 06:02:04.733][c0/t832] Resampling to 16 kHz...
+[2026-03-31 06:02:04.739][c0/t832]   319974 samples, DSP time: 1.0s
+[2026-03-31 06:02:04.740][c0/t832] Transcribing (modified_beam_search)...
+[2026-03-31 06:02:40.958][c0/t832]   STT time: 36.2s
+[2026-03-31 06:02:40.958][c0/t832]   Transcription:  I
+[2026-03-31 06:02:40.958][c0/t832] Detecting command...
+[2026-03-31 06:02:40.959][c0/t832]   Wake word: 0 (exact=0, approx=0)
+[2026-03-31 06:02:40.959][c0/t832] Force-triggering (doom_force_trigger=true)
+[2026-03-31 06:02:40.959][c0/t832] Command detected! Launching DOOM...
+[2026-03-31 06:02:40.960][c0/t832] Running DOOM demo: e1m7-607 (2/7)
+[2026-03-31 06:02:53.838][c0/t832] Completed demo: e1m7-607
+[2026-03-31 06:02:53.838][c0/t832] Generating postcard (scale=2)...
+[2026-03-31 06:02:53.838][c0/t832]   Frame: /home/exp/toGround/run-00001/capture-002/e1m7-607/frames-007992-008025.gif
+[2026-03-31 06:02:53.838][c0/t832]   SC16:  /home/exp/toGround/run-00001/capture-002/capture.sc16
+  GIF: 34 frames, picked frame 1
+  I/Q scatter: 121213 points from 4000000 samples
+[2026-03-31 06:03:02.091][c0/t832] Postcard: /home/exp/toGround/run-00001/capture-002/postcard.png (2520x1800), 8.25289s
+[2026-03-31 06:03:02.100][c0/t832] Pipeline time: 58.4s (DSP + STT + detection)
+[2026-03-31 06:03:02.101][c0/t57] Background processing of capture 2 complete (58.4s)
+[2026-03-31 06:03:02.102][c0/t57] Unloading STT model...
+[2026-03-31 06:03:02.250][c0/t57] STT model unloaded
+[2026-03-31 06:03:02.250][c0/t57] Total time: 191.0s
+[2026-03-31 06:03:02.250][c0/t57] === Done ===
