@@ -133,8 +133,20 @@ def annotate_capture_numbers(entries):
                 break
         return cap
 
-    # For each non-main thread, assign capture from when it first appears
+    # For each non-main thread, assign capture number from file paths in its
+    # log messages (e.g. capture-001/spectrogram.bmp -> capture 1). This is
+    # more reliable than capture_at(t) which can misattribute when a thread
+    # starts just after the next capture marker is logged. We scan all
+    # messages from the thread since the first line may not contain a path
+    # (e.g. "IQ diag: N samples analyzed" has no path).
+    capture_path_re = re.compile(r"capture-0*(\d+)/")
     thread_capture = {}
+    for t, cpu, tid, phase, msg in entries:
+        if tid != main_tid and tid not in thread_capture:
+            mp = capture_path_re.search(msg)
+            if mp:
+                thread_capture[tid] = int(mp.group(1))
+    # Second pass: assign remaining threads by timestamp
     for t, cpu, tid, phase, msg in entries:
         if tid != main_tid and tid not in thread_capture:
             thread_capture[tid] = capture_at(t)
