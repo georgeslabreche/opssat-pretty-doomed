@@ -60,7 +60,7 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "sdr_gain") cfg.sdr_gain = std::stod(value);
     else if (key == "sdr_fm_deviation") cfg.sdr_fm_deviation = std::stod(value);
     else if (key == "sdr_uri") cfg.sdr_uri = value;
-    else if (key == "sdr_duration") cfg.sdr_duration = std::stoi(value);
+    else if (key == "sdr_duration") cfg.sdr_duration = std::stod(value);
     else if (key == "sdr_max_iq_mb") cfg.sdr_max_iq_mb = std::stoi(value);
     else if (key == "sdr_audio_rate") cfg.sdr_audio_rate = std::stoi(value);
     else if (key == "sdr_lpf_cutoff") cfg.sdr_lpf_cutoff = std::stod(value);

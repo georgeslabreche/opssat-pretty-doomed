@@ -73,7 +73,7 @@ bool run_capture(const PipelineConfig& cfg,
     std::string iq_file = output_dir + "/capture.sc16";
 
     // Sample counts
-    long long iq_samples = (long long)cfg.sdr_duration * (long long)effective_rate;
+    long long iq_samples = (long long)(cfg.sdr_duration * (double)effective_rate);
 
     // Cap to downlink budget
     const long long max_iq_bytes = (long long)cfg.sdr_max_iq_mb * 1024LL * 1024;
@@ -220,7 +220,7 @@ bool run_capture(const PipelineConfig& cfg,
 
     // Wait for capture with timeout
     auto start_time = std::chrono::steady_clock::now();
-    int timeout_sec = cfg.sdr_duration * cfg.sdr_timeout_multiplier + 10;
+    int timeout_sec = (int)(cfg.sdr_duration * cfg.sdr_timeout_multiplier) + 10;
     log_info() << "Timeout: " << timeout_sec << "s ("
                << cfg.sdr_timeout_multiplier << "x duration + 10)\n";
 

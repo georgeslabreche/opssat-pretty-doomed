@@ -11,6 +11,7 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <atomic>
 #include <future>
 #include <thread>
 #include <vector>
@@ -208,38 +209,35 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Helper: process a capture's WAV.
-        // Sequential mode: redirects output to per-capture run.log.
-        // Background mode: output stays in main log (stdout is process-global,
-        // can't be safely redirected from a concurrent thread).
+        // Helper: process a capture's WAV (sequential mode only).
+        // Redirects output to per-capture run.log, runs full pipeline.
         auto do_process = [&](int idx, const CaptureResult& cap) -> bool {
             char subdir[32];
             std::snprintf(subdir, sizeof(subdir), "/capture-%03d", idx);
             std::string capture_dir = args.output_dir + subdir;
 
-            int saved_fd = -1;
-            if (!background) {
-                saved_fd = dup(fileno(stdout));
-                std::fflush(stdout);
-                std::fflush(stderr);
-                FILE* fp = freopen((capture_dir + "/run.log").c_str(), "a", stdout);
-                if (fp) dup2(fileno(stdout), fileno(stderr));
-            }
+            int saved_fd = dup(fileno(stdout));
+            std::fflush(stdout);
+            std::fflush(stderr);
+            FILE* fp = freopen((capture_dir + "/run.log").c_str(), "a", stdout);
+            if (fp) dup2(fileno(stdout), fileno(stderr));
 
             bool detected = process_wav(cap.wav_path, capture_dir, cfg, variants, *stt,
                                         args.config_file, args.doom_binary, args.demos_dir,
                                         cap.sc16_path);
 
-            if (saved_fd >= 0) {
-                restore_log(saved_fd);
-            }
+            restore_log(saved_fd);
             return detected;
         };
 
         std::vector<CaptureResult> captures;
-        std::future<bool> bg_future;
-        int bg_capture_idx = 0;
-        std::chrono::steady_clock::time_point bg_start;
+
+        // Background mode: STT stage chains sequentially (Transcriber not
+        // thread-safe), exec stage (DOOM + postcard) runs async so the next
+        // STT can start immediately without waiting for DOOM/postcard.
+        std::future<void> stt_chain;
+        std::vector<std::future<void>> exec_futures;
+        std::atomic<bool> bg_any_detected{false};
 
         for (int i = 1; i <= num_captures && g_running; i++) {
             char subdir[32];
@@ -272,9 +270,11 @@ int main(int argc, char** argv) {
                 restore_log(saved_fd);
             }
 
-            // Background mode: kick off processing while next capture runs
+            // Background mode: two-stage pipeline.
+            // Stage 1 (STT): chains sequentially, each waits for previous STT.
+            // Stage 2 (exec): fires async after STT, runs DOOM + postcard
+            //                 concurrently with the next capture's STT.
             if (background && !captures.back().wav_path.empty()) {
-                // Ensure STT model is ready before first processing call
                 if (!stt && stt_future.valid()) {
                     stt = stt_future.get();
                     if (!stt->is_ready()) {
@@ -282,29 +282,39 @@ int main(int argc, char** argv) {
                         return 1;
                     }
                 }
-                if (bg_future.valid()) {
-                    if (bg_future.get()) any_detected = true;
-                    log_info() << "Background processing of capture " << bg_capture_idx
-                               << " complete (" << format_duration(std::chrono::steady_clock::now() - bg_start) << ")\n";
-                }
-                bg_capture_idx = i;
-                bg_start = std::chrono::steady_clock::now();
                 int idx = i;
                 CaptureResult cap = captures.back();
-                bg_future = std::async(std::launch::async, [&, idx, cap]() {
-                    return do_process(idx, cap);
-                });
-                log_info() << "Background processing of capture " << i << " started\n";
+                std::string cap_dir = capture_dir;
+                auto prev_stt = std::move(stt_chain);
+                stt_chain = std::async(std::launch::async,
+                    [&, idx, cap, cap_dir, prev_stt = std::move(prev_stt)]() mutable {
+                        if (prev_stt.valid()) prev_stt.get();
+                        log_info() << "Background STT of capture " << idx << " started\n";
+                        auto start = std::chrono::steady_clock::now();
+                        PipelineStageResult stage1 = process_wav_stt(
+                            cap.wav_path, cap_dir, cfg, variants, *stt, args.config_file);
+                        log_info() << "Background STT of capture " << idx
+                                   << " complete (" << format_duration(std::chrono::steady_clock::now() - start) << ")\n";
+                        if (stage1.command_detected) bg_any_detected = true;
+                        // Fire exec stage async (DOOM + postcard)
+                        exec_futures.push_back(std::async(std::launch::async,
+                            [stage1, cap_dir, &cfg, &args, cap]() {
+                                process_wav_exec(stage1, cap_dir, cfg,
+                                                 args.doom_binary, args.demos_dir, cap.sc16_path);
+                            }));
+                    });
             }
 
         }
 
-        // Wait for final background processing
-        if (bg_future.valid()) {
-            if (bg_future.get()) any_detected = true;
-            log_info() << "Background processing of capture " << bg_capture_idx
-                       << " complete (" << format_duration(std::chrono::steady_clock::now() - bg_start) << ")\n";
+        // Wait for STT chain and all exec futures to complete
+        if (stt_chain.valid()) {
+            stt_chain.get();
         }
+        for (auto& f : exec_futures) {
+            if (f.valid()) f.get();
+        }
+        if (bg_any_detected) any_detected = true;
 
         // Disable hardware FIR now that all captures are done.
         // Processing uses WAV files, not the AD9361, so free the hardware state

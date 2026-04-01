@@ -53,7 +53,7 @@ struct PipelineConfig {
     double sdr_gain = 50.0;
     double sdr_fm_deviation = 5000.0;
     std::string sdr_uri = "local:";
-    int sdr_duration = 20;
+    double sdr_duration = 20.0;
     int sdr_max_iq_mb = 20;
     int sdr_audio_rate = 16000;
     double sdr_lpf_cutoff = 85000.0;
