@@ -69,6 +69,9 @@ struct PipelineConfig {
     int sdr_captures = 3;
     std::string process_mode = "sequential";
 
+    // SDR: init strategy
+    bool sdr_init_per_capture = false;  // true = re-init AD9361 each capture (robust mode)
+
     // SDR: hardware FIR decimation (AD9361 programmable FIR via libad9361)
     bool sdr_hw_fir_enable = false;
     long sdr_hw_fir_rate = 0;         // Post-FIR baseband rate in Hz (e.g. 600000)

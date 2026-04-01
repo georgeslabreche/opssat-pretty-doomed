@@ -67,7 +67,7 @@ SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SR
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
-OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o $(BUILDDIR)/postcard.o
+OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/sdr.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o $(BUILDDIR)/postcard.o
 OBJS_MAIN = $(BUILDDIR)/main.o
 
 TARGET = $(BUILDDIR)/pretty-doomed
@@ -144,13 +144,16 @@ $(BUILDDIR)/audio_io.o: $(SRCDIR)/audio_io.cpp $(SRCDIR)/audio_io.h | $(BUILDDIR
 $(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h | $(BUILDDIR)
+$(BUILDDIR)/sdr.o: $(SRCDIR)/sdr.cpp $(SRCDIR)/sdr.h $(SRCDIR)/config.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
+
+$(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/audio_io.h $(SRCDIR)/dsp.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
+$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -DAPP_VERSION=$(APP_VERSION) -c $< -o $@
 
 #############################################
