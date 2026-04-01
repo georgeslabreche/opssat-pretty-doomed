@@ -60,7 +60,7 @@ Scoring: exact matches = 2 points, fuzzy matches = 1 point.
 
 ## SDR: Capture Settings
 
-Used with the `-s` flag. All AD9361 configuration is applied per-capture, not once per run. `run_capture()` re-configures the AD9361 from scratch each time as a defensive measure against IIO driver state issues after failed captures. The overhead is negligible for the software-only path. With hardware FIR enabled, the `ad9361_set_bb_rate_custom_filter_manual()` call adds ~4.5s per capture on ARM32.
+Used with the `-s` flag. AD9361 configuration (`ad9361_configure()` in `sdr.cpp`) runs once before the capture loop by default. Setting `sdr_init_per_capture=true` re-configures the AD9361 from scratch at the beginning of each capture as a defensive measure against IIO driver state issues. The per-capture overhead is negligible for the software-only path, but with hardware FIR enabled `ad9361_set_bb_rate_custom_filter_manual()` adds ~4.5s per capture on ARM32.
 
 | Key | Default | Description |
 |-----|---------|-------------|

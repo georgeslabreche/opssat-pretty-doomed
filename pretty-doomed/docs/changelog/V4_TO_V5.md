@@ -2,7 +2,7 @@
 
 Changes derived from the v4 EM results and operational readiness review.
 
-**PR**: [#85](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/85) (configurable per-capture vs once-per-run SDR init)
+**PRs**: [#85](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/85) (configurable per-capture vs once-per-run SDR init), [#86](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/86) (ssize_t fix for IIO write return values)
 
 ## Once-Per-Run SDR Init (Default)
 
@@ -30,3 +30,9 @@ AD9361 lifecycle functions were extracted into `sdr.cpp`/`sdr.h`, separating SDR
 ## Explicit Config Values
 
 **Change**: All SDR parameters in `config.cfg` are now uncommented and set explicitly rather than relying on code defaults. Every value has a comment on the line above describing its purpose and unit. Note: the config parser does not support inline comments (only lines starting with `#` are treated as comments).
+
+## ssize_t for IIO Write Return Values
+
+**Observation**: `iio_channel_attr_write()` (the string variant) returns `ssize_t` but was stored in `int` in `pretty_iio.h` and `sdr.cpp`. On ARM32 this was harmless (`ssize_t` is 32-bit), but it's a narrowing conversion on 64-bit platforms. The `_longlong` and `_double` variants correctly return `int` per the libiio API.
+
+**Change**: Use `ssize_t` for `iio_channel_attr_write()` return values in `pretty_iio.h` (shared by all apps) and `sdr.cpp`. Verified all three projects (`pretty-doomed`, `sdr-capture`, `sdr-loopback`) build with zero warnings.

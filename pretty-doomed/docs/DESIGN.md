@@ -29,6 +29,7 @@ main.cpp (orchestrator)
 ├── executor.h       [pure C++17]
 ├── output.h         [pure C++17]
 ├── postcard.h       [stb, FFTW]
+├── sdr.h            [libiio, libad9361]
 ├── capture.h        [GNU Radio, libiio]
 └── pipeline.h       [all of the above]
 ```
@@ -45,9 +46,10 @@ main.cpp (orchestrator)
 | Executor | `executor.cpp` | Fork+exec DOOM binary for each demo file | None |
 | Output | `output.cpp` | Summary + log output formatting (ASCII art, scores) | None |
 | Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. | stb, FFTW |
-| Capture | `capture.cpp` | AD9361 SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Optional hardware FIR decimation via libad9361. Writes WAV and sc16 files, generates spectrogram/constellation BMP. | GNU Radio, libiio, libad9361 |
+| SDR | `sdr.cpp` | AD9361 lifecycle: `ad9361_configure()` (hardware FIR or software-only path with readback verification), `ad9361_cleanup_fir()` (disable FIR after captures). | libiio, libad9361 |
+| Capture | `capture.cpp` | SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files, generates spectrogram/constellation BMP. | GNU Radio, libiio |
 | Pipeline | `pipeline.cpp` | WAV processing pipeline: DSP filtering, STT transcription, command detection, DOOM execution. Orchestrates the per-capture processing sequence. | All |
-| Main | `main.cpp` | CLI arg parsing, input mode dispatch (file vs SDR), multi-capture loop, process_mode (sequential/background), output file writing | All |
+| Main | `main.cpp` | CLI arg parsing, input mode dispatch (file vs SDR), multi-capture loop, process_mode (sequential/background), SDR init/cleanup orchestration, output file writing | All |
 
 ### Dependency Isolation
 
