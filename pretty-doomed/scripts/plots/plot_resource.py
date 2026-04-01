@@ -29,7 +29,7 @@ PHASE_PATTERNS = [
     ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:")),
     ("SDR Init",       re.compile(r"=== Capture \d+/\d+ ===")),
     ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:")),
-    ("SDR Init",       re.compile(r"AD9361|Building flowgraph")),
+    ("SDR Init",       re.compile(r"AD9361(?! hardware FIR disabled)|Building flowgraph")),
     ("SDR Capture",    re.compile(r"Starting capture|Capture complete|Timeout:|Progress \[")),
     ("SDR Teardown",   re.compile(r"Stopping flowgraph")),
     ("Normalize",      re.compile(r"Normalizing audio|RMS normalize:")),
@@ -38,7 +38,7 @@ PHASE_PATTERNS = [
     ("STT Inference",  re.compile(r"Transcribing \(|STT time:")),
     ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|Command detected")),
     ("DOOM",           re.compile(r"Running DOOM demo:|Completed demo:")),
-    ("Postcard",       re.compile(r"Generating postcard|Postcard:")),
+    ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16:")),
 ]
 
 PHASE_COLORS = {
@@ -95,8 +95,12 @@ def parse_log(paths):
     return entries
 
 def annotate_capture_numbers(entries):
-    """Add capture number suffix to phase names for multi-capture runs."""
+    """Add capture number suffix to phase names for multi-capture runs.
+
+    See plot_log_timeline.py for detailed documentation.
+    """
     capture_re = re.compile(r"=== Capture (\d+)/(\d+) ===")
+    processing_re = re.compile(r"--- Processing: .*/capture-(\d+)/")
 
     markers = []
     for t, cpu, tid, phase, msg in entries:
@@ -124,6 +128,8 @@ def annotate_capture_numbers(entries):
         if tid != main_tid and tid not in thread_capture:
             thread_capture[tid] = capture_at(t)
 
+    unnumbered_phases = {"STT Model Load"}
+
     result = []
     main_cap = 0
     for t, cpu, tid, phase, msg in entries:
@@ -131,7 +137,11 @@ def annotate_capture_numbers(entries):
         if m and tid == main_tid:
             main_cap = int(m.group(1))
 
-        if phase is not None:
+        mp = processing_re.search(msg)
+        if mp and tid == main_tid:
+            main_cap = int(mp.group(1))
+
+        if phase is not None and phase not in unnumbered_phases:
             cap = main_cap if tid == main_tid else thread_capture.get(tid, 0)
             if cap > 0:
                 phase = f"{phase} #{cap}"
@@ -180,6 +190,11 @@ def build_phase_spans(entries):
     active = {}
     for t, cpu, tid, phase, msg in entries:
         if phase is None:
+            # Close active phase on this thread (unrecognized log line ends the span)
+            if tid in active:
+                prev_phase, prev_start, prev_end = active[tid]
+                spans.append((prev_phase, tid, prev_start, prev_end))
+                del active[tid]
             continue
         if tid in active:
             prev_phase, prev_start, prev_end = active[tid]
@@ -234,6 +249,59 @@ def parse_resource_csv(csv_path):
 # ---------------------------------------------------------------------------
 # Combined plot
 # ---------------------------------------------------------------------------
+def plot_resource_only(run_dir, output_path, title, x_max=None):
+    """Generate a resource-only plot (CPU + memory, no Gantt timeline).
+
+    Use this for runs whose logs lack [cN/tM] thread tags (e.g. v2 EM data).
+    """
+    csv_path = os.path.join(run_dir, "resource.csv")
+    if not os.path.exists(csv_path):
+        print(f"  Skipping {run_dir}: no resource.csv")
+        return
+
+    res = parse_resource_csv(csv_path)
+    if not res["epoch"]:
+        print(f"  Skipping {run_dir}: empty resource.csv")
+        return
+
+    t0_res = res["epoch"][0]
+    t_res = [e - t0_res for e in res["epoch"]]
+    t_max = x_max if x_max is not None else max(t_res, default=0)
+
+    fig, (ax_cpu, ax_mem) = plt.subplots(
+        2, 1, figsize=(16, 5.5), sharex=True,
+        gridspec_kw={"height_ratios": [2.5, 1.5]},
+    )
+    fig.suptitle(title, fontsize=14, fontweight="bold", y=0.98)
+
+    # --- CPU usage ---
+    ax_cpu.fill_between(t_res, res["cpu0"], alpha=0.3, color="#E74C3C")
+    ax_cpu.fill_between(t_res, res["cpu1"], alpha=0.3, color="#F39C12")
+    ax_cpu.plot(t_res, res["cpu0"], color="#E74C3C", linewidth=1.3, label="CPU0", alpha=0.9)
+    ax_cpu.plot(t_res, res["cpu1"], color="#F39C12", linewidth=1.3, label="CPU1", alpha=0.9)
+    ax_cpu.set_ylabel("CPU Usage (%)", fontsize=10)
+    ax_cpu.set_ylim(0, 110)
+    ax_cpu.set_xlim(-0.5, t_max + 0.5)
+    ax_cpu.legend(loc="upper left", bbox_to_anchor=(1.01, 0.85),
+                  fontsize=8, framealpha=0.9)
+    ax_cpu.grid(True, alpha=0.3)
+
+    # --- Memory ---
+    ax_mem.fill_between(t_res, res["mem_pct"], alpha=0.3, color="#8B0000")
+    ax_mem.plot(t_res, res["mem_pct"], color="#8B0000", linewidth=1.3, label="Memory Used")
+    ax_mem.set_ylabel("Memory (%)", fontsize=10)
+    ax_mem.set_xlabel("Time (seconds)", fontsize=10)
+    ax_mem.set_ylim(0, max(max(res["mem_pct"]) * 1.5, 30))
+    ax_mem.legend(loc="upper left", bbox_to_anchor=(1.01, 0.85),
+                  fontsize=8, framealpha=0.9)
+    ax_mem.grid(True, alpha=0.3)
+
+    plt.tight_layout(rect=[0, 0, 0.88, 0.96])
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {output_path}")
+
+
 def plot_combined(run_dir, output_path, title, x_max=None):
     csv_path = os.path.join(run_dir, "resource.csv")
     if not os.path.exists(csv_path):
@@ -291,7 +359,7 @@ def plot_combined(run_dir, output_path, title, x_max=None):
     fig.suptitle(title, fontsize=14, fontweight="bold", y=0.98)
 
     # --- Gantt timeline ---
-    LABEL_PHASES = {"STT Model Load", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
+    LABEL_PHASES = {"STT Model Load", "SDR Init", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
     bar_height = 0.55
     for phase, tid, ts, te in spans:
         color = PHASE_COLORS.get(phase_base(phase), "#CCCCCC")
@@ -299,12 +367,15 @@ def plot_combined(run_dir, output_path, title, x_max=None):
         y = tid_y.get(tid, 0)
         ax_gantt.barh(y, duration, left=ts, height=bar_height, color=color,
                       edgecolor="white", linewidth=0.5, alpha=0.85)
-        # Label inside bar: phase name on line 1, duration on line 2
-        if (te - ts) > t_max * 0.07:
+        # Label inside bar
+        if phase_base(phase) in LABEL_PHASES and (te - ts) > 0.5:
+            secs = te - ts
+            bar_frac = secs / t_max if t_max > 0 else 0
             mid = (ts + te) / 2
-            label = phase
-            if phase_base(phase) in LABEL_PHASES and (te - ts) > 0.5:
-                label += f"\n{te - ts:.1f}s"
+            if bar_frac > 0.04:
+                label = f"{phase}\n{secs:.1f}s"
+            else:
+                label = f"{secs:.1f}s"
             ax_gantt.text(mid, y, label, ha="center", va="center",
                           fontsize=6, fontweight="bold", color="white",
                           clip_on=True, alpha=0.9)
@@ -361,147 +432,18 @@ def plot_combined(run_dir, output_path, title, x_max=None):
     print(f"  Saved: {output_path}")
 
 
-# ---------------------------------------------------------------------------
-# Standalone resource plot (CPU + memory with phase strip)
-# ---------------------------------------------------------------------------
-def plot_standalone(run_dir, output_path, title, x_max=None):
-    csv_path = os.path.join(run_dir, "resource.csv")
-    if not os.path.exists(csv_path):
-        print(f"  Skipping {run_dir}: no resource.csv")
-        return
-
-    res = parse_resource_csv(csv_path)
-    if not res["epoch"]:
-        print(f"  Skipping {run_dir}: empty resource.csv")
-        return
-
-    # Collect log files
-    log_files = []
-    main_log = os.path.join(run_dir, "pretty-doomed.log")
-    if os.path.exists(main_log):
-        log_files.append(main_log)
-    for cap in sorted(Path(run_dir).glob("capture-*")):
-        cap_log = cap / "run.log"
-        if cap_log.exists():
-            log_files.append(str(cap_log))
-
-    entries = parse_log(log_files) if log_files else []
-    entries = annotate_capture_numbers(entries)
-    spans = build_phase_spans(entries)
-
-    t0_res = res["epoch"][0]
-    t_res = [e - t0_res for e in res["epoch"]]
-
-    log_max = max((e[0] for e in entries), default=0)
-    t_max_val = log_max if log_max > 0 else max(t_res, default=0)
-    if x_max is not None:
-        t_max_val = x_max
-
-    # Group spans by thread for the phase strip
-    tids = sorted(set(s[1] for s in spans)) if spans else []
-    tid_to_row = {tid: i for i, tid in enumerate(tids)}
-    n_rows = max(len(tids), 1)
-
-    # Build thread labels
-    tid_labels = {}
-    for tid in tids:
-        cpus = [e[1] for e in entries if e[2] == tid]
-        main_cpu = max(set(cpus), key=cpus.count) if cpus else 0
-        tid_labels[tid] = f"c{main_cpu}/t{tid}"
-
-    # Move capture #N from bar labels to thread labels where possible
-    spans, tid_labels = relocate_capture_labels(spans, tid_labels)
-    # Rebuild tid ordering after span changes
-    tids = sorted(set(s[1] for s in spans)) if spans else []
-    tid_to_row = {tid: i for i, tid in enumerate(tids)}
-    n_rows = max(len(tids), 1)
-
-    strip_height = max(0.8, n_rows * 0.4 + 0.3)
-
-    fig, (ax_strip, ax_cpu, ax_mem) = plt.subplots(
-        3, 1, figsize=(16, strip_height + 5.5), sharex=True,
-        gridspec_kw={"height_ratios": [strip_height, 3, 1.5]},
-    )
-    fig.suptitle(title, fontsize=14, fontweight="bold", y=0.98)
-
-    # --- Phase strip: thin bars per thread ---
-    LABEL_PHASES = {"STT Model Load", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
-    bar_h = 0.7
-    for phase, tid, ts, te in spans:
-        color = PHASE_COLORS.get(phase_base(phase), "#CCCCCC")
-        row = tid_to_row.get(tid, 0)
-        duration = max(te - ts, 0.3)
-        ax_strip.barh(row, duration, left=ts, height=bar_h, color=color,
-                       edgecolor="white", linewidth=0.5, alpha=0.85)
-        # Label inside bar: phase name on line 1, duration on line 2
-        if (te - ts) > t_max_val * 0.04:
-            mid = (ts + te) / 2
-            label = phase
-            if phase_base(phase) in LABEL_PHASES and (te - ts) > 0.5:
-                label += f"\n{te - ts:.1f}s"
-            ax_strip.text(mid, row, label, ha="center", va="center",
-                          fontsize=6, fontweight="bold", color="white",
-                          clip_on=True, alpha=0.9)
-
-    ax_strip.set_yticks(range(n_rows))
-    ax_strip.set_yticklabels([tid_labels.get(tid, "") for tid in tids], fontsize=8)
-    ax_strip.set_ylabel("Threads", fontsize=9)
-    ax_strip.invert_yaxis()
-    ax_strip.set_xlim(-0.5, t_max_val + 0.5)
-    ax_strip.grid(axis="x", alpha=0.3)
-
-    # --- CPU plot (no phase color bands — CPU allocation only) ---
-    ax_cpu.fill_between(t_res, res["cpu0"], alpha=0.3, color="#E74C3C", label="CPU0")
-    ax_cpu.fill_between(t_res, res["cpu1"], alpha=0.3, color="#F39C12", label="CPU1")
-    ax_cpu.plot(t_res, res["cpu0"], color="#E74C3C", linewidth=1.2, alpha=0.9)
-    ax_cpu.plot(t_res, res["cpu1"], color="#F39C12", linewidth=1.2, alpha=0.9)
-    ax_cpu.set_ylabel("CPU Usage (%)", fontsize=10)
-    ax_cpu.set_ylim(0, 110)
-    ax_cpu.legend(loc="upper left", bbox_to_anchor=(1.01, 0.85),
-                  fontsize=8, framealpha=0.9)
-    ax_cpu.grid(True, alpha=0.3)
-
-    # --- Memory ---
-    ax_mem.fill_between(t_res, res["mem_pct"], alpha=0.3, color="#8B0000")
-    ax_mem.plot(t_res, res["mem_pct"], color="#8B0000", linewidth=1.2, label="Memory Used")
-    ax_mem.set_ylabel("Memory (%)", fontsize=10)
-    ax_mem.set_xlabel("Time (seconds)", fontsize=10)
-    ax_mem.set_ylim(0, max(max(res["mem_pct"]) * 1.5, 30))
-    ax_mem.legend(loc="upper left", bbox_to_anchor=(1.01, 0.85),
-                  fontsize=8, framealpha=0.9)
-    ax_mem.grid(True, alpha=0.3)
-
-    # --- Legend (consolidated by base phase, no durations) ---
-    seen_bases = set(phase_base(s[0]) for s in spans)
-    handles = []
-    for phase in PHASE_ORDER:
-        if phase in seen_bases:
-            handles.append(mpatches.Patch(color=PHASE_COLORS[phase], label=phase))
-    if handles:
-        ax_strip.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.01, 1),
-                        fontsize=7.5, framealpha=0.9)
-
-    plt.tight_layout(rect=[0, 0, 0.88, 0.96])
-    fig.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  Saved: {output_path}")
-
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-RUN_TITLES = {
-    "run-00001": "Run 1: SDR Capture (sequential, stt_concurrent_load=false)",
-    "run-00002": "Run 2: SDR Capture (background, stt_concurrent_load=false)",
-    "run-00003": "Run 3: SDR Capture (background, stt_concurrent_load=true)",
-}
+RUN_TITLES = {}
 
 def main():
     parser = argparse.ArgumentParser(description="Combined timeline + resource plot")
     parser.add_argument("run_dir", nargs="?", help="Single run directory")
     parser.add_argument("--batch", action="store_true", help="Process all runs in toGround/")
-    parser.add_argument("--standalone", action="store_true",
-                        help="Also generate standalone resource plots (phase strip + CPU + memory)")
+    parser.add_argument("--resource-only", action="store_true",
+                        help="Plot CPU/memory only (no Gantt timeline)")
     parser.add_argument("--input-dir",
                         help="Directory containing run-* dirs (default: toGround/)")
     parser.add_argument("--output-dir", help="Output directory for plots")
@@ -548,25 +490,23 @@ def main():
         if global_x_max == 0:
             global_x_max = max(all_res_t, default=0)
 
+        plot_fn = plot_resource_only if args.resource_only else plot_combined
+        suffix = "-resource.png" if args.resource_only else "-timeline-and-resource.png"
         for run in runs:
             name = run.name
             title = RUN_TITLES.get(name, name)
-            out_path = out_dir / f"{name}-resource.png"
-            plot_combined(str(run), str(out_path), title, x_max=global_x_max)
-            if args.standalone:
-                sa_path = out_dir / f"{name}-resource-standalone.png"
-                plot_standalone(str(run), str(sa_path), title, x_max=global_x_max)
+            out_path = out_dir / f"{name}{suffix}"
+            plot_fn(str(run), str(out_path), title, x_max=global_x_max)
 
     elif args.run_dir:
         out_dir = Path(args.output_dir) if args.output_dir else Path(".")
         out_dir.mkdir(parents=True, exist_ok=True)
         name = os.path.basename(args.run_dir)
         title = RUN_TITLES.get(name, name)
-        out_path = out_dir / f"{name}-resource.png"
-        plot_combined(args.run_dir, str(out_path), title)
-        if args.standalone:
-            sa_path = out_dir / f"{name}-resource-standalone.png"
-            plot_standalone(args.run_dir, str(sa_path), title)
+        plot_fn = plot_resource_only if args.resource_only else plot_combined
+        suffix = "-resource.png" if args.resource_only else "-timeline-and-resource.png"
+        out_path = out_dir / f"{name}{suffix}"
+        plot_fn(args.run_dir, str(out_path), title)
     else:
         parser.print_help()
 

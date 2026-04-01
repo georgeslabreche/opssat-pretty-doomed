@@ -79,8 +79,6 @@ This executes all 3 runs with resource monitoring, per-run config copies, and `d
 | `sdr_duration` | `20` (default) | `1` (emulator has limited sample data) |
 | `sdr_min_readback` | `false` (default) | `true` (emulator ignores config writes) |
 | `sdr_timeout_multiplier` | `5` (default) | `60` (emulator is slow under Rosetta/QEMU) |
-| `sdr_captures` | `3` (default) | `2` |
-| `process_mode` | `sequential` (default) | `sequential` |
 
 ### Emulator limitations
 
@@ -88,6 +86,7 @@ This executes all 3 runs with resource monitoring, per-run config copies, and `d
 - **No config reflection.** The emulator accepts AD9361 parameter writes but does not update readback attributes. `sdr_min_readback=true` downgrades the sample rate readback check to a warning.
 - **Single connection.** The emulator only accepts one IIO connection at a time. A 5-second cleanup delay between captures allows the previous connection to close.
 - **No SIGFPE.** The pretty-doomed binary runs natively on x86_64, avoiding the intermittent SIGFPE that affects ARM32 binaries under QEMU (see SEPP emulator section below).
+- **No hardware FIR.** The AD9361 hardware FIR (`sdr_hw_fir_enable`) cannot be used with the emulator. The FIR configuration via `libad9361-iio` requires TX channels which the IIO emulator does not expose. Set `sdr_hw_fir_enable=false` in `config.emu.cfg`.
 
 **What it tests:** IIO connection, AD9361 config write/readback, GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass), sc16/WAV output, spectrogram/constellation BMP generation, RMS normalization, multi-capture loop, STT on captured audio.
 
@@ -133,9 +132,9 @@ Tests on the OPS-SAT flatsat with real AD9361 hardware. Uses `config.cfg` with d
 
 The `run` script executes three runs. Each run copies `config.cfg` to its run directory and appends per-run overrides (last value wins). All runs force-trigger DOOM regardless of detection.
 
-1. **Run 1: SDR sequential** (1 x 20s capture): single capture, sequential processing
-2. **Run 2: SDR background** (2 x 20s captures, `stt_concurrent_load=false`): STT model loaded before first capture
-3. **Run 3: SDR background** (2 x 20s captures, `stt_concurrent_load=true`): STT model loaded concurrently with first capture
+1. **Run 1: Baseline** (2 x 20s captures, background, `sdr_hw_fir_enable=false`): software-only decimation
+2. **Run 2: Hardware FIR** (2 x 20s captures, background, `sdr_hw_fir_enable=true`): AD9361 hardware FIR at 600 kSPS
+3. **Run 3: Hardware FIR** (2 x 20s captures, sequential, `sdr_hw_fir_enable=true`): same as Run 2 but sequential to isolate FIR improvement from CPU contention
 
 ```bash
 # On the SEPP (after deploying the package)
@@ -155,10 +154,10 @@ PRETTY_CONFIG=config.emu.cfg ./run
 toGround/
 ├── doom_demo_index.txt          # Demo cycling state
 ├── results.txt                  # Append-only log of DOOM executions
-├── run-00001/                   # SDR sequential (1x20s)
+├── run-00001/                   # Baseline (2x20s, background, sw decimation)
 │   ├── resource.csv             # Per-second CPU + memory utilization
 │   ├── config.cfg               # Per-run config copy (base + overrides)
-│   ├── pretty-doomed.log
+│   ├── pretty-doomed.log        # All output with [cN/tM] thread tags
 │   ├── capture-001/
 │   │   ├── run.log             # Detailed capture + processing log
 │   │   ├── capture.wav
@@ -171,16 +170,17 @@ toGround/
 │   │   ├── summary.txt
 │   │   ├── postcard.png
 │   │   └── gl-e1m2b/           # DOOM output (force-triggered)
-│   └── ...
-├── run-00002/                   # SDR background (2x20s, concurrent=false)
+│   └── capture-002/
+│       └── ...
+├── run-00002/                   # HW FIR (2x20s, background)
 │   ├── resource.csv
 │   ├── config.cfg
-│   ├── pretty-doomed.log       # All output with [cN/tM] thread tags
+│   ├── pretty-doomed.log
 │   ├── capture-001/
 │   │   └── ...
 │   └── capture-002/
 │       └── ...
-└── run-00003/                   # SDR background (2x20s, concurrent=true)
+└── run-00003/                   # HW FIR (2x20s, sequential)
     ├── resource.csv
     ├── config.cfg
     ├── pretty-doomed.log

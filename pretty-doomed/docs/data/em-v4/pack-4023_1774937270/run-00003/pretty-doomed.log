@@ -1,0 +1,19 @@
+[2026-03-31 06:05:10.122][c0/t1982] === PRETTY DOOMed v4 ===
+[2026-03-31 06:05:10.122][c0/t1982] Loading config: /home/exp/toGround/run-00003/config.cfg
+[2026-03-31 06:05:10.124][c0/t1982] SDR Capture mode: 2 capture(s) of 20s, processing=sequential, decimation=hardware FIR
+[2026-03-31 06:05:10.128][c0/t1982] Capture 1/2
+[2026-03-31 06:05:35.790][c1/t1982] Capture 2/2
+[2026-03-31 06:06:01.565][c0/t1982] Loading STT model...
+[2026-03-31 06:06:01.565][c0/t1982]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-03-31 06:06:01.565][c0/t1982]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-03-31 06:06:01.566][c0/t1982]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-03-31 06:06:01.566][c0/t1982]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-03-31 06:06:18.198][c1/t1982] STT model loaded (16631 ms)
+[2026-03-31 06:06:18.198][c1/t1982] All captures complete, processing 2 WAV(s)
+[2026-03-31 06:06:18.198][c1/t1982] Processing capture 1/2
+[2026-03-31 06:07:04.789][c1/t1982] Processing capture 2/2
+[2026-03-31 06:07:49.502][c1/t1982] Unloading STT model...
+[2026-03-31 06:07:49.650][c1/t1982] STT model unloaded
+[2026-03-31 06:07:49.704][c1/t1982] AD9361 hardware FIR disabled (cleanup)
+[2026-03-31 06:07:49.704][c1/t1982] Total time: 159.5s
+[2026-03-31 06:07:49.704][c1/t1982] === Done ===

@@ -68,6 +68,14 @@ struct PipelineConfig {
     bool sdr_enable_constellation = true;
     int sdr_captures = 3;
     std::string process_mode = "sequential";
+
+    // SDR: hardware FIR decimation (AD9361 programmable FIR via libad9361)
+    bool sdr_hw_fir_enable = false;
+    long sdr_hw_fir_rate = 0;         // Post-FIR baseband rate in Hz (e.g. 600000)
+    long sdr_hw_fir_fpass = 0;        // Passband edge frequency in Hz
+    long sdr_hw_fir_fstop = 0;        // Stopband edge frequency in Hz
+    long sdr_hw_fir_wnom_tx = 0;      // TX analog filter bandwidth in Hz
+    long sdr_hw_fir_wnom_rx = 0;      // RX analog filter bandwidth in Hz
 };
 
 // Parse KEY=VALUE config file. Lines starting with # are comments.

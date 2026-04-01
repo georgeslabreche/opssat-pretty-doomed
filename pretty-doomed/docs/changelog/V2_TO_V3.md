@@ -36,7 +36,7 @@ After (stt_concurrent_load=true):
 
 ## Log Mutex Removal
 
-**Observation**: The v2 codebase used `std::mutex` around every `log_info()` call and `stdout` redirection in background mode. The v2 EM resource plots (see [V1_TO_V2.md](V1_TO_V2.md#em-resource-utilization-v2-run)) showed Run 2 (sequential) and Run 3 (background) had nearly identical CPU utilization patterns -- background mode was not achieving concurrency. The mutex serialized output across threads and the `stdout` redirection raced between capture and processing threads.
+**Observation**: The v2 codebase used `std::mutex` around every `log_info()` call and `stdout` redirection in background mode. The v2 EM resource plots (see [V1_TO_V2.md](V1_TO_V2.md#v2-em-results)) showed Run 2 (sequential) and Run 3 (background) had nearly identical CPU utilization patterns -- background mode was not achieving concurrency. The mutex serialized output across threads and the `stdout` redirection raced between capture and processing threads.
 
 **Change**: The mutex is removed entirely. In background mode, all output goes to the single `pretty-doomed.log` with no per-capture log redirection (which is unsafe with concurrent threads sharing `stdout`). The `[cN/tM]` tags provide thread attribution without synchronization. Per-capture `run.log` redirection is only used in sequential mode where there is no concurrency.
 
@@ -105,17 +105,19 @@ Batch mode (`--batch`) processes all runs under `toGround/` with a shared x-axis
 
 **Limitation**: The DOOM phase shows wall time between the `"Running DOOM demo:"` and `"Completed demo:"` log messages, both emitted by the thread that called `run_doom()`. Since DOOM runs as a separate process via `fork()+exec()`, the `[cN/tM]` tags reflect the waiting thread, not DOOM's actual CPU/thread utilization. For accurate DOOM core attribution, cross-reference with the `resource.csv` per-core CPU data during the DOOM time window.
 
-### v3 Timeline Plots (Local Emulator Test)
+## v3 Results
 
-The following plots were generated from a local Docker emulator test of the v3 code. Timings differ from the EM (emulator runs on x86, not ARM) but thread/phase structure is representative.
+### Local Emulator
 
-**Run 1: SDR Capture, sequential, stt_concurrent_load=false** (source: local emulator test)
+The following timeline plots were generated from a local Docker emulator test. Timings differ from the EM (emulator runs on x86, not ARM) but thread/phase structure is representative.
+
+**Run 1: SDR Capture, sequential, stt_concurrent_load=false**
 
 ![Local v3 Run 1 Timeline](data/local-v3/run-00001-timeline.png)
 
 Single-thread execution. All phases (SDR Init, Capture, Teardown, Normalize, Artifacts, STT Load, DSP, STT, Detection, DOOM, Postcard) run on Thread 1.
 
-**Run 2: SDR Capture, background, stt_concurrent_load=false** (source: local emulator test)
+**Run 2: SDR Capture, background, stt_concurrent_load=false**
 
 ![Local v3 Run 2 Timeline](data/local-v3/run-00002-timeline.png)
 
@@ -124,7 +126,7 @@ Three threads. STT Model Load (purple) blocks Thread 1 at the start -- the first
 - **Thread 38** (artifacts): IQ Diag, Spectrogram, Constellation -- runs concurrently after capture
 - **Thread 39** (processing): DSP Filter, STT Inference, Detection, DOOM, Postcard
 
-**Run 3: SDR Capture, background, stt_concurrent_load=true** (source: local emulator test)
+**Run 3: SDR Capture, background, stt_concurrent_load=true**
 
 ![Local v3 Run 3 Timeline](data/local-v3/run-00003-timeline.png)
 
@@ -135,3 +137,33 @@ Four threads. STT Model Load (purple) runs on a background thread concurrently w
 - **Processing thread**: DSP Filter, STT Inference, Detection, DOOM, Postcard
 
 On the EM where STT loading takes ~16s and captures take ~20s, this overlap saves ~16s of wall time per experiment.
+
+Source data: [data/local-v3/](data/local-v3/).
+
+### Engineering Model (EM)
+
+Data from SMILE artifact `pack-4023_1774447112`. Three runs on the OPS-SAT EM (ARM32 dual-core SEPP):
+
+1. **Run 1**: SDR sequential, 1 x 20s, `stt_concurrent_load=false`
+2. **Run 2**: SDR background, 2 x 20s, `stt_concurrent_load=false`
+3. **Run 3**: SDR background, 2 x 20s, `stt_concurrent_load=true`
+
+| Metric | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| STT model load | 16,490 ms | 16,363 ms | 22,158 ms |
+| Capture 1 wall time | 50s | 51s | 55s |
+| Capture 2 wall time | -- | 72s | 67s |
+| Total time | 138.1s | 192.8s | 170.0s |
+
+Key findings:
+- Background mode achieved concurrent execution (v2 had been serialized by the log mutex)
+- Concurrent STT loading (Run 3) saved 12.0s to first capture complete vs Run 2
+- Capture wall time exceeded configured 20s due to ARM DMA throughput at 2.4 MSPS (~40% of real-time). This motivated the v4 hardware FIR decimation.
+
+![Run 1](data/em-v3/pack-4023_1774447112/run-00001-timeline-and-resource.png)
+
+![Run 2](data/em-v3/pack-4023_1774447112/run-00002-timeline-and-resource.png)
+
+![Run 3](data/em-v3/pack-4023_1774447112/run-00003-timeline-and-resource.png)
+
+Source data: [data/em-v3/](data/em-v3/).

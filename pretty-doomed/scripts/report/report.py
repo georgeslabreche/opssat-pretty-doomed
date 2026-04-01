@@ -86,8 +86,10 @@ HTML_TEMPLATE = textwrap.dedent("""\
 document.querySelectorAll('.tab-btn').forEach(btn => {{
   btn.addEventListener('click', () => {{
     const tabs = btn.closest('.tabs');
-    tabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    tabs.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    const bar = btn.closest('.tab-bar');
+    bar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    Array.from(tabs.children).filter(el => el.classList.contains('tab-panel'))
+      .forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     tabs.querySelector('#' + btn.dataset.tab).classList.add('active');
   }});

@@ -83,66 +83,84 @@ make_run_config() {
     done
 }
 
-# --- Run 1: SDR capture, sequential (1 x 20s) ---
+# --- Run 1: Baseline, software decimation only (2 x 20s, background) ---
+# Diagnostic overrides (run: baseline, hw_fir=off, 2x20s background)
 RUNID=$(next_run_id)
 RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
 mkdir -p "$RUN_DIR"
 
 make_run_config "$RUN_DIR" \
-    "sdr_captures=1" \
+    "sdr_captures=2" \
+    "process_mode=background" \
+    "doom_force_trigger=true" \
+    "stt_concurrent_load=true" \
+    "sdr_hw_fir_enable=false"
+
+echo "Run $(printf '%05d' "$RUNID"): Baseline, software decimation (background, 2x20s)"
+MON_PID=$(start_monitor "$RUN_DIR" 3600)
+
+${PRETTY_DOOMED} \
+    -s \
+    -c "$RUN_DIR/config.cfg" \
+    -f "$VARIANTS" \
+    -o "$RUN_DIR" \
+    -d "$DEMOS" \
+    -e "${DOOM_BINARY}"
+
+stop_monitor "$MON_PID"
+
+# --- Run 2: Hardware FIR decimation (2 x 20s, background) ---
+# Diagnostic overrides (run: hw_fir, 2x20s background)
+RUNID=$(next_run_id)
+RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$RUN_DIR"
+
+make_run_config "$RUN_DIR" \
+    "sdr_captures=2" \
+    "process_mode=background" \
+    "doom_force_trigger=true" \
+    "stt_concurrent_load=true" \
+    "sdr_hw_fir_enable=true" \
+    "sdr_hw_fir_rate=600000" \
+    "sdr_hw_fir_fpass=200000" \
+    "sdr_hw_fir_fstop=250000" \
+    "sdr_hw_fir_wnom_tx=400000" \
+    "sdr_hw_fir_wnom_rx=350000" \
+    "sdr_decimation=3"
+
+echo "Run $(printf '%05d' "$RUNID"): Hardware FIR decimation (background, 2x20s)"
+MON_PID=$(start_monitor "$RUN_DIR" 3600)
+
+${PRETTY_DOOMED} \
+    -s \
+    -c "$RUN_DIR/config.cfg" \
+    -f "$VARIANTS" \
+    -o "$RUN_DIR" \
+    -d "$DEMOS" \
+    -e "${DOOM_BINARY}"
+
+stop_monitor "$MON_PID"
+
+# --- Run 3: Hardware FIR decimation (2 x 20s, sequential) ---
+# Diagnostic overrides (run: hw_fir, 2x20s sequential)
+RUNID=$(next_run_id)
+RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$RUN_DIR"
+
+make_run_config "$RUN_DIR" \
+    "sdr_captures=2" \
     "process_mode=sequential" \
     "doom_force_trigger=true" \
-    "stt_concurrent_load=false"
+    "stt_concurrent_load=false" \
+    "sdr_hw_fir_enable=true" \
+    "sdr_hw_fir_rate=600000" \
+    "sdr_hw_fir_fpass=200000" \
+    "sdr_hw_fir_fstop=250000" \
+    "sdr_hw_fir_wnom_tx=400000" \
+    "sdr_hw_fir_wnom_rx=350000" \
+    "sdr_decimation=3"
 
-echo "Run $(printf '%05d' "$RUNID"): SDR capture (sequential, 1x20s)"
-MON_PID=$(start_monitor "$RUN_DIR" 3600)
-
-${PRETTY_DOOMED} \
-    -s \
-    -c "$RUN_DIR/config.cfg" \
-    -f "$VARIANTS" \
-    -o "$RUN_DIR" \
-    -d "$DEMOS" \
-    -e "${DOOM_BINARY}"
-
-stop_monitor "$MON_PID"
-
-# --- Run 2: SDR capture, background (2 x 20s, stt_concurrent_load=false) ---
-RUNID=$(next_run_id)
-RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
-mkdir -p "$RUN_DIR"
-
-make_run_config "$RUN_DIR" \
-    "sdr_captures=2" \
-    "process_mode=background" \
-    "doom_force_trigger=true" \
-    "stt_concurrent_load=false"
-
-echo "Run $(printf '%05d' "$RUNID"): SDR capture (background, 2x20s, stt_concurrent_load=false)"
-MON_PID=$(start_monitor "$RUN_DIR" 3600)
-
-${PRETTY_DOOMED} \
-    -s \
-    -c "$RUN_DIR/config.cfg" \
-    -f "$VARIANTS" \
-    -o "$RUN_DIR" \
-    -d "$DEMOS" \
-    -e "${DOOM_BINARY}"
-
-stop_monitor "$MON_PID"
-
-# --- Run 3: SDR capture, background (2 x 20s, stt_concurrent_load=true) ---
-RUNID=$(next_run_id)
-RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
-mkdir -p "$RUN_DIR"
-
-make_run_config "$RUN_DIR" \
-    "sdr_captures=2" \
-    "process_mode=background" \
-    "doom_force_trigger=true" \
-    "stt_concurrent_load=true"
-
-echo "Run $(printf '%05d' "$RUNID"): SDR capture (background, 2x20s, stt_concurrent_load=true)"
+echo "Run $(printf '%05d' "$RUNID"): Hardware FIR decimation (sequential, 2x20s)"
 MON_PID=$(start_monitor "$RUN_DIR" 3600)
 
 ${PRETTY_DOOMED} \

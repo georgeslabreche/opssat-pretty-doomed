@@ -120,6 +120,40 @@ TEST_CASE("load_variants parses TARGET=VARIANT1,VARIANT2") {
     CHECK(variants["NIGHT"][2] == "NIGH");
 }
 
+TEST_CASE("load_config parses hardware FIR settings") {
+    std::istringstream input(
+        "sdr_hw_fir_enable=true\n"
+        "sdr_hw_fir_rate=521000\n"
+        "sdr_hw_fir_fpass=90000\n"
+        "sdr_hw_fir_fstop=110000\n"
+        "sdr_hw_fir_wnom_tx=200000\n"
+        "sdr_hw_fir_wnom_rx=200000\n"
+    );
+
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+
+    CHECK(cfg.sdr_hw_fir_enable == true);
+    CHECK(cfg.sdr_hw_fir_rate == 521000);
+    CHECK(cfg.sdr_hw_fir_fpass == 90000);
+    CHECK(cfg.sdr_hw_fir_fstop == 110000);
+    CHECK(cfg.sdr_hw_fir_wnom_tx == 200000);
+    CHECK(cfg.sdr_hw_fir_wnom_rx == 200000);
+}
+
+TEST_CASE("load_config preserves hw_fir defaults when not set") {
+    std::istringstream input("sdr_rate=2400000\n");
+
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.sdr_hw_fir_enable == false);
+    CHECK(cfg.sdr_hw_fir_rate == 0);
+    CHECK(cfg.sdr_hw_fir_fpass == 0);
+    CHECK(cfg.sdr_hw_fir_fstop == 0);
+    CHECK(cfg.sdr_hw_fir_wnom_tx == 0);
+    CHECK(cfg.sdr_hw_fir_wnom_rx == 0);
+}
+
 TEST_CASE("load_variants handles empty input") {
     std::istringstream input("");
 

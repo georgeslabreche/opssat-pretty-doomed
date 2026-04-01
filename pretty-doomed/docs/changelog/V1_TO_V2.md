@@ -25,35 +25,7 @@ The monitor includes:
 
 **Impact**: Provides per-core CPU and memory time series for post-experiment analysis, enabling the v2-to-v3 optimizations.
 
-### EM Resource Utilization (v2 run)
-
-The following plots were generated from the v2 EM run's `resource.csv` data. They show per-core CPU usage and memory utilization over time, with phase boundaries overlaid.
-
-**Run 1: File Input** (source: EM v2 run)
-
-![EM v2 Run 1 Resource Utilization](data/em-v2/run-00001-resource.png)
-
-Key observations:
-- CPU0 runs at 100% during STT Model Load and STT Inference. CPU1 is nearly idle throughout -- the file input pipeline is single-core.
-- Memory peaks at ~22% during STT model loading, drops after model is released.
-- DSP Filter briefly spikes both cores (GNU Radio uses worker threads internally).
-
-**Run 2: SDR Sequential** (source: EM v2 run)
-
-![EM v2 Run 2 Resource Utilization](data/em-v2/run-00002-resource.png)
-
-Key observations:
-- Both cores are active during SDR captures (GNU Radio + libiio DMA). Between captures, both cores drop to near-idle during IIO Cleanup delays.
-- STT Model Load at ~150s causes a memory jump. Processing phases (DSP+STT) then run single-core at 100%.
-- The IIO Cleanup gaps (~10s each) are wasted time -- addressed in v3 by removing the hardcoded inter-capture sleep.
-
-**Run 3: SDR Background** (source: EM v2 run)
-
-![EM v2 Run 3 Resource Utilization](data/em-v2/run-00003-resource.png)
-
-Key observations:
-- Nearly identical to Run 2 despite being in background mode. The background processing was blocked by the log mutex and stdout redirection race, preventing true concurrency. This is addressed in v3.
-- Same IIO Cleanup gaps as Run 2.
+**Impact**: The v2 EM run's resource.csv data enabled the v3 optimizations. See [v2 EM Results](#v2-em-results) below.
 
 ## DOOM Demo Index Cycling Fix
 
@@ -76,3 +48,31 @@ Key observations:
 ## Updated Game Stats References
 
 **Change**: Updated `gl-e1m2.txt` and `gl-e1m2b.txt` reference stats. The v1 reference files were carried over from the previous DOOM experiment on OPS-SAT-1, which had modifications to the DOOM source code that produced different gameplay outcomes.
+
+## v2 EM Results
+
+Data from SMILE artifact `pack-4023_1774278010`. Three runs on the OPS-SAT EM (ARM32 dual-core SEPP):
+
+1. **Run 1**: File input (pre-recorded WAV, no SDR)
+2. **Run 2**: SDR sequential, 3 x 20s captures
+3. **Run 3**: SDR background, 3 x 20s captures
+
+**Run 1: File Input**
+
+![EM v2 Run 1](data/em-v2/run-00001-resource.png)
+
+CPU0 at 100% during STT Model Load and STT Inference. CPU1 nearly idle throughout. The file input pipeline is single-core. Memory peaks at ~22% during STT model loading.
+
+**Run 2: SDR Sequential**
+
+![EM v2 Run 2](data/em-v2/run-00002-resource.png)
+
+Both cores active during SDR captures (GNU Radio + libiio DMA). Between captures, both cores drop to near-idle during IIO cleanup delays (~10s each, addressed in v3). STT Model Load at ~150s causes a memory jump. Processing phases (DSP+STT) then run single-core at 100%.
+
+**Run 3: SDR Background**
+
+![EM v2 Run 3](data/em-v2/run-00003-resource.png)
+
+Nearly identical to Run 2 despite being in background mode. The log mutex and stdout redirection race prevented true concurrency (addressed in v3).
+
+Source data: [data/em-v2/](data/em-v2/).

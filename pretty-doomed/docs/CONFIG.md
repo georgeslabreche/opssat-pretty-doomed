@@ -60,7 +60,7 @@ Scoring: exact matches = 2 points, fuzzy matches = 1 point.
 
 ## SDR: Capture Settings
 
-Used with the `-s` flag.
+Used with the `-s` flag. All AD9361 configuration is applied per-capture, not once per run. `run_capture()` re-configures the AD9361 from scratch each time as a defensive measure against IIO driver state issues after failed captures. The overhead is negligible for the software-only path. With hardware FIR enabled, the `ad9361_set_bb_rate_custom_filter_manual()` call adds ~4.5s per capture on ARM32.
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -80,6 +80,72 @@ Used with the `-s` flag.
 | `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
 | `sdr_captures` | 3 | Number of sequential SDR captures |
 | `process_mode` | sequential | Processing mode: `sequential` (all captures then all processing) or `background` (overlap capture N+1 with processing of capture N). Background mode writes all output to the main log with `[cN/tM]` thread tags instead of per-capture `run.log` files. |
+
+## SDR: Hardware FIR Decimation
+
+Uses the AD9361's programmable FIR filter (via `libad9361-iio`) to decimate in hardware before DMA, reducing the sample rate the ARM has to process. When enabled, `sdr_rate` is the ADC rate and `sdr_hw_fir_rate` is the post-FIR rate entering GNU Radio. Adjust `sdr_decimation` accordingly (e.g. 600 kSPS output with 3x software decimation instead of 2.4 MSPS with 12x).
+
+The software FIR (GNU Radio `fir_filter_ccf`, controlled by `sdr_decimation` and `sdr_lpf_cutoff`) always runs regardless of whether the hardware FIR is enabled. The two decimation stages are complementary: the hardware FIR does coarse decimation inside the AD9361 before DMA, the software FIR does fine decimation to reach the effective rate for FM demodulation. With hardware FIR, the software FIR operates at the lower post-FIR rate (e.g. 600 kSPS instead of 2.4 MSPS), so it generates fewer taps and uses less CPU.
+
+The AD9361 minimum baseband rate without the FIR is 2.083 MSPS (25 MSPS / 12). With the FIR (4x additional decimation), the minimum drops to 520.83 kSPS (25 MSPS / 48). See [AD9361 Linux Device Driver](https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9361).
+
+The FIR is disabled at the end of the run so subsequent experiments are not affected.
+
+Must be disabled for emulator testing (the IIO emulator does not expose TX channels required by `libad9361-iio`).
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `sdr_hw_fir_enable` | false | Enable AD9361 hardware FIR decimation |
+| `sdr_hw_fir_rate` | 0 | Post-FIR baseband rate in Hz (e.g. 600000) |
+| `sdr_hw_fir_fpass` | 0 | Passband edge frequency in Hz |
+| `sdr_hw_fir_fstop` | 0 | Stopband edge frequency in Hz |
+| `sdr_hw_fir_wnom_tx` | 0 | TX analog filter bandwidth in Hz |
+| `sdr_hw_fir_wnom_rx` | 0 | RX analog filter bandwidth in Hz |
+
+### Default values and signal chain analysis
+
+The default hw FIR values in config.cfg target 600 kSPS with 3x software decimation, giving exactly 200 kHz effective rate (same as v3). All default values are derived from the `libad9361-iio` auto-default formulas for this rate, so we use what the library authors considered appropriate rather than guessing at filter parameters.
+
+**Fpass and Fstop** define the digital FIR filter shape. These do the precise filtering. The auto-default formulas (from `ad9361_set_bb_rate_custom_filter_auto()` in [ad9361_design_taps.c](https://github.com/analogdevicesinc/libad9361-iio/blob/main/ad9361_design_taps.c)) are:
+
+- `Fpass = rate / 3 = 200000`
+- `Fstop = Fpass * 1.25 = 250000`
+
+**wnom_tx and wnom_rx** control the AD9361's analog (hardware) filter bandwidth, written to `rf_bandwidth`. The auto-default formulas are:
+
+- `wnom_tx = 1.6 * Fstop = 400000`
+- `wnom_rx = 1.4 * Fstop = 350000`
+
+The analog filter is a coarse first pass; the digital FIR provides the precise filtering regardless of the analog bandwidth. One detail worth noting: the AD9361 has minimum analog filter calibration thresholds (~400 kHz for RX, ~1.25 MHz for TX; see `ad9361_rx_bb_analog_filter_calib()` and `ad9361_tx_bb_analog_filter_calib()` in the [AD9361 Linux driver](https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/adc/ad9361.c)). Requesting values below these thresholds is silently clamped by the driver. The auto-default wnom values are close to these minimums, which avoids readback mismatches while reflecting what the hardware actually achieves.
+
+The full signal chain with these defaults:
+
+```
+AD9361 ADC (28.8 MSPS internal, HB chain -> 2.4 MSPS at HB1 output)
+  -> Analog filter (wnom_rx=350 kHz requested, ~400 kHz actual after driver clamping)
+  -> Hardware FIR (Fpass=200 kHz, Fstop=250 kHz, 4x decimation -> 600 kSPS)
+  -> DMA to ARM at 600 kSPS
+  -> Software FIR (sdr_lpf_cutoff=85 kHz, 3x decimation -> 200 kHz)
+  -> FM demod at 200 kHz
+  -> Resampler (200 kHz -> 16 kHz, interp=2, decim=25)
+  -> Bandpass (300-3400 Hz)
+  -> WAV output at 16 kHz
+```
+
+The FM voice signal occupies ~17 kHz of bandwidth at baseband (5 kHz deviation + 3.4 kHz audio, Carson's rule). At each stage:
+
+| Stage | Passband | Signal BW | Margin |
+|-------|----------|-----------|--------|
+| Analog filter | ~400 kHz (actual) | ~17 kHz | ~383 kHz |
+| Hardware FIR | 200 kHz (Fstop 250 kHz) | ~17 kHz | 183 kHz |
+| Software FIR | 85 kHz (cutoff) | ~17 kHz | 68 kHz |
+| Bandpass | 300-3400 Hz | 300-3400 Hz | matched |
+
+The signal is deep inside the passband at every stage. From FM demod onward, the chain is identical to v3 (same effective rate, same resampler ratio, same audio output).
+
+The analog filter (~400 kHz) is wider than the hardware FIR passband (200 kHz). This is expected at low sample rates where the AD9361 driver clamps to minimum calibration values. The hardware FIR provides the precise anti-aliasing. Its Fstop (250 kHz) is 50 kHz below the post-FIR Nyquist (300 kHz). Any residual energy in the 250-300 kHz gap is further rejected by the software FIR (cutoff 85 kHz).
+
+Note: the internal ADC rate (28.8 MSPS), clock chain selection, and actual analog filter bandwidth (~400 kHz) are derived from analysis of the `libad9361-iio` source ([ad9361_calculate_rf_clock_chain.c](https://github.com/analogdevicesinc/libad9361-iio/blob/main/ad9361_calculate_rf_clock_chain.c)) and the AD9361 Linux driver ([ad9361.c](https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/adc/ad9361.c)). These values were confirmed by the v4 EM readback logs (see [RESULT.md](RESULT.md)).
 
 ## Variants File (`variants.cfg`)
 

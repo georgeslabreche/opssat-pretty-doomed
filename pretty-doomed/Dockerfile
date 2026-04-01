@@ -40,14 +40,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     g++ \
     make \
+    cmake \
+    git \
+    ca-certificates \
     pkg-config \
     libsndfile1-dev \
     gnuradio-dev \
     libfmt-dev \
     libiio-dev \
-    libad9361-dev \
     libfftw3-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Build libad9361-iio v0.3 from source (Debian bookworm ships v0.2 which
+# lacks some features; match the version used in the SEPP ARM32 build)
+ARG LIBAD9361_VERSION=v0.3
+RUN git clone --depth 1 --branch ${LIBAD9361_VERSION} \
+    https://github.com/analogdevicesinc/libad9361-iio.git /tmp/libad9361-iio && \
+    cd /tmp/libad9361-iio && mkdir build && cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=/usr && \
+    make -j$(nproc) && make install && \
+    rm -rf /tmp/libad9361-iio
 
 # Copy sherpa-onnx SDK from builder stage
 COPY --from=sherpa-builder /opt/sherpa-onnx /opt/sherpa-onnx

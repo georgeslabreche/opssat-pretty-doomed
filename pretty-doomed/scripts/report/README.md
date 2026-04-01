@@ -31,7 +31,7 @@ The committed data in `docs/data/` contains logs and resource CSVs. The report t
 
 ```bash
 cd scripts/report
-python3 report.py ../../docs/data/em-v3/pack-4023_1774447112 \
+python3 report.py ../../docs/data/em-v4/pack-4023_1774937270 \
   --output-dir output --no-video --sample-rate 200000
 ```
 
@@ -65,7 +65,7 @@ For environments without Python/ffmpeg, use the Docker setup:
 
 ```bash
 cd scripts/report
-docker-compose run --rm tools report.py /data/em-v3/pack-4023_1774447112 \
+docker-compose run --rm tools report.py /data/em-v4/pack-4023_1774937270 \
   --output-dir /output --no-video --sample-rate 200000
 ```
 
