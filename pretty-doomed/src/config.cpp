@@ -73,6 +73,8 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "sdr_timeout_multiplier") cfg.sdr_timeout_multiplier = std::stoi(value);
     else if (key == "sdr_enable_spectrogram") cfg.sdr_enable_spectrogram = (value == "true" || value == "1");
     else if (key == "sdr_enable_constellation") cfg.sdr_enable_constellation = (value == "true" || value == "1");
+    else if (key == "sdr_enable_psd") cfg.sdr_enable_psd = (value == "true" || value == "1");
+    else if (key == "sdr_keep_sc16") cfg.sdr_keep_sc16 = (value == "true" || value == "1");
     else if (key == "sdr_captures") cfg.sdr_captures = std::stoi(value);
     else if (key == "process_mode") cfg.process_mode = value;
     // SDR: init strategy

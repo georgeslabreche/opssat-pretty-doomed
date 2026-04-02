@@ -287,11 +287,12 @@ bool run_capture(const PipelineConfig& cfg,
 
     bool early_stop = timed_out || interrupted;
 
-    // I/Q artifact generation (diagnostics, spectrogram, constellation)
+    // I/Q artifact generation (diagnostics, metrics, spectrogram, constellation, PSD)
     auto generate_artifacts = [
         iq_file, effective_rate,
         enable_spec = cfg.sdr_enable_spectrogram,
-        enable_const = cfg.sdr_enable_constellation
+        enable_const = cfg.sdr_enable_constellation,
+        enable_psd = cfg.sdr_enable_psd
     ]() {
         Sc16Stats iq_stats = analyze_sc16(iq_file);
         if (iq_stats.valid) {
@@ -303,6 +304,11 @@ bool run_capture(const PipelineConfig& cfg,
             double zero_pct_i = 100.0 * iq_stats.zero_i / iq_stats.samples;
             double zero_pct_q = 100.0 * iq_stats.zero_q / iq_stats.samples;
             log_info() << "IQ zeros: I=" << zero_pct_i << "%  Q=" << zero_pct_q << "%\n";
+
+            std::string metrics_file = make_metrics_filename(iq_file);
+            if (write_sc16_metrics(metrics_file, iq_stats, IQ_SCALE)) {
+                log_info() << "IQ metrics: " << metrics_file << "\n";
+            }
         }
 
         if (enable_spec) {
@@ -317,6 +323,14 @@ bool run_capture(const PipelineConfig& cfg,
             log_info() << "Constellation: " << const_file << "\n";
             if (!generate_constellation(iq_file, const_file)) {
                 log_warning() << "Constellation generation failed\n";
+            }
+        }
+        if (enable_psd) {
+            std::string psd_csv = make_psd_csv_filename(iq_file);
+            std::string psd_bmp = make_psd_bmp_filename(iq_file);
+            log_info() << "PSD: " << psd_csv << "\n";
+            if (!generate_psd(iq_file, psd_csv, psd_bmp, (long long)effective_rate)) {
+                log_warning() << "PSD generation failed\n";
             }
         }
     };

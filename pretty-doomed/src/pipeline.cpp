@@ -1,5 +1,6 @@
 #include "pipeline.h"
 
+#include <cstdio>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -186,11 +187,25 @@ void process_wav_exec(const PipelineStageResult& stage1,
                       const PipelineConfig& cfg,
                       const std::string& doom_binary,
                       const std::string& demos_dir,
-                      const std::string& sc16_path) {
+                      const std::string& sc16_path,
+                      std::shared_future<void> artifact_future) {
+    // SC16 cleanup: wait for artifact future then delete (unless configured to keep).
+    // Runs regardless of trigger -- even captures with no detection should clean up.
+    auto cleanup_sc16 = [&]() {
+        if (cfg.sdr_keep_sc16 || sc16_path.empty()) return;
+        if (artifact_future.valid()) artifact_future.get();
+        if (std::remove(sc16_path.c_str()) == 0) {
+            log_info() << "SC16 deleted: " << sc16_path << "\n";
+        } else {
+            log_warning() << "SC16 delete failed: " << sc16_path << "\n";
+        }
+    };
+
     if (!stage1.trigger) {
         if (!stage1.transcript.empty()) {
             log_info() << "No command detected.\n";
         }
+        cleanup_sc16();
         return;
     }
 
@@ -264,6 +279,8 @@ void process_wav_exec(const PipelineStageResult& stage1,
                     << "\n";
         }
     }
+
+    cleanup_sc16();
 }
 
 bool process_wav(const std::string& input_file,
@@ -274,12 +291,14 @@ bool process_wav(const std::string& input_file,
                  const std::string& config_file,
                  const std::string& doom_binary,
                  const std::string& demos_dir,
-                 const std::string& sc16_path) {
+                 const std::string& sc16_path,
+                 std::shared_future<void> artifact_future) {
     auto proc_start = std::chrono::steady_clock::now();
 
     PipelineStageResult stage1 = process_wav_stt(input_file, output_dir, cfg, variants,
                                                   stt, config_file);
-    process_wav_exec(stage1, output_dir, cfg, doom_binary, demos_dir, sc16_path);
+    process_wav_exec(stage1, output_dir, cfg, doom_binary, demos_dir, sc16_path,
+                     artifact_future);
 
     auto proc_end = std::chrono::steady_clock::now();
     log_info() << "Pipeline time: " << format_duration(proc_end - proc_start)

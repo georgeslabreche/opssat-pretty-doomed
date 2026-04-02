@@ -158,10 +158,14 @@ toGround/
 │   ├── resource.csv             # Per-second CPU + memory utilization
 │   ├── config.cfg               # Per-run config copy (base + overrides)
 │   ├── pretty-doomed.log        # All output with [cN/tM] thread tags
+│   ├── psd-comparison.bmp       # Cross-capture PSD overlay (if sdr_enable_psd + multiple captures)
 │   ├── capture-001/
 │   │   ├── run.log             # Detailed capture + processing log
 │   │   ├── capture.wav
-│   │   ├── capture.sc16
+│   │   ├── capture.sc16        # Raw I/Q (deleted after processing unless sdr_keep_sc16=true)
+│   │   ├── capture-metrics.csv # I/Q diagnostics: RMS, peak, PAPR, DC offset, imbalance
+│   │   ├── capture-psd.csv     # PSD frequency bins + power (dB/Hz)
+│   │   ├── capture-psd.bmp     # PSD line plot
 │   │   ├── spectrogram.bmp
 │   │   ├── constellation.bmp
 │   │   ├── processed.wav

@@ -83,14 +83,38 @@ make_run_config() {
     done
 }
 
-# --- Single run: all settings from config.cfg ---
+# --- Run 1: 2 captures, sc16 preserved (verification baseline) ---
 RUNID=$(next_run_id)
 RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
 mkdir -p "$RUN_DIR"
 
-make_run_config "$RUN_DIR"
+make_run_config "$RUN_DIR" \
+    "sdr_captures=2" \
+    "sdr_keep_sc16=true"
 
-echo "Run $(printf '%05d' "$RUNID")"
+echo "Run $(printf '%05d' "$RUNID"): 2 captures, sc16 preserved"
+MON_PID=$(start_monitor "$RUN_DIR" 3600)
+
+${PRETTY_DOOMED} \
+    -s \
+    -c "$RUN_DIR/config.cfg" \
+    -f "$VARIANTS" \
+    -o "$RUN_DIR" \
+    -d "$DEMOS" \
+    -e "${DOOM_BINARY}"
+
+stop_monitor "$MON_PID"
+
+# --- Run 2: 6 captures, sc16 deleted after processing ---
+RUNID=$(next_run_id)
+RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$RUN_DIR"
+
+make_run_config "$RUN_DIR" \
+    "sdr_captures=6" \
+    "sdr_keep_sc16=false"
+
+echo "Run $(printf '%05d' "$RUNID"): 6 captures, sc16 deleted"
 MON_PID=$(start_monitor "$RUN_DIR" 3600)
 
 ${PRETTY_DOOMED} \

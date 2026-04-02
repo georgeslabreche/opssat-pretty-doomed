@@ -33,7 +33,7 @@ PHASE_PATTERNS = [
     ("SDR Capture",    re.compile(r"Starting capture|Capture complete|Timeout:|Progress \[")),
     ("SDR Teardown",   re.compile(r"Stopping flowgraph")),
     ("Normalize",      re.compile(r"Normalizing audio|RMS normalize:")),
-    ("Artifacts",      re.compile(r"IQ diag:|IQ RMS:|IQ zeros:|Spectrogram:|Constellation:")),
+    ("Artifacts",      re.compile(r"IQ diag:|IQ RMS:|IQ zeros:|IQ metrics:|Spectrogram:|Constellation:|PSD:")),
     ("DSP Filter",     re.compile(r"Filtering \(GNU Radio\)|Resampling to")),
     ("STT Inference",  re.compile(r"Transcribing \(|STT time:")),
     ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|Command detected")),
@@ -50,7 +50,7 @@ PHASE_COLORS = {
     "Artifacts":      "#1ABC9C",
     "DSP Filter":     "#FFA500",
     "STT Inference":  "#FF6B6B",
-    "Detection":      "#2ECC71",
+    "Detection":      "#E67E22",
     "DOOM":           "#9B59B6",
     "Postcard":       "#87CEEB",
 }

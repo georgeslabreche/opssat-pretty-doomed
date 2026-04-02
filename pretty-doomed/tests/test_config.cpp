@@ -170,6 +170,24 @@ TEST_CASE("load_config preserves sdr_init_per_capture default") {
     CHECK(cfg.sdr_init_per_capture == false);
 }
 
+TEST_CASE("load_config parses sdr_enable_psd and sdr_keep_sc16") {
+    std::istringstream input("sdr_enable_psd=false\nsdr_keep_sc16=true\n");
+
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.sdr_enable_psd == false);
+    CHECK(cfg.sdr_keep_sc16 == true);
+}
+
+TEST_CASE("load_config preserves sdr_enable_psd and sdr_keep_sc16 defaults") {
+    std::istringstream input("sdr_rate=2400000\n");
+
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.sdr_enable_psd == true);
+    CHECK(cfg.sdr_keep_sc16 == false);
+}
+
 TEST_CASE("load_variants handles empty input") {
     std::istringstream input("");
 
