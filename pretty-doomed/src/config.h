@@ -66,6 +66,8 @@ struct PipelineConfig {
     int sdr_timeout_multiplier = 5;
     bool sdr_enable_spectrogram = true;
     bool sdr_enable_constellation = true;
+    bool sdr_enable_psd = true;
+    bool sdr_keep_sc16 = false;
     int sdr_captures = 3;
     std::string process_mode = "sequential";
 

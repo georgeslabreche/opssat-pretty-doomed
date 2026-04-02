@@ -115,6 +115,9 @@ struct Sc16Stats {
     int16_t min_i = 0, max_i = 0;   // range I
     int16_t min_q = 0, max_q = 0;   // range Q
     long long zero_i = 0, zero_q = 0; // count of exact-zero samples
+    int peak_i = 0, peak_q = 0;     // peak absolute value per channel
+    double papr_i = 0, papr_q = 0;  // peak-to-average power ratio (dB)
+    double imbalance_db = 0;         // I/Q imbalance: 20*log10(rms_i/rms_q)
     bool valid = false;
 };
 
@@ -170,9 +173,50 @@ inline Sc16Stats analyze_sc16(const std::string& path, long long max_samples = 0
         s.mean_q = sum_q / s.samples;
         s.rms_i = std::sqrt(sumsq_i / s.samples);
         s.rms_q = std::sqrt(sumsq_q / s.samples);
+        s.peak_i = std::max(std::abs((int)s.min_i), std::abs((int)s.max_i));
+        s.peak_q = std::max(std::abs((int)s.min_q), std::abs((int)s.max_q));
+        if (s.rms_i > 0) s.papr_i = 20.0 * std::log10((double)s.peak_i / s.rms_i);
+        if (s.rms_q > 0) s.papr_q = 20.0 * std::log10((double)s.peak_q / s.rms_q);
+        if (s.rms_i > 0 && s.rms_q > 0)
+            s.imbalance_db = 20.0 * std::log10(s.rms_i / s.rms_q);
         s.valid = true;
     }
     return s;
+}
+
+// Derive metrics CSV path from sc16 path: /dir/capture.sc16 -> /dir/capture-metrics.csv
+inline std::string make_metrics_filename(const std::string& sc16_path) {
+    auto sep = sc16_path.find_last_of("/\\");
+    if (sep != std::string::npos)
+        return sc16_path.substr(0, sep + 1) + "capture-metrics.csv";
+    return "capture-metrics.csv";
+}
+
+// Write I/Q diagnostic metrics to CSV. Single header + data row.
+inline bool write_sc16_metrics(const std::string& path,
+                               const Sc16Stats& s,
+                               float iq_scale) {
+    if (!s.valid) return false;
+    std::ofstream f(path);
+    if (!f) return false;
+
+    double rms_i_db = (s.rms_i > 0) ? 20.0 * std::log10(s.rms_i / iq_scale) : -999.0;
+    double rms_q_db = (s.rms_q > 0) ? 20.0 * std::log10(s.rms_q / iq_scale) : -999.0;
+    double zero_pct_i = 100.0 * s.zero_i / s.samples;
+    double zero_pct_q = 100.0 * s.zero_q / s.samples;
+
+    f << "samples,rms_i,rms_q,rms_i_dbfs,rms_q_dbfs,"
+      << "peak_i,peak_q,papr_i_db,papr_q_db,"
+      << "dc_offset_i,dc_offset_q,imbalance_db,"
+      << "zero_pct_i,zero_pct_q\n";
+    f << s.samples << ","
+      << s.rms_i << "," << s.rms_q << ","
+      << rms_i_db << "," << rms_q_db << ","
+      << s.peak_i << "," << s.peak_q << ","
+      << s.papr_i << "," << s.papr_q << ","
+      << s.mean_i << "," << s.mean_q << "," << s.imbalance_db << ","
+      << zero_pct_i << "," << zero_pct_q << "\n";
+    return f.good();
 }
 
 // Check sc16 file for clipping and peak magnitude. Reads first and last

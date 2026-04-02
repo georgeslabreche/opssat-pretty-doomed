@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "pretty_log.h"
+#include "pretty_font.h"
 
 namespace pretty {
 
@@ -223,6 +224,10 @@ inline bool generate_constellation(const std::string& sc16_path,
         pixels[idx + 1] = dg;
         pixels[idx + 2] = db;
     }
+
+    // Axis labels: I (bottom-right), Q (top-left)
+    draw_text(pixels, size, size, size - GLYPH_W - 2, center + 3, "I", 120, 120, 120);
+    draw_text(pixels, size, size, center + 3, 2, "Q", 120, 120, 120);
 
     if (!detail_constellation::write_bmp(output_path, pixels, size, size)) {
         log_warning() << "Constellation: failed to write " << output_path << "\n";

@@ -47,8 +47,8 @@ main.cpp (orchestrator)
 | Output | `output.cpp` | Summary + log output formatting (ASCII art, scores) | None |
 | Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. | stb, FFTW |
 | SDR | `sdr.cpp` | AD9361 lifecycle: `ad9361_configure()` (hardware FIR or software-only path with readback verification), `ad9361_cleanup_fir()` (disable FIR after captures). | libiio, libad9361 |
-| Capture | `capture.cpp` | SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files, generates spectrogram/constellation BMP. | GNU Radio, libiio |
-| Pipeline | `pipeline.cpp` | WAV processing pipeline in two stages: `process_wav_stt()` (DSP, STT, detection) runs serially across captures; `process_wav_exec()` (DOOM, postcard) runs async, overlapping with the next capture's STT. Combined `process_wav()` for sequential mode. | All |
+| Capture | `capture.cpp` | SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files. Artifact generation (spectrogram, constellation, PSD BMPs with axis labels, metrics CSV) runs async in background mode. | GNU Radio, libiio, FFTW |
+| Pipeline | `pipeline.cpp` | WAV processing pipeline in two stages: `process_wav_stt()` (DSP, STT, detection) runs serially across captures; `process_wav_exec()` (DOOM, postcard, sc16 cleanup) runs async, overlapping with the next capture's STT. Combined `process_wav()` for sequential mode. | All |
 | Main | `main.cpp` | CLI arg parsing, input mode dispatch (file vs SDR), multi-capture loop, process_mode (sequential/background), SDR init/cleanup orchestration, output file writing | All |
 
 ### Dependency Isolation
@@ -206,12 +206,16 @@ In sequential mode, each capture gets its own subdirectory. Stdout is redirected
 toGround/run-00002/
 ├── resource.csv            # Per-second CPU + memory utilization
 ├── pretty-doomed.log       # Dispatch log (capture/processing progress)
+├── psd-comparison.bmp      # Cross-capture PSD overlay (if sdr_enable_psd + multiple captures)
 ├── capture-001/            # Per-capture directory
 │   ├── run.log             # Detailed capture + processing log
 │   ├── capture.wav         # FM-demodulated audio
-│   ├── capture.sc16        # Raw I/Q data
-│   ├── spectrogram.bmp     # I/Q spectrogram
-│   ├── constellation.bmp   # I/Q constellation
+│   ├── capture.sc16        # Raw I/Q (deleted after processing unless sdr_keep_sc16=true)
+│   ├── capture-metrics.csv # I/Q diagnostics: RMS, peak, PAPR, DC offset, imbalance
+│   ├── capture-psd.csv     # PSD frequency bins + power (dB/Hz)
+│   ├── capture-psd.bmp     # PSD line plot
+│   ├── spectrogram.bmp     # I/Q spectrogram (with axis labels)
+│   ├── constellation.bmp   # I/Q constellation (with axis labels)
 │   ├── processed.wav       # Filtered audio (pipeline output)
 │   ├── transcription.txt   # STT output
 │   ├── scores.txt
@@ -232,9 +236,13 @@ In background mode, there are no per-capture `run.log` files. All output goes to
 toGround/run-00003/
 ├── resource.csv            # Per-second CPU + memory utilization
 ├── pretty-doomed.log       # All output (captures + processing, tagged by thread)
+├── psd-comparison.bmp      # Cross-capture PSD overlay
 ├── capture-001/
 │   ├── capture.wav
-│   ├── capture.sc16
+│   ├── capture.sc16        # Deleted after processing unless sdr_keep_sc16=true
+│   ├── capture-metrics.csv
+│   ├── capture-psd.csv
+│   ├── capture-psd.bmp
 │   ├── spectrogram.bmp
 │   ├── constellation.bmp
 │   ├── processed.wav
