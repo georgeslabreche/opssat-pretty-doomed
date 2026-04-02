@@ -30,6 +30,7 @@
 #include "capture.h"
 #include "sdr.h"
 #include "pipeline.h"
+#include "pretty_spectrogram.h"
 
 using namespace pretty;
 
@@ -224,7 +225,7 @@ int main(int argc, char** argv) {
 
             bool detected = process_wav(cap.wav_path, capture_dir, cfg, variants, *stt,
                                         args.config_file, args.doom_binary, args.demos_dir,
-                                        cap.sc16_path);
+                                        cap.sc16_path, cap.artifact_future);
 
             restore_log(saved_fd);
             return detected;
@@ -296,11 +297,12 @@ int main(int argc, char** argv) {
                         log_info() << "Background STT of capture " << idx
                                    << " complete (" << format_duration(std::chrono::steady_clock::now() - start) << ")\n";
                         if (stage1.command_detected) bg_any_detected = true;
-                        // Fire exec stage async (DOOM + postcard)
+                        // Fire exec stage async (DOOM + postcard + sc16 cleanup)
                         exec_futures.push_back(std::async(std::launch::async,
                             [stage1, cap_dir, &cfg, &args, cap]() {
                                 process_wav_exec(stage1, cap_dir, cfg,
-                                                 args.doom_binary, args.demos_dir, cap.sc16_path);
+                                                 args.doom_binary, args.demos_dir,
+                                                 cap.sc16_path, cap.artifact_future);
                             }));
                     });
             }
@@ -347,6 +349,24 @@ int main(int argc, char** argv) {
         for (auto& cap : captures) {
             if (cap.artifact_future.valid()) {
                 cap.artifact_future.get();
+            }
+        }
+
+        // Cross-capture PSD comparison (reads per-capture CSV files)
+        if (cfg.sdr_enable_psd && captures.size() > 1) {
+            std::vector<std::string> psd_paths;
+            for (const auto& cap : captures) {
+                if (cap.sc16_path.empty()) continue;
+                std::string psd_csv = make_psd_csv_filename(cap.sc16_path);
+                std::ifstream test(psd_csv);
+                if (test.good()) psd_paths.push_back(psd_csv);
+            }
+            if (psd_paths.size() > 1) {
+                std::string comp_path = args.output_dir + "/psd-comparison.bmp";
+                log_info() << "Generating PSD comparison: " << comp_path << "\n";
+                if (!generate_psd_comparison(psd_paths, comp_path)) {
+                    log_warning() << "PSD comparison generation failed\n";
+                }
             }
         }
     } else {

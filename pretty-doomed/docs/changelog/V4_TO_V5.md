@@ -2,7 +2,7 @@
 
 Changes derived from the v4 EM results and operational readiness review.
 
-**PRs**: [#85](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/85) (configurable per-capture vs once-per-run SDR init), [#86](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/86) (ssize_t fix for IIO write return values), [#88](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/88) (two-stage background processing pipeline)
+**PRs**: [#85](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/85) (configurable per-capture vs once-per-run SDR init), [#86](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/86) (ssize_t fix for IIO write return values), [#88](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/88) (two-stage background processing pipeline), [#92](https://github.com/georgeslabreche/opssat-pretty-doomed/pull/92) (onboard I/Q metrics, PSD plots, sc16 cleanup, axis labels)
 
 ## Once-Per-Run SDR Init (Default)
 
@@ -49,6 +49,31 @@ STT inference for capture N+1 starts immediately after STT for capture N finishe
 **Observation**: `iio_channel_attr_write()` (the string variant) returns `ssize_t` but was stored in `int` in `pretty_iio.h` and `sdr.cpp`. On ARM32 this was harmless (`ssize_t` is 32-bit), but it's a narrowing conversion on 64-bit platforms. The `_longlong` and `_double` variants correctly return `int` per the libiio API.
 
 **Change**: Use `ssize_t` for `iio_channel_attr_write()` return values in `pretty_iio.h` (shared by all apps) and `sdr.cpp`. Verified all three projects (`pretty-doomed`, `sdr-capture`, `sdr-loopback`) build with zero warnings.
+
+## Onboard I/Q Metrics and PSD
+
+**Observation**: The raw I/Q file (`capture.sc16`) is 15 MB per 20s capture. With 6 captures per run, that is 90 MB of raw data. The sc16 is only useful for ground re-analysis; all visualization artifacts (spectrogram, constellation, postcard) are already generated onboard.
+
+**Change**: New onboard diagnostics generated per capture as part of the artifact future:
+
+- `capture-metrics.csv`: single-row CSV with RMS (dBFS), peak, PAPR, DC offset, I/Q imbalance, zero fraction
+- `capture-psd.bmp`: PSD line plot (Welch-averaged, FFTW) with axis labels (frequency in kHz, power in dB/Hz)
+- `capture-psd.csv`: PSD frequency bins + power values for ground re-plotting
+
+After all captures complete, a cross-capture `psd-comparison.bmp` overlays each capture's PSD curve with color-coded legend.
+
+## sc16 Cleanup
+
+**Change**: Each `capture.sc16` is deleted after all its consumers finish (spectrogram, constellation, PSD, metrics, postcard). Config flag `sdr_keep_sc16=true` retains the files for debugging. Reduces per-run downlink from ~120 MB to ~30 MB for 6 captures.
+
+## Axis Labels on Visualization BMPs
+
+**Change**: All onboard BMP visualizations now include axis labels using a shared 5x7 bitmap font (`pretty_font.h`):
+
+- Spectrogram: time (seconds) and frequency (kHz) labels with dark background for contrast
+- Constellation: I and Q axis labels
+- PSD: dB/Hz y-axis ticks and frequency kHz x-axis ticks with margins
+- PSD comparison: same axes plus color-coded capture legend
 
 ## v5 Results
 

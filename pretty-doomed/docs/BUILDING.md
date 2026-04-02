@@ -101,5 +101,5 @@ Download models before running. See [`models/README.md`](../models/README.md) fo
 Convert a recording to the expected input format (48 kHz, mono, 16-bit):
 
 ```bash
-./convert-sample.sh recording.mp3 input/sample.wav
+./scripts/misc/convert-sample.sh recording.mp3 input/sample.wav
 ```

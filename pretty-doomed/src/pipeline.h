@@ -1,6 +1,7 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
+#include <future>
 #include <string>
 #include "config.h"
 #include "transcriber.h"
@@ -23,14 +24,16 @@ PipelineStageResult process_wav_stt(const std::string& input_file,
                                     Transcriber& stt,
                                     const std::string& config_file);
 
-// Stage 2: DOOM execution -> Postcard -> results.txt.
+// Stage 2: DOOM execution -> Postcard -> results.txt -> sc16 cleanup.
 // Can run concurrently with the next capture's STT stage.
+// artifact_future: waited on before sc16 deletion (spectrogram/constellation/PSD must finish).
 void process_wav_exec(const PipelineStageResult& stage1,
                       const std::string& output_dir,
                       const PipelineConfig& cfg,
                       const std::string& doom_binary,
                       const std::string& demos_dir,
-                      const std::string& sc16_path);
+                      const std::string& sc16_path,
+                      std::shared_future<void> artifact_future = {});
 
 // Combined: runs both stages sequentially (used by sequential mode and file input).
 // Returns true if a command was detected.
@@ -42,6 +45,7 @@ bool process_wav(const std::string& input_file,
                  const std::string& config_file,
                  const std::string& doom_binary,
                  const std::string& demos_dir,
-                 const std::string& sc16_path = "");
+                 const std::string& sc16_path = "",
+                 std::shared_future<void> artifact_future = {});
 
 #endif

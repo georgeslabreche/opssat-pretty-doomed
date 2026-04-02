@@ -78,6 +78,8 @@ Used with the `-s` flag. AD9361 configuration (`ad9361_configure()` in `sdr.cpp`
 | `sdr_min_readback` | false | Downgrade sample rate readback mismatch to warning |
 | `sdr_enable_spectrogram` | true | Generate spectrogram BMP |
 | `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
+| `sdr_enable_psd` | true | Generate PSD (Power Spectral Density) BMP + CSV per capture, and cross-capture PSD comparison BMP |
+| `sdr_keep_sc16` | false | Keep raw I/Q `capture.sc16` files after processing. When false, each sc16 is deleted after all artifacts (spectrogram, constellation, PSD, postcard) are generated, saving ~15 MB per 20s capture. |
 | `sdr_captures` | 3 | Number of sequential SDR captures |
 | `process_mode` | sequential | Processing mode: `sequential` (all captures then all processing) or `background` (overlap capture N+1 with processing of capture N). Background mode writes all output to the main log with `[cN/tM]` thread tags instead of per-capture `run.log` files. |
 
