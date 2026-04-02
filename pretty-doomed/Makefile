@@ -145,7 +145,7 @@ $(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h | $
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/sdr.o: $(SRCDIR)/sdr.cpp $(SRCDIR)/sdr.h $(SRCDIR)/config.h | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
