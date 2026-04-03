@@ -82,7 +82,7 @@ MODEL_FILES = models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx \
               models/sherpa-onnx/small/tokens.txt
 
 .PHONY: all clean test test-dsp doom clone-sherpa patch-sherpa build-sherpa \
-       check-model package-prepare package-input package-model package-demos package-tar
+       check-model package-prepare package-model package-demos package-tar
 
 all: check-model $(TARGET) doom
 
@@ -256,7 +256,6 @@ package-prepare: $(TARGET) doom
 	mkdir -p $(PACKAGE_DIR)/libs
 	mkdir -p $(PACKAGE_DIR)/models/sherpa-onnx/small
 	mkdir -p $(PACKAGE_DIR)/demos
-	mkdir -p $(PACKAGE_DIR)/input
 	mkdir -p $(PACKAGE_DIR)/toGround
 	# Binaries (strip debug symbols + UPX compress for SEPP)
 	cp $(TARGET) $(PACKAGE_DIR)/pretty-doomed
@@ -304,17 +303,13 @@ package-prepare: $(TARGET) doom
 	# Sherpa-ONNX + ONNX Runtime: statically linked into pretty-doomed binary
 	# (no shared libs needed — see build-sherpa comment)
 	@echo "Package prepared in $(PACKAGE_DIR)/"
-	@echo "Run outside container: make package-input && make package-model && make package-demos && make package-tar"
+	@echo "Run outside container: make package-model && make package-demos && make package-tar"
 
 # Run OUTSIDE container
 package-model:
 	cp models/sherpa-onnx/small/*.onnx $(PACKAGE_DIR)/models/sherpa-onnx/small/
 	cp models/sherpa-onnx/small/tokens.txt $(PACKAGE_DIR)/models/sherpa-onnx/small/
 	@echo "Model files copied to $(PACKAGE_DIR)/models/sherpa-onnx/small/"
-
-package-input:
-	cp input/georges_01.wav $(PACKAGE_DIR)/input/
-	@echo "Input WAV files copied to $(PACKAGE_DIR)/input/"
 
 package-demos:
 	cp demos/*.lmp $(PACKAGE_DIR)/demos/
