@@ -42,7 +42,17 @@ AD9361 lifecycle functions were extracted into `sdr.cpp`/`sdr.h`, separating SDR
 
 STT inference for capture N+1 starts immediately after STT for capture N finishes, while DOOM and Postcard for capture N run concurrently on a separate thread. Sequential mode is unaffected (uses the combined `process_wav()` which calls both stages inline).
 
-**Known limitation**: Exec stages can run concurrently if DOOM + Postcard for capture N takes longer than STT for capture N+1. This creates a potential race on `doom_demo_index.txt` (demo cycling state) and `results.txt` (append from two threads). On the EM this is unlikely (~40s STT vs ~13-41s DOOM+Postcard) but not impossible. If demo ordering matters, the exec stages would need to be serialized or demo indices pre-assigned during the STT stage.
+**Threading approach**: Each STT task and each exec task is launched via `std::async`, creating a new thread per task. With 6 captures, this spawns 12 threads over the run (6 STT + 6 exec). Three alternatives were considered:
+
+1. **Single processing thread with queue**: STT and exec run sequentially on one thread. Eliminates thread creation overhead and the concurrent exec race, but loses the DOOM+Postcard / STT overlap. On the EM, DOOM takes 5-33s and Postcard takes 7-8s. Serializing this with STT (~40s) would add 12-41s per capture to the total run time.
+
+2. **Two persistent threads (STT + exec)**: A dedicated STT thread and a dedicated exec thread, communicating via a queue. Same overlap benefit as the current approach, no thread churn, and exec tasks are naturally serialized (eliminating the race). More complex to implement (queue, condition variable, shutdown signaling).
+
+3. **Chained `std::async` futures (chosen)**: Each STT task captures the previous future and waits on it internally. Exec tasks fire independently. Simple to implement (no queue, no mutex, no dedicated thread lifecycle), and the overlap between DOOM+Postcard and the next STT is preserved. The thread creation cost (~1ms per pthread on ARM32) is negligible relative to the 40s STT inference.
+
+Option 3 was chosen for simplicity. The two-persistent-thread approach (option 2) would be the right choice if thread churn becomes a problem or if the exec race on `doom_demo_index.txt` causes issues in practice.
+
+**Known limitation**: Exec stages can run concurrently if DOOM + Postcard for capture N takes longer than STT for capture N+1. This creates a potential race on `doom_demo_index.txt` (demo cycling state). On the EM this is unlikely (~40s STT vs ~13-41s exec) but not impossible.
 
 ## ssize_t for IIO Write Return Values
 
@@ -88,3 +98,26 @@ The following timeline was generated from a local Docker emulator test with a 2.
 The two-stage pipeline overlap is visible: DOOM #1 + Postcard #1 (Thread 64) runs concurrently with STT Inference #2 (Thread 63). Without the two-stage split, STT #2 would have waited for DOOM #1 and Postcard #1 to complete before starting.
 
 Source data: [data/local-v5/](data/local-v5/).
+
+### Engineering Model (EM)
+
+Data from SMILE artifact `pack-4023_1775155417`. Two runs on the OPS-SAT EM (ARM32 dual-core SEPP):
+
+1. **Run 1**: 2 x 20s captures, background, `sdr_keep_sc16=true`
+2. **Run 2**: 6 x 20s captures, background, `sdr_keep_sc16=false`
+
+Both runs: hardware FIR at 600 kSPS, once-per-run SDR init, two-stage processing pipeline.
+
+**Run 1: 2 captures, sc16 preserved**
+
+![Run 1](data/em-v5/pack-4023_1775155417/run-00001-timeline-and-resource.png)
+
+SDR Config (6.2s, once) then 2 captures back-to-back. Two-stage pipeline: STT 1 (40.1s) completes, DOOM + Postcard fires async, STT 2 (37.4s) starts immediately. Total: 130.7s.
+
+**Run 2: 6 captures, sc16 deleted**
+
+![Run 2](data/em-v5/pack-4023_1775155417/run-00002-timeline-and-resource.png)
+
+Six captures near-continuous on the main thread. STT chain processes sequentially (36-51s per capture). DOOM + Postcard exec stages fire async. sc16 deleted after each capture's postcard. Total: 295.0s. Downlink: 23 MB compressed (vs ~70 MB for v4's 2-capture run with sc16).
+
+Source data: [data/em-v5/](data/em-v5/).

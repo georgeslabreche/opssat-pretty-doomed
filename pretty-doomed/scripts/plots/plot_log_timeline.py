@@ -29,32 +29,35 @@ PHASE_PATTERNS = [
     ("STT Model Load", re.compile(r"Loading STT model")),
     ("STT Model Load", re.compile(r"STT model loaded")),
     ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:")),
+    ("SDR Config",     re.compile(r"AD9361(?! hardware FIR disabled)")),
     ("SDR Init",       re.compile(r"=== Capture \d+/\d+ ===")),
-    ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:")),
-    ("SDR Init",       re.compile(r"AD9361(?! hardware FIR disabled)|Building flowgraph")),
+    ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:|Building flowgraph")),
     ("SDR Capture",        re.compile(r"Starting capture|Capture complete|Timeout:|Progress \[")),
     ("SDR Teardown",       re.compile(r"Stopping flowgraph")),
     ("Normalize",      re.compile(r"Normalizing audio|RMS normalize:")),
+    ("Dispatch",       re.compile(r"SDR capture OK|SDR capture partial|Background STT of capture \d+ started")),
     ("Artifacts",      re.compile(r"IQ diag:|IQ RMS:|IQ zeros:|IQ metrics:|Spectrogram:|Constellation:|PSD:")),
     ("DSP Filter",     re.compile(r"Filtering \(GNU Radio\)|Resampling to")),
     ("STT Inference",  re.compile(r"Transcribing \(|STT time:")),
     ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|Command detected")),
     ("DOOM",           re.compile(r"Running DOOM demo:|Completed demo:")),
-    ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16:")),
+    ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16")),
 ]
 
 PHASE_COLORS = {
-    "STT Model Load": "#7B68EE",
-    "SDR Init":       "#5DADE2",
-    "SDR Capture":        "#2E86C1",
-    "SDR Teardown":       "#85929E",
-    "Normalize":      "#F39C12",
-    "Artifacts":      "#1ABC9C",
-    "DSP Filter":     "#FFA500",
-    "STT Inference":  "#FF6B6B",
-    "Detection":      "#E67E22",
-    "DOOM":           "#9B59B6",
-    "Postcard":       "#87CEEB",
+    "STT Model Load": "#cab2d6",  # light purple
+    "SDR Config":     "#33a02c",  # dark green
+    "SDR Init":       "#b2df8a",  # light green
+    "SDR Capture":    "#1f78b4",  # dark blue
+    "SDR Teardown":   "#e31a1c",  # dark red
+    "Normalize":      "#fdbf6f",  # light orange
+    "Dispatch":       "#ff7f00",  # dark orange
+    "Artifacts":      "#a6cee3",  # light blue
+    "DSP Filter":     "#ffff99",  # yellow
+    "STT Inference":  "#fb9a99",  # light red
+    "Detection":      "#b15928",  # brown
+    "DOOM":           "#6a3d9a",  # dark purple
+    "Postcard":       "#cab2d6",  # light purple (paired with DOOM)
 }
 
 LOG_RE = re.compile(
