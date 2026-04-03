@@ -76,12 +76,12 @@ Key findings:
 - Software FIR taps dropped from 385 to 97 due to the lower input rate (600 kSPS vs 2.4 MSPS)
 - Run 3 (sequential, no concurrent processing) also achieved 20s captures, suggesting the improvement is from the hardware FIR rather than reduced CPU contention
 
-![Run 1](../data/em-v4/pack-4023_1774937270/run-00001-timeline-and-resource.png)
+![Run 1](data/em-v4/pack-4023_1774937270/run-00001-timeline-and-resource.png)
 
-![Run 2](../data/em-v4/pack-4023_1774937270/run-00002-timeline-and-resource.png)
+![Run 2](data/em-v4/pack-4023_1774937270/run-00002-timeline-and-resource.png)
 
-![Run 3](../data/em-v4/pack-4023_1774937270/run-00003-timeline-and-resource.png)
+![Run 3](data/em-v4/pack-4023_1774937270/run-00003-timeline-and-resource.png)
 
 Note: the DOOM phase is not visible in Run 3 because the demos (m1-fast at 0.2s, m1-normal at 0.3s) are too short to render at this timescale. The DOOM phase is visible in Runs 1 and 2 which ran longer demos.
 
-Source data: [data/em-v4/](../data/em-v4/).
+Source data: [data/em-v4/](data/em-v4/).
