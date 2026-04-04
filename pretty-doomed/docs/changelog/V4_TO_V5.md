@@ -114,10 +114,22 @@ Both runs: hardware FIR at 600 kSPS, once-per-run SDR init, two-stage processing
 
 SDR Config (6.2s, once) then 2 captures back-to-back. Two-stage pipeline: STT 1 (40.1s) completes, DOOM + Postcard fires async, STT 2 (37.4s) starts immediately. Total: 130.7s.
 
+PSD comparison (2 captures):
+
+![Run 1 PSD Comparison](data/em-v5/pack-4023_1775155417/run-00001-psd-comparison.png)
+
 **Run 2: 6 captures, sc16 deleted**
 
 ![Run 2](data/em-v5/pack-4023_1775155417/run-00002-timeline-and-resource.png)
 
 Six captures near-continuous on the main thread. STT chain processes sequentially (36-51s per capture). DOOM + Postcard exec stages fire async. sc16 deleted after each capture's postcard. Total: 295.0s. Downlink: 23 MB compressed (vs ~70 MB for v4's 2-capture run with sc16).
+
+Per-capture PSD (Run 2 Capture 1):
+
+![Run 2 Capture 1 PSD](data/em-v5/pack-4023_1775155417/run-00002-capture-001-psd.png)
+
+PSD comparison (6 captures):
+
+![Run 2 PSD Comparison](data/em-v5/pack-4023_1775155417/run-00002-psd-comparison.png)
 
 Source data: [data/em-v5/](data/em-v5/).

@@ -21,11 +21,20 @@ docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
     -i input/georges_01.wav -c config.cfg -f variants.cfg \
     -o toGround/test -d demos -e doom-build/local/opssat-doom
 
+# File input with sc16 (tests postcard I/Q scatter rendering)
+docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
+    -i input/georges_01.wav -q path/to/capture.sc16 -c config.cfg -f variants.cfg \
+    -o toGround/test -d demos -e doom-build/local/opssat-doom
+
+# Standalone postcard scatter test (no STT/DOOM, just postcard rendering)
+docker-compose run --rm pretty-doomed ./build/local/test_postcard_scatter \
+    <sc16_file> <frame_jpg> <output_png> [scale]
+
 # Full run script (file input phase works, SDR phases fail gracefully)
 docker-compose run --rm pretty-doomed ./run
 ```
 
-**What it tests:** config parsing, DSP filters, STT transcription, fuzzy matching, DOOM execution, demo cycling, log output, multi-run orchestration.
+**What it tests:** config parsing, DSP filters, STT transcription, fuzzy matching, DOOM execution, demo cycling, log output, multi-run orchestration, postcard I/Q scatter rendering (with `-q` flag or standalone test).
 
 **What it does NOT test:** IIO connection, AD9361 config write/readback, GNU Radio IIO flowgraph, SDR capture pipeline.
 
@@ -57,7 +66,7 @@ ls toGround/emu-test/capture-001/
 
 ### Full run script test
 
-The `run` script accepts a config file via the `PRETTY_CONFIG` environment variable (defaults to `config.cfg`). To test the full 3-run sequence against the emulator:
+The `run` script accepts a config file via the `PRETTY_CONFIG` environment variable (defaults to `config.cfg`). To test the full run sequence against the emulator:
 
 ```bash
 docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
@@ -69,7 +78,7 @@ docker-compose -f docker-compose.emu-test.yml run --rm \
 docker-compose -f docker-compose.emu-test.yml down
 ```
 
-This executes all 3 runs with resource monitoring, per-run config copies, and `doom_force_trigger=true`. The emulator has finite sample data, so captures in Runs 2-3 may time out. Restart the emulator between runs if needed. On real hardware this is not an issue.
+This executes all runs defined in the `run` script with resource monitoring and per-run config copies. The emulator has finite sample data, so later captures may time out. Restart the emulator between runs if needed. On real hardware this is not an issue.
 
 ### Config differences (config.emu.cfg vs config.cfg)
 
@@ -130,11 +139,7 @@ All x86_64 emulator limitations apply, plus:
 
 Tests on the OPS-SAT flatsat with real AD9361 hardware. Uses `config.cfg` with default SDR parameters.
 
-The `run` script executes three runs. Each run copies `config.cfg` to its run directory and appends per-run overrides (last value wins). All runs force-trigger DOOM regardless of detection.
-
-1. **Run 1: Baseline** (2 x 20s captures, background, `sdr_hw_fir_enable=false`): software-only decimation
-2. **Run 2: Hardware FIR** (2 x 20s captures, background, `sdr_hw_fir_enable=true`): AD9361 hardware FIR at 600 kSPS
-3. **Run 3: Hardware FIR** (2 x 20s captures, sequential, `sdr_hw_fir_enable=true`): same as Run 2 but sequential to isolate FIR improvement from CPU contention
+The `run` script executes one or more runs, each with per-run config overrides (capture count, DOOM trigger, etc.). Each run copies `config.cfg` to its run directory with overrides appended (last value wins). See the `run` script for the current run layout.
 
 ```bash
 # On the SEPP (after deploying the package)
@@ -154,68 +159,46 @@ PRETTY_CONFIG=config.emu.cfg ./run
 toGround/
 ├── doom_demo_index.txt          # Demo cycling state
 ├── results.txt                  # Append-only log of DOOM executions
-├── run-00001/                   # Baseline (2x20s, background, sw decimation)
-│   ├── resource.csv             # Per-second CPU + memory utilization
-│   ├── config.cfg               # Per-run config copy (base + overrides)
-│   ├── pretty-doomed.log        # All output with [cN/tM] thread tags
-│   ├── psd-comparison.bmp       # Cross-capture PSD overlay (if sdr_enable_psd + multiple captures)
-│   ├── capture-001/
-│   │   ├── run.log             # Detailed capture + processing log
-│   │   ├── capture.wav
-│   │   ├── capture.sc16        # Raw I/Q (deleted after processing unless sdr_keep_sc16=true)
-│   │   ├── capture-metrics.csv # I/Q diagnostics: RMS, peak, PAPR, DC offset, imbalance
-│   │   ├── capture-psd.csv     # PSD frequency bins + power (dB/Hz)
-│   │   ├── capture-psd.bmp     # PSD line plot
-│   │   ├── spectrogram.bmp
-│   │   ├── constellation.bmp
-│   │   ├── processed.wav
-│   │   ├── transcription.txt
-│   │   ├── scores.txt
-│   │   ├── summary.txt
-│   │   ├── postcard.png
-│   │   └── gl-e1m2b/           # DOOM output (force-triggered)
-│   └── capture-002/
-│       └── ...
-├── run-00002/                   # HW FIR (2x20s, background)
-│   ├── resource.csv
-│   ├── config.cfg
-│   ├── pretty-doomed.log
-│   ├── capture-001/
-│   │   └── ...
-│   └── capture-002/
-│       └── ...
-└── run-00003/                   # HW FIR (2x20s, sequential)
-    ├── resource.csv
-    ├── config.cfg
-    ├── pretty-doomed.log
-    ├── capture-001/
-    │   └── ...
-    └── capture-002/
-        └── ...
+└── run-NNNNN/
+    ├── resource.csv             # Per-second CPU + memory utilization
+    ├── config.cfg               # Per-run config copy (base + overrides)
+    ├── pretty-doomed.log        # All output with [cN/tM] thread tags
+    ├── psd-comparison.bmp       # Cross-capture PSD overlay (if multiple captures)
+    └── capture-NNN/
+        ├── capture.wav          # FM-demodulated audio
+        ├── capture.sc16         # Raw I/Q (deleted unless sdr_keep_sc16=true)
+        ├── capture-metrics.csv  # I/Q diagnostics: RMS, peak, PAPR, DC offset, imbalance
+        ├── capture-psd.csv      # PSD frequency bins + power (dB/Hz)
+        ├── capture-psd.bmp      # PSD line plot
+        ├── spectrogram.bmp      # Time-frequency spectrogram
+        ├── constellation.bmp    # I/Q constellation scatter
+        ├── processed.wav        # DSP-filtered audio
+        ├── transcription.txt    # STT output
+        ├── scores.txt           # Detection scores (exact vs fuzzy)
+        ├── summary.txt          # Human-readable summary
+        ├── postcard.png         # DOOM composite (if triggered)
+        └── <demo-name>/         # DOOM output (if triggered)
 ```
 
 ### Capture duration vs wall time
 
-SDR captures on the SEPP take significantly longer than the configured `sdr_duration`. A 20-second capture (4M I/Q samples at 200 kHz effective rate) typically completes in 50 to 70 seconds of wall time. The ARM cores cannot process IIO DMA buffers fast enough to match the configured 2.4 MSPS sample rate, so the GNU Radio flowgraph receives samples at roughly 40% of the expected throughput.
+With hardware FIR enabled (default since v4), SDR captures complete near the configured `sdr_duration` (20-23s for 20s configured). The AD9361 hardware FIR decimates from 2.4 MSPS to 600 kSPS before DMA, reducing ARM load to manageable levels.
 
-This has two implications:
+Without hardware FIR (`sdr_hw_fir_enable=false`), captures take 50-70s for a 20s configuration. All 12x decimation happens in software at 2.4 MSPS, and the ARM cores can only sustain ~40% of real-time throughput. CPU contention from concurrent STT inference further degrades performance (72s in v3 EM tests).
 
-1. **The capture window is longer than configured.** The SDR is actively receiving RF for the full wall-time duration (50 to 70s), not just the configured 20s. All transmitted audio during that window is captured. Someone transmitting a voice command must do so during this extended window.
+In both cases, no I/Q data is lost. The flowgraph buffers all samples as they arrive. The resulting audio is the same 20 seconds at 16 kHz regardless of wall time.
 
-2. **CPU contention slows later captures.** In background mode, capture #2 runs concurrently with STT inference for capture #1 on the other core. This memory bus and cache contention further reduces DMA throughput. In the v3 EM run, capture #1 completed in about 51s while capture #2 took about 72s for the same 20s of configured audio.
-
-The `sdr_timeout_multiplier` config parameter (default 5) accounts for this: `timeout = multiplier * sdr_duration + 10`. With 20s duration and 5x multiplier, the timeout is 110s.
-
-No I/Q data is lost. The flowgraph buffers all samples as they arrive. The resulting audio is the same 20 seconds at 16 kHz regardless of wall time. Check the `Progress` lines in the log to monitor actual throughput: `Progress [Ns]: I/Q current/total`.
+The `sdr_timeout_multiplier` config parameter (default 2) accounts for this: `timeout = multiplier * sdr_duration + 10`. With 20s duration and 2x multiplier, the timeout is 50s. Increase to 5x if captures time out under heavy CPU contention.
 
 ### What to check in EM results
 
-- **All runs**: `results.txt` should have one entry per capture with `trigger=force`. If missing, the per-run config copy failed to apply `doom_force_trigger=true`.
-- **Run 2 vs Run 3**: compare `pretty-doomed.log` total times. Run 3 (`stt_concurrent_load=true`) should start its first capture ~16s sooner than Run 2.
-- **Run 2 vs Run 3**: check `resource.csv` for CPU contention. If Run 3 shows SDR capture failures, `stt_concurrent_load` may need to be disabled.
-- **Capture wall time**: check `Progress` lines for I/Q throughput. If captures take >100s for 20s configured duration, CPU contention may be too high.
-- **capture-NNN/run.log** (sequential) or **pretty-doomed.log** (background): check I/Q diagnostics (zero fraction should be <1% for both I and Q).
+- **results.txt**: one entry per triggered capture. If `doom_force_trigger=true`, every capture should have an entry. If missing, the per-run config copy failed to apply the override.
+- **Capture wall time**: check `Progress` lines for I/Q throughput. With hardware FIR, captures should complete near the configured duration (20-23s). Without FIR, expect 50-70s.
+- **pretty-doomed.log**: check I/Q diagnostics (zero fraction should be <1% for both I and Q).
+- **capture-metrics.csv**: per-capture I/Q diagnostics (RMS, peak, PAPR, DC offset, imbalance). RMS should be consistent across captures.
+- **capture-psd.bmp / psd-comparison.bmp**: PSD plots should show the expected spectral shape. Cross-capture comparison should be consistent.
 - **constellation.bmp**: visual I/Q health check. Should show a diffuse cloud, not a horizontal line (Q dropout).
+- **postcard.png** (triggered captures only): I/Q scatter should show a smooth blood splatter pattern, not vertical stripes (see [V5_TO_V6.md](changelog/V5_TO_V6.md)).
 - **transcription.txt**: STT output from captured RF. Will be noise unless someone is transmitting voice on 1296 MHz during the capture.
 
 ## Troubleshooting

@@ -62,6 +62,7 @@ static void restore_log(int saved_fd) {
 
 struct Args {
     std::string input_file;
+    std::string sc16_file;
     std::string config_file;
     std::string variants_file;
     std::string output_dir;
@@ -75,6 +76,7 @@ void print_usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options]\n"
               << "\nRequired:\n"
               << "  -i <file>   Input WAV file (not needed with -s)\n"
+              << "  -q <file>   Input sc16 file (optional, for postcard I/Q scatter)\n"
               << "  -c <file>   Pipeline config file\n"
               << "  -f <file>   Fuzzy match variants file\n"
               << "  -o <dir>    Output directory\n"
@@ -88,9 +90,10 @@ void print_usage(const char* prog) {
 
 bool parse_args(int argc, char** argv, Args& args) {
     int opt;
-    while ((opt = getopt(argc, argv, "i:c:f:o:d:e:svh")) != -1) {
+    while ((opt = getopt(argc, argv, "i:q:c:f:o:d:e:svh")) != -1) {
         switch (opt) {
             case 'i': args.input_file = optarg; break;
+            case 'q': args.sc16_file = optarg; break;
             case 'c': args.config_file = optarg; break;
             case 'f': args.variants_file = optarg; break;
             case 'o': args.output_dir = optarg; break;
@@ -378,7 +381,8 @@ int main(int argc, char** argv) {
             return 1;
         }
         any_detected = process_wav(args.input_file, args.output_dir, cfg, variants, stt_file,
-                                   args.config_file, args.doom_binary, args.demos_dir);
+                                   args.config_file, args.doom_binary, args.demos_dir,
+                                   args.sc16_file);
     }
 
     auto pipeline_end = std::chrono::steady_clock::now();
