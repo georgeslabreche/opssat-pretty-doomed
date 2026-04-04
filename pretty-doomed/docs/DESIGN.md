@@ -45,11 +45,11 @@ main.cpp (orchestrator)
 | Matcher | `matcher.cpp` | Fuzzy matching with Levenshtein distance + variant lookup, command detection | None |
 | Executor | `executor.cpp` | Fork+exec DOOM binary for each demo file | None |
 | Output | `output.cpp` | Summary + log output formatting (ASCII art, scores) | None |
-| Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. | stb, FFTW |
+| Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. Scatter uses adaptive range (0.35 for strong signals, 1.1 for weak) with dithering and alpha boost for weak signal visibility. | stb, FFTW |
 | SDR | `sdr.cpp` | AD9361 lifecycle: `ad9361_configure()` (hardware FIR or software-only path with readback verification), `ad9361_cleanup_fir()` (disable FIR after captures). | libiio, libad9361 |
 | Capture | `capture.cpp` | SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files. Artifact generation (spectrogram, constellation, PSD BMPs with axis labels, metrics CSV) runs async in background mode. | GNU Radio, libiio, FFTW |
 | Pipeline | `pipeline.cpp` | WAV processing pipeline in two stages: `process_wav_stt()` (DSP, STT, detection) runs serially across captures; `process_wav_exec()` (DOOM, postcard, sc16 cleanup) runs async, overlapping with the next capture's STT. Combined `process_wav()` for sequential mode. | All |
-| Main | `main.cpp` | CLI arg parsing, input mode dispatch (file vs SDR), multi-capture loop, process_mode (sequential/background), SDR init/cleanup orchestration, output file writing | All |
+| Main | `main.cpp` | CLI arg parsing (`-i` WAV input, `-q` sc16 input for postcard scatter, `-s` SDR capture), input mode dispatch, multi-capture loop, process_mode (sequential/background), SDR init/cleanup orchestration, output file writing | All |
 
 ### Dependency Isolation
 

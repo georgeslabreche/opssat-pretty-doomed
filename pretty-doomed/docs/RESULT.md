@@ -2,7 +2,7 @@
 
 Results from the v5 experiment run on the OPS-SAT Engineering Model (EM), ARM32 dual-core SEPP. Data from SMILE artifact `pack-4023_1775155417`. See [TESTING.md](TESTING.md) for test environment details.
 
-For previous EM results, see [changelog/V3_TO_V4.md](changelog/V3_TO_V4.md) (v4) and [changelog/V2_TO_V3.md](changelog/V2_TO_V3.md) (v3). For the v5 changes, see [changelog/V4_TO_V5.md](changelog/V4_TO_V5.md).
+For previous EM results, see [changelog/V3_TO_V4.md](changelog/V3_TO_V4.md) (v4) and [changelog/V2_TO_V3.md](changelog/V2_TO_V3.md) (v3). For the v5 changes, see [changelog/V4_TO_V5.md](changelog/V4_TO_V5.md). For the v6 changes (postcard scatter fix), see [changelog/V5_TO_V6.md](changelog/V5_TO_V6.md).
 
 ## Run Configuration
 

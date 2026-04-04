@@ -67,12 +67,24 @@ static void render_iq_scatter(Image& canvas, int ox, int oy, int region_w, int r
 
     if (i_vals.empty() || max_abs == 0) return;
 
-    // Aggressive spread: outliers clip out of frame
-    float range = max_abs * 0.35f;
+    // Aggressive spread (0.35) zooms into the scatter for a wide blood
+    // splatter effect. For weak signals (low max_abs), this clips most
+    // points to the plot edges and the few distinct int16 values create
+    // a visible quantization grid. Fall back to 1.1 (10% margin, no
+    // clipping) when the signal is too weak for the aggressive spread.
+    // Dither: ±0.5 LSB jitter smooths the quantization grid in both cases.
+    float range = (max_abs < 200) ? max_abs * 1.1f : max_abs * 0.35f;
+
+    // Boost blend alpha for weak signals. Uniform noise distributes points
+    // evenly (no clustering), so per-pixel density is low. Strong signals
+    // cluster naturally on constellation points, building up intensity.
+    float alpha_boost = std::min(2.0f, std::max(1.0f, 500.0f / (float)max_abs));
 
     for (size_t k = 0; k < i_vals.size(); k++) {
-        float fi = i_vals[k] / range;
-        float fq = q_vals[k] / range;
+        float di = ((rand() & 0xFF) / 255.0f) - 0.5f;
+        float dq = ((rand() & 0xFF) / 255.0f) - 0.5f;
+        float fi = (i_vals[k] + di) / range;
+        float fq = (q_vals[k] + dq) / range;
 
         int px = ox + (int)((fi + 1.0f) * 0.5f * (region_w - 1));
         int py = oy + (int)((1.0f - (fq + 1.0f) * 0.5f) * (region_h - 1));
@@ -85,12 +97,15 @@ static void render_iq_scatter(Image& canvas, int ox, int oy, int region_w, int r
             for (int dx = -halo; dx <= halo; dx++) {
                 float dist = std::sqrt((float)(dx*dx + dy*dy));
                 if (dist <= dot_size * 0.5f) {
-                    canvas.blend_pixel(px + dx, py + dy, cr, cg, cb, 0.5f);
+                    canvas.blend_pixel(px + dx, py + dy, cr, cg, cb,
+                                       std::min(1.0f, 0.5f * alpha_boost));
                 } else if (dist <= dot_size) {
-                    canvas.blend_pixel(px + dx, py + dy, cr, cg, cb, 0.2f);
+                    canvas.blend_pixel(px + dx, py + dy, cr, cg, cb,
+                                       std::min(1.0f, 0.2f * alpha_boost));
                 } else if (dist <= halo) {
                     float fade = 1.0f - (dist - dot_size) / (halo - dot_size);
-                    canvas.blend_pixel(px + dx, py + dy, cr, cg, cb, 0.06f * fade);
+                    canvas.blend_pixel(px + dx, py + dy, cr, cg, cb,
+                                       std::min(1.0f, 0.06f * fade * alpha_boost));
                 }
             }
         }
