@@ -55,7 +55,7 @@ All AD9361 configuration (including the hardware FIR) runs per-capture, not once
 
 ## v4 EM Results
 
-Data from SMILE artifact `pack-4023_1774937270`. Three runs on the OPS-SAT EM (ARM32 dual-core SEPP):
+Data from SMILE artifact [`pack-4023_1774937270`](data/em-v4/pack-4023_1774937270/). Three runs on the OPS-SAT EM (ARM32 dual-core SEPP):
 
 1. **Run 1**: Baseline, software decimation only (2.4 MSPS, 12x), 2 x 20s, background
 2. **Run 2**: Hardware FIR (600 kSPS, 3x), 2 x 20s, background

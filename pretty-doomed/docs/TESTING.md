@@ -139,7 +139,7 @@ All x86_64 emulator limitations apply, plus:
 
 Tests on the OPS-SAT flatsat with real AD9361 hardware. Uses `config.cfg` with default SDR parameters.
 
-The `run` script executes one or more runs, each with per-run config overrides (capture count, DOOM trigger, etc.). Each run copies `config.cfg` to its run directory with overrides appended (last value wins). See the `run` script for the current run layout.
+The `run` script executes a single run using `config.cfg` directly. It copies `config.cfg` to the run directory for record-keeping. See the `run` script for the current layout.
 
 ```bash
 # On the SEPP (after deploying the package)
