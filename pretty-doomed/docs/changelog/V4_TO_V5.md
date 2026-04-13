@@ -101,7 +101,7 @@ Source data: [data/local-v5/](data/local-v5/).
 
 ### Engineering Model (EM)
 
-Data from SMILE artifact `pack-4023_1775155417`. Two runs on the OPS-SAT EM (ARM32 dual-core SEPP):
+Data from SMILE artifact [`pack-4023_1775155417`](data/em-v5/pack-4023_1775155417/). Two runs on the OPS-SAT EM (ARM32 dual-core SEPP):
 
 1. **Run 1**: 2 x 20s captures, background, `sdr_keep_sc16=true`
 2. **Run 2**: 6 x 20s captures, background, `sdr_keep_sc16=false`
