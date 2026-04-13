@@ -285,8 +285,8 @@ In this example: 8 exact matches * 2 = 16 points_exact, 10 approx matches * 1 = 
 
 The `VERSION` file at the project root contains the version number (integer). It is the single source of truth used by:
 
-- **Makefile**: reads `VERSION` into `APP_VERSION`, sets `PACKAGE_VERSION=v$(APP_VERSION)` for package naming (`exp4023-pretty-DOOMed-v4`)
-- **Compile-time banner**: passed as `-DAPP_VERSION` to `main.cpp`, displayed at startup (`=== PRETTY DOOMed v4 ===`)
+- **Makefile**: reads `VERSION` into `APP_VERSION`, sets `PACKAGE_VERSION=v$(APP_VERSION)` for package naming (`exp4023-pretty-DOOMed-v6`)
+- **Compile-time banner**: passed as `-DAPP_VERSION` to `main.cpp`, displayed at startup (`=== PRETTY DOOMed v6 ===`)
 - **Changelog**: version-specific docs in `docs/changelog/` (e.g., `V2_TO_V3.md`)
 
 ## SEPP Deployment
@@ -294,7 +294,7 @@ The `VERSION` file at the project root contains the version number (integer). It
 Target: Alpine Linux 3.21.3, ARM32 (armv7l), musl libc.
 
 ```
-exp4023-pretty-DOOMed-v1/
+exp4023-pretty-DOOMed-v<VERSION>/
 ├── run                     # Entrypoint
 ├── pretty-doomed           # Pipeline binary (sherpa-onnx statically linked)
 ├── opssat-doom             # DOOM binary (static)
@@ -306,7 +306,6 @@ exp4023-pretty-DOOMed-v1/
 │   └── sherpa-onnx/
 │       └── small/          # sherpa-onnx model (~27 MB)
 ├── demos/                  # doom.wad + demo files
-├── input/                  # Sample WAV
 └── toGround/
 ```
 

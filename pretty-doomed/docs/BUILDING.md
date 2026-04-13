@@ -38,7 +38,7 @@ This script:
 4. Builds sherpa-onnx C API from source inside the container (first time only, cached)
 5. Builds `pretty-doomed` and `opssat-doom` (from `../doom/src`)
 6. Copies model files, demo files, and bundled shared libraries
-7. Creates `package/exp4023-pretty-DOOMed-v1.tar.gz`
+7. Creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz`
 
 ### Step by Step
 
@@ -56,8 +56,7 @@ docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make build
 # Build binaries + prepare package layout (inside container)
 docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make BUILDDIR=build/sepp package-prepare
 
-# Copy input WAVs + model + demos + create tarball (outside container)
-make package-input
+# Copy model + demos + create tarball (outside container)
 make package-model
 make package-demos
 make package-tar
@@ -65,10 +64,10 @@ make package-tar
 
 ## SEPP Deployment
 
-The SEPP build creates `package/exp4023-pretty-DOOMed-v1.tar.gz` containing:
+The SEPP build creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz` containing:
 
 ```
-exp4023-pretty-DOOMed-v1/
+exp4023-pretty-DOOMed-v<VERSION>/
 ├── run                    # SEPP entrypoint
 ├── pretty-doomed          # Pipeline binary (ARM32, sherpa-onnx statically linked)
 ├── opssat-doom            # DOOM binary (ARM32, static)
@@ -79,7 +78,7 @@ exp4023-pretty-DOOMed-v1/
 │   └── sherpa-onnx/
 │       └── small/         # Sherpa-ONNX model (~27 MB)
 ├── demos/                 # doom.wad + demo files
-├── input/                 # Sample WAV
+├── assets/                # Postcard logos (ESA, PRETTY, DOOM)
 └── toGround/
 ```
 
@@ -88,7 +87,7 @@ exp4023-pretty-DOOMed-v1/
 On the SEPP:
 
 ```bash
-tar -xzf exp4023-pretty-DOOMed-v1.tar.gz
+tar -xzf exp4023-pretty-DOOMed-v<VERSION>.tar.gz
 ./run
 ```
 

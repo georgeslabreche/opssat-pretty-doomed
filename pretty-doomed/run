@@ -70,51 +70,16 @@ next_run_id() {
     echo $((LAST_RUN + 1))
 }
 
-# --- Helper: create per-run config with overrides ---
-# Copies base config.cfg into the run directory and appends overrides.
-# This avoids modifying the original config.cfg (which may be read-only
-# on the SEPP after extraction from the deployment tarball).
-make_run_config() {
-    _RUN_DIR="$1"
-    shift
-    cp -f "$CONFIG" "$_RUN_DIR/config.cfg"
-    for _OVERRIDE in "$@"; do
-        echo "$_OVERRIDE" >> "$_RUN_DIR/config.cfg"
-    done
-}
-
-# --- Run 1: 3 captures, no DOOM trigger (listen only) ---
+# --- Single run using config.cfg ---
 RUNID=$(next_run_id)
 RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
 mkdir -p "$RUN_DIR"
 
-make_run_config "$RUN_DIR" \
-    "sdr_captures=3" \
-    "doom_force_trigger=false"
+# Copy config into run directory for record-keeping (original may be
+# read-only on the SEPP after extraction from the deployment tarball).
+cp -f "$CONFIG" "$RUN_DIR/config.cfg"
 
-echo "Run $(printf '%05d' "$RUNID"): 3 captures, no DOOM trigger"
-MON_PID=$(start_monitor "$RUN_DIR" 3600)
-
-${PRETTY_DOOMED} \
-    -s \
-    -c "$RUN_DIR/config.cfg" \
-    -f "$VARIANTS" \
-    -o "$RUN_DIR" \
-    -d "$DEMOS" \
-    -e "${DOOM_BINARY}"
-
-stop_monitor "$MON_PID"
-
-# --- Run 2: 3 captures, DOOM force-triggered ---
-RUNID=$(next_run_id)
-RUN_DIR=$(printf "%s/run-%05d" "$TOGROUND" "$RUNID")
-mkdir -p "$RUN_DIR"
-
-make_run_config "$RUN_DIR" \
-    "sdr_captures=3" \
-    "doom_force_trigger=true"
-
-echo "Run $(printf '%05d' "$RUNID"): 3 captures, DOOM force-triggered"
+echo "Run $(printf '%05d' "$RUNID")"
 MON_PID=$(start_monitor "$RUN_DIR" 3600)
 
 ${PRETTY_DOOMED} \

@@ -142,7 +142,7 @@ Source data: [data/local-v3/](data/local-v3/).
 
 ### Engineering Model (EM)
 
-Data from SMILE artifact `pack-4023_1774447112`. Three runs on the OPS-SAT EM (ARM32 dual-core SEPP):
+Data from SMILE artifact [`pack-4023_1774447112`](data/em-v3/pack-4023_1774447112/). Three runs on the OPS-SAT EM (ARM32 dual-core SEPP):
 
 1. **Run 1**: SDR sequential, 1 x 20s, `stt_concurrent_load=false`
 2. **Run 2**: SDR background, 2 x 20s, `stt_concurrent_load=false`
