@@ -1,0 +1,13 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/toGround/run-00001/capture-003/capture.wav
+Transcription:  I
+
+Detection:
+  Wake word (PRETTY):
+    Exact: 0 []
+    Approximate: 0 []
+
+Total points: 0 (exact=0, approx=0)
+
+Result: No command detected
