@@ -1,0 +1,5 @@
+numpy>=1.21
+scipy>=1.10
+sgp4>=2.20
+matplotlib>=3.5
+Pillow>=9.0
