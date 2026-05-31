@@ -1,6 +1,7 @@
 # Flight analysis debriefing: First Flight Runs
 
-**Date:** 2026-05-26
+**Flight (Run 2):** 2026-05-22
+**Debriefing written:** 2026-05-26
 **Subject:** What we saw and what it means, updated with operator follow-up and verified pointing.
 
 ## The two runs so far

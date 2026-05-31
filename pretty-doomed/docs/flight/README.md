@@ -26,8 +26,8 @@ The raw I/Q, the WAV audio, and the constellation BMPs are left in the gitignore
 
 ## Debriefings
 
-Post-run debriefings are written in markdown under `debriefings/YYYY-MM-DD/`. Each debriefing is self-contained: its README is the debriefing itself, and any figures live alongside it.
+Post-run debriefings are written in markdown under `debriefings/YYYY-MM-DD/`, where the date is the UTC date of the flight being debriefed. Each debriefing is self-contained: its README is the debriefing itself, and any figures live alongside it.
 
-- [`debriefings/2026-05-26/`](debriefings/2026-05-26/): first flight runs, with the verified pointing analysis.
+- [`debriefings/2026-05-22/`](debriefings/2026-05-22/): first two flight runs (Run 1 on 2026-04-21 as negative control, Run 2 on 2026-05-22 as the most recent attempt), with the verified pointing analysis.
 
 The longer prose write-up of the flight runs lives at `artifacts/pretty/FLIGHT_ANALYSIS.md` and is not committed to the repo.
