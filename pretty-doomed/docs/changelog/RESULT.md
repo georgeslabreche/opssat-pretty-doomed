@@ -1,29 +1,29 @@
-# Test Results
+# EM Verification Results
 
-Results from experiment runs on the OPS-SAT Engineering Model (EM), ARM32 dual-core SEPP, and on-orbit flight runs. See [TESTING.md](TESTING.md) for the test environment, and [`flight/`](flight/) for the on-orbit run data and briefing.
+Verification results from experiment runs on the OPS-SAT Engineering Model (EM), ARM32 dual-core SEPP. See [TESTING.md](../TESTING.md) for the test environment. On-orbit flight results live separately in [`flight/`](../flight/).
 
-For previous EM results, see [changelog/V3_TO_V4.md](changelog/V3_TO_V4.md) (v4) and [changelog/V2_TO_V3.md](changelog/V2_TO_V3.md) (v3). For the v5 changes, see [changelog/V4_TO_V5.md](changelog/V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [changelog/V5_TO_V6.md](changelog/V5_TO_V6.md).
+For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md).
 
 ## v6 Validation
 
-Data from SMILE artifact [`pack-4023_1775579267`](changelog/data/em-v6/pack-4023_1775579267/). The v6 patch fixed a postcard I/Q scatter rendering bug and simplified the run script for flight. The v6 EM run validated both execution paths:
+Data from SMILE artifact [`pack-4023_1775579267`](data/em-v6/pack-4023_1775579267/). The v6 patch fixed a postcard I/Q scatter rendering bug and simplified the run script for flight. The v6 EM run validated both execution paths:
 
 - **Run 1** (3 x 20s, listen-only): all captures, diagnostics, and SC16 cleanup confirmed. Total: 147.3s.
 - **Run 2** (3 x 20s, DOOM force-triggered): all 3 DOOM demos ran, postcards generated with smooth I/Q scatter (no stripes). Total: 164.9s.
 
-Capture wall times (20-22s), STT inference (36-45s), and I/Q metrics are consistent with v5. Full v6 EM analysis in [changelog/V5_TO_V6.md](changelog/V5_TO_V6.md#v6-results).
+Capture wall times (20-22s), STT inference (36-45s), and I/Q metrics are consistent with v5. Full v6 EM analysis in [changelog/V5_TO_V6.md](V5_TO_V6.md#v6-results).
 
 ## v6 Full Package Verification
 
-Data from SMILE artifact [`pack-4023_1775661470`](changelog/data/em-v6/pack-4023_1775661470/). Full v6 SEPP package installed and run with the flight configuration: single run, 6 x 20s captures, `doom_force_trigger=false`.
+Data from SMILE artifact [`pack-4023_1775661470`](data/em-v6/pack-4023_1775661470/). Full v6 SEPP package installed and run with the flight configuration: single run, 6 x 20s captures, `doom_force_trigger=false`.
 
 All 6 captures completed successfully (20-21s each). No command detected (expected). STT inference: 47.0s, 42.3s, 37.2s, 36.2s, 36.0s, 36.2s. SC16 files deleted after diagnostics. Total: 270.0s (~4.5 min). I/Q metrics consistent with previous runs.
 
-![Run 1](changelog/data/em-v6/pack-4023_1775661470/run-00001-timeline-and-resource.png)
+![Run 1](data/em-v6/pack-4023_1775661470/run-00001-timeline-and-resource.png)
 
 ## v5 Detailed Results
 
-Data from SMILE artifact [`pack-4023_1775155417`](changelog/data/em-v5/pack-4023_1775155417/).
+Data from SMILE artifact [`pack-4023_1775155417`](data/em-v5/pack-4023_1775155417/).
 
 ## Run Configuration
 
@@ -102,13 +102,13 @@ The 6-capture run without sc16 (23 MB compressed) is smaller than v4's 2-capture
 
 ## Run 1: 2 captures, sc16 preserved
 
-![Run 1](changelog/data/em-v5/pack-4023_1775155417/run-00001-timeline-and-resource.png)
+![Run 1](data/em-v5/pack-4023_1775155417/run-00001-timeline-and-resource.png)
 
 Two captures back-to-back. SDR Config (4.4s, teal) visible at start. Two-stage pipeline: STT 1 (40.2s) completes, DOOM 1 (20.4s) + Postcard fires async, STT 2 (37.5s) starts immediately. sc16 files preserved (used in postcard blood splatter overlay).
 
 ## Run 2: 6 captures, sc16 deleted
 
-![Run 2](changelog/data/em-v5/pack-4023_1775155417/run-00002-timeline-and-resource.png)
+![Run 2](data/em-v5/pack-4023_1775155417/run-00002-timeline-and-resource.png)
 
 Six captures on the main thread, near-continuous. STT chain processes sequentially across background threads. DOOM + Postcard exec stages fire async after each STT completes. sc16 deleted after each capture's postcard is generated.
 
@@ -122,4 +122,4 @@ python3 scripts/plots/plot_resource.py --batch \
 
 Requires `matplotlib` and `numpy` (`pip install matplotlib numpy`).
 
-Source data: [changelog/data/em-v5/](changelog/data/em-v5/).
+Source data: [changelog/data/em-v5/](data/em-v5/).

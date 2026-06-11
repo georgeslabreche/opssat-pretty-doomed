@@ -95,8 +95,11 @@ def main():
     p.add_argument("--ukf-csv", required=True)
     p.add_argument("--tle1", required=True)
     p.add_argument("--tle2", required=True)
-    p.add_argument("--target-lat", type=float, required=True)
-    p.add_argument("--target-lon", type=float, required=True)
+    p.add_argument("--target-lat", type=float, default=None)
+    p.add_argument("--target-lon", type=float, default=None)
+    p.add_argument("--target-ecef", default=None,
+                   help="Target ECEF position as 'x,y,z' in metres. Overrides "
+                        "--target-lat / --target-lon when set.")
     p.add_argument("--target-name", default="Target")
     p.add_argument("--exp-time", required=True)
     p.add_argument("--output", required=True,
@@ -117,7 +120,12 @@ def main():
     args = p.parse_args()
 
     exp_time = datetime.fromisoformat(args.exp_time.replace("Z", "+00:00"))
-    target_ecef = lla_to_ecef(args.target_lat, args.target_lon, 0)
+    if args.target_ecef:
+        target_ecef = np.array([float(v) for v in args.target_ecef.split(",")])
+    elif args.target_lat is not None and args.target_lon is not None:
+        target_ecef = lla_to_ecef(args.target_lat, args.target_lon, 0)
+    else:
+        raise SystemExit("Provide either --target-ecef or both --target-lat and --target-lon")
     target_km = target_ecef / 1000
 
     if args.capture_windows:

@@ -23,12 +23,15 @@ For MP4 output, `ffmpeg` must be on `PATH`. On macOS install via `brew install f
 
 ## Inputs
 
-All scripts take the same five inputs:
+All scripts take the same inputs:
 
-- **UKF attitude CSV** via `--ukf-csv`, with columns `time, ukf_X x, ukf_X y, ukf_X z, ukf_X k`. Time is ISO-8601, `Z`-terminated. The quaternion is `(x, y, z, w)` with `k` as the scalar component. Sampling cadence is irrelevant; gaps are interpolated. Sample datasets for the two flight runs are committed at `../../docs/flight/data/run-01-2026-04-21/ukf-attitude.csv` and `../../docs/flight/data/run-02-2026-05-22/ukf-attitude.csv`.
+- **UKF attitude CSV** via `--ukf-csv`, with columns `time, ukf_X x, ukf_X y, ukf_X z, ukf_X k`. Time is ISO-8601, `Z`-terminated. The quaternion is `(x, y, z, w)` with `k` as the scalar component. Sampling cadence is irrelevant; gaps are interpolated. Sample datasets for the flight runs are committed under `../../docs/flight/data/run-NN-YYYY-MM-DD/ukf-attitude.csv`.
 - **TLE** via `--tle1` and `--tle2`, the standard two-line format. Used by SGP4 to compute spacecraft position. Fetch the latest from Celestrak at `https://celestrak.org/NORAD/elements/gp.php?NAME=PRETTY&FORMAT=TLE`.
-- **Target latitude and longitude** via `--target-lat` and `--target-lon`, in decimal degrees.
+- **Target position**, either as latitude and longitude via `--target-lat` and `--target-lon` in decimal degrees, or directly as `--target-ecef "x,y,z"` in metres. The ECEF form overrides lat/lon and matches how mission planning specifies the commanded target (Run 3 was specified this way).
 - **Experiment timestamp** via `--exp-time`, in ISO-8601, e.g. `2026-05-22T21:52:21Z`. Used to centre time plots and highlight the experiment moment in the animation.
+- **Capture windows** via `--capture-windows`, a JSON list of `[start_offset_s, end_offset_s]` pairs relative to `--exp-time`. Defaults to six contiguous 22 s windows starting at -65 s, which matched Run 2; read the actual capture start times from the run's `pretty-doomed.log`, they are not guaranteed to straddle `--exp-time` (Run 3's ran +10 to +141 s).
+
+`plot_pointing.py` additionally takes `--panel-offsets`, comma-separated offsets in seconds from `--exp-time` for the four 3D panels (default `-50,0,50,100`; Run 3 used `10,75,141,301`). Each panel snaps to the nearest telemetry sample.
 
 ## Conventions
 
@@ -86,8 +89,9 @@ python3 animate_pointing.py ... \
 | `--interp-mode` | `cubic` | `cubic` uses scipy's `RotationSpline` for C¹-continuous angular velocity, the smoothest option. `slerp` uses piecewise-linear SLERP between samples, with constant velocity per segment and jumps at boundaries. |
 | `--rotate` | off | Slowly rotates the view azimuth across the animation. |
 | `--dpi` | 100 | Render DPI. Lower = smaller file but blurrier. |
-| `--capture-windows` | 6 contiguous 22 s windows from −65 s | JSON list of `[start_offset_s, end_offset_s]` pairs, relative to `--exp-time`. Drives the recording banner. |
 | `--arrow-len` | 1500 km | Length of the body-axis arrows drawn at the spacecraft. |
+
+The capture windows (see Inputs) drive the recording banner.
 
 ## Output interpretation
 
