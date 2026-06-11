@@ -74,7 +74,7 @@ Example: "PRETTY, THIS IS GEORGES, PLAY DOOM."
 - [docs/CONFIG.md](docs/CONFIG.md) -- Configuration reference (all config keys with prefixes)
 - [docs/DESIGN.md](docs/DESIGN.md) -- Architecture, modules, configuration, output structure
 - [docs/TESTING.md](docs/TESTING.md) -- Local, emulator, and EM testing guide
-- [docs/RESULT.md](docs/RESULT.md) -- EM and flight test results
+- [docs/changelog/RESULT.md](docs/changelog/RESULT.md) -- EM verification results
 - [docs/flight/](docs/flight/) -- On-orbit flight run data, per-capture artifacts, and post-run debriefings
 - [scripts/attitude/README.md](scripts/attitude/README.md) -- Pointing analysis scripts (3D figure, vs-time plot, animation)
 

@@ -8,6 +8,7 @@ A small data drop per flight attempt of the PRETTY DOOMed experiment, kept here 
 |---|---|---|---|---|---|
 | [01](data/run-01-2026-04-21/) | 2026-04-21 20:14 | `pack-4023_1776802706` | confirmed bad pointing | confirmed transmitted | no detection |
 | [02](data/run-02-2026-05-22/) | 2026-05-22 21:51 | `pack-4023_1779486954` | good pointing, +X antenna ~5 deg on target | did not happen | no detection |
+| [03](data/run-03-2026-06-09/) | 2026-06-09 21:42 | `pack-4023_1781041655` | near-target pointing, +X antenna 3-11 deg off in captures | confirmed transmitted | no detection, noise floor lifted 4-9 dB with high PAPR |
 
 ## Per-run layout
 
@@ -29,5 +30,6 @@ The raw I/Q, the WAV audio, and the constellation BMPs are left in the gitignore
 Post-run debriefings are written in markdown under `debriefings/YYYY-MM-DD/`, where the date is the UTC date of the flight being debriefed. Each debriefing is self-contained: its README is the debriefing itself, and any figures live alongside it.
 
 - [`debriefings/2026-05-22/`](debriefings/2026-05-22/): first two flight runs (Run 1 on 2026-04-21 as negative control, Run 2 on 2026-05-22 as the most recent attempt), with the verified pointing analysis.
+- [`debriefings/2026-06-09/`](debriefings/2026-06-09/): Run 3, the first attempt with both a confirmed broadcast and near-target pointing, +X antenna 3-11 deg off Legnica during the captures. Receiver noise floor lifted 4-9 dB with a strongly impulsive character; hypotheses narrowed to the broadcast at low SNR and pulsed ground RFI.
 
 The longer prose write-up of the flight runs lives at `artifacts/pretty/FLIGHT_ANALYSIS.md` and is not committed to the repo.

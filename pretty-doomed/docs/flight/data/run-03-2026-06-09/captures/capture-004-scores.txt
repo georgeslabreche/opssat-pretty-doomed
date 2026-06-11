@@ -1,0 +1,11 @@
+wake_word_exact=0
+wake_word_exact_matches=
+wake_word_approx=0
+wake_word_approx_matches=
+total_points=0
+total_points_exact=0
+total_points_approx=0
+audio_rms_raw=0.1000
+audio_peak_raw=0.1731
+audio_rms_filtered=0.0609
+audio_peak_filtered=0.2394

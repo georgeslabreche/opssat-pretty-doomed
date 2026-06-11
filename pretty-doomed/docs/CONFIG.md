@@ -147,7 +147,7 @@ The signal is deep inside the passband at every stage. From FM demod onward, the
 
 The analog filter (~400 kHz) is wider than the hardware FIR passband (200 kHz). This is expected at low sample rates where the AD9361 driver clamps to minimum calibration values. The hardware FIR provides the precise anti-aliasing. Its Fstop (250 kHz) is 50 kHz below the post-FIR Nyquist (300 kHz). Any residual energy in the 250-300 kHz gap is further rejected by the software FIR (cutoff 85 kHz).
 
-Note: the internal ADC rate (28.8 MSPS), clock chain selection, and actual analog filter bandwidth (~400 kHz) are derived from analysis of the `libad9361-iio` source ([ad9361_calculate_rf_clock_chain.c](https://github.com/analogdevicesinc/libad9361-iio/blob/main/ad9361_calculate_rf_clock_chain.c)) and the AD9361 Linux driver ([ad9361.c](https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/adc/ad9361.c)). These values were confirmed by the v4 EM readback logs (see [RESULT.md](RESULT.md)).
+Note: the internal ADC rate (28.8 MSPS), clock chain selection, and actual analog filter bandwidth (~400 kHz) are derived from analysis of the `libad9361-iio` source ([ad9361_calculate_rf_clock_chain.c](https://github.com/analogdevicesinc/libad9361-iio/blob/main/ad9361_calculate_rf_clock_chain.c)) and the AD9361 Linux driver ([ad9361.c](https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/adc/ad9361.c)). These values were confirmed by the v4 EM readback logs (see [changelog/RESULT.md](changelog/RESULT.md)).
 
 ## Variants File (`variants.cfg`)
 
