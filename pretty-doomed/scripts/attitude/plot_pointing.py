@@ -498,8 +498,12 @@ def main():
     p.add_argument("--ukf-csv", required=True)
     p.add_argument("--tle1", required=True)
     p.add_argument("--tle2", required=True)
-    p.add_argument("--target-lat", type=float, required=True)
-    p.add_argument("--target-lon", type=float, required=True)
+    p.add_argument("--target-lat", type=float, default=None)
+    p.add_argument("--target-lon", type=float, default=None)
+    p.add_argument("--target-ecef", default=None,
+                   help="Target ECEF position as 'x,y,z' in metres. Overrides "
+                        "--target-lat / --target-lon when set. Use when the "
+                        "operator specifies the target directly in ECEF.")
     p.add_argument("--target-name", default="Target")
     p.add_argument("--exp-time", required=True,
                    help="Experiment timestamp in ISO 8601 (e.g. 2026-05-22T21:52:21Z)")
@@ -507,11 +511,21 @@ def main():
     p.add_argument("--capture-windows", default=None,
                    help=("Optional JSON list of [start_offset_s, end_offset_s] "
                          "pairs for capture window shading. Default: 6x22s windows "
-                         "starting -65s before exp_time."))
+                         "starting -65s before exp_time. Read the actual capture "
+                         "start times from the run's pretty-doomed.log; they are "
+                         "not guaranteed to straddle exp_time."))
+    p.add_argument("--panel-offsets", default="-50,0,50,100",
+                   help="Comma-separated offsets in seconds from exp_time for the "
+                        "four 3D panels (default: -50,0,50,100).")
     args = p.parse_args()
 
     exp_time = datetime.fromisoformat(args.exp_time.replace("Z", "+00:00"))
-    target_ecef = lla_to_ecef(args.target_lat, args.target_lon, 0)
+    if args.target_ecef:
+        target_ecef = np.array([float(v) for v in args.target_ecef.split(",")])
+    elif args.target_lat is not None and args.target_lon is not None:
+        target_ecef = lla_to_ecef(args.target_lat, args.target_lon, 0)
+    else:
+        raise SystemExit("Provide either --target-ecef or both --target-lat and --target-lon")
 
     if args.capture_windows:
         windows = json.loads(args.capture_windows)
@@ -528,6 +542,7 @@ def main():
     plot_pointing_panels(
         samples, exp_time, args.tle1, args.tle2, target_ecef, args.target_name,
         f"{args.output_dir}/pointing-3d.png",
+        offsets_s=tuple(float(v) for v in args.panel_offsets.split(",")),
     )
 
     closest = min(samples, key=lambda s: abs((s[0] - exp_time).total_seconds()))
