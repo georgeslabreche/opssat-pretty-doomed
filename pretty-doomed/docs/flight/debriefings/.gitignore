@@ -1,0 +1,4 @@
+# Debriefing animations and rendered PDFs are reference-only, not committed.
+# Figures (PNG) and the README markdown are the committed record.
+*.mp4
+*.pdf

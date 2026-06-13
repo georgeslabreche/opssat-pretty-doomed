@@ -1,0 +1,2 @@
+samples,rms_i,rms_q,rms_i_dbfs,rms_q_dbfs,peak_i,peak_q,papr_i_db,papr_q_db,dc_offset_i,dc_offset_q,imbalance_db,zero_pct_i,zero_pct_q
+4000000,40.9409,40.9852,-46.0247,-46.0153,9880,9123,47.652,46.9502,-4.00482,-4.00517,-0.00939023,2.62938,2.63453

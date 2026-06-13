@@ -9,6 +9,7 @@ A small data drop per flight attempt of the PRETTY DOOMed experiment, kept here 
 | [01](data/run-01-2026-04-21/) | 2026-04-21 20:14 | `pack-4023_1776802706` | confirmed bad pointing | confirmed transmitted | no detection |
 | [02](data/run-02-2026-05-22/) | 2026-05-22 21:51 | `pack-4023_1779486954` | good pointing, +X antenna ~5 deg on target | did not happen | no detection |
 | [03](data/run-03-2026-06-09/) | 2026-06-09 21:42 | `pack-4023_1781041655` | near-target pointing, +X antenna 3-11 deg off in captures | confirmed transmitted | no detection, noise floor lifted 4-9 dB with high PAPR |
+| [04](data/run-04-2026-06-10/) | 2026-06-10 21:21 | `pack-4023_1781126762` | good pointing, +X antenna 2-14 deg off on a high-elevation pass | attempted, ground antenna likely could not track the pass | no detection, lifted impulsive floor reproduced on a second June pass |
 
 ## Per-run layout
 
@@ -31,5 +32,6 @@ Post-run debriefings are written in markdown under `debriefings/YYYY-MM-DD/`, wh
 
 - [`debriefings/2026-05-22/`](debriefings/2026-05-22/): first two flight runs (Run 1 on 2026-04-21 as negative control, Run 2 on 2026-05-22 as the most recent attempt), with the verified pointing analysis.
 - [`debriefings/2026-06-09/`](debriefings/2026-06-09/): Run 3, the first attempt with both a confirmed broadcast and near-target pointing, +X antenna 3-11 deg off Legnica during the captures. Receiver noise floor lifted 4-9 dB with a strongly impulsive character; hypotheses narrowed to the broadcast at low SNR and pulsed ground RFI.
+- [`debriefings/2026-06-10/`](debriefings/2026-06-10/): Run 4, a high-elevation pass the upgraded ground station (100 W, ~10 deg beam) likely could not track due to its mount elevation limit, though a beam-miss cannot be confirmed. The lifted impulsive floor reproduced on this second June pass; its FM-incompatible signature, the absent Doppler track, and the April/May-vs-June timing make pulsed ground RFI the strongly preferred cause. A new band-limited hump appears 50-80 kHz below 1296 MHz.
 
 The longer prose write-up of the flight runs lives at `artifacts/pretty/FLIGHT_ANALYSIS.md` and is not committed to the repo.
