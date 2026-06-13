@@ -2,7 +2,7 @@
 
 **Flight (Run 2):** 2026-05-22
 **Debriefing written:** 2026-05-26
-**Subject:** What we saw and what it means, updated with operator follow-up and verified pointing.
+**Main Takeaway:** Both runs completed cleanly end-to-end, but neither was a fair test of the link: Run 1 had a confirmed broadcast with the antenna mispointed, and Run 2 had verified-good pointing (+X antenna 4.9 deg off Legnica) but no broadcast. The experiment is bottlenecked on getting a confirmed broadcast and on-target pointing into the same pass.
 
 ## The two runs so far
 
