@@ -4,7 +4,10 @@ Animated version of the 3D pointing figure produced by plot_pointing.py.
 
 Shows the spacecraft moving along its trajectory with the antenna boresight
 arrow updating at each frame, plus a live "pointing error" readout in the title
-that highlights the experiment moment.
+that highlights the experiment moment. Alongside the 3D scene a boresight scope
+panel plots the target at a radius equal to the pointing error around the +X
+boresight (decomposed onto the +Y / +Z transverse axes), fading green to amber
+to red as the error grows.
 
 By default the script interpolates between UKF samples (which are typically at
 10 s cadence) so the animation is smooth at higher frame rates. Spacecraft
@@ -89,6 +92,26 @@ def interpolate_attitude(samples, dt_seconds, mode="cubic"):
     return interp
 
 
+def _nice_ring_step(r_max):
+    """Degree spacing between scope rings so there are at most ~5 of them."""
+    for step in (1, 2, 5, 10, 15, 30, 45):
+        if r_max / step <= 5:
+            return step
+    return 90
+
+
+def _err_color(err, r_max):
+    """Green (on target) -> amber -> red (drifting) for a pointing error, the
+    same cue the boresight TUI uses on its scope."""
+    t = 0.0 if r_max <= 0 else min(max(err / r_max, 0.0), 1.0)
+    green = np.array([0.227, 0.816, 0.478])   # #3ad07a
+    amber = np.array([0.941, 0.627, 0.188])   # #f0a030
+    red = np.array([0.800, 0.000, 0.000])     # #cc0000
+    c = green + (amber - green) * (t / 0.5) if t < 0.5 else \
+        amber + (red - amber) * ((t - 0.5) / 0.5)
+    return tuple(c)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -153,15 +176,33 @@ def main():
     axes_ecef = {name: [] for name, _, _, _ in AXIS_DEFS}
     angles_deg = []  # +X antenna pointing error to target
     sunlit = []      # spacecraft sunlit (True) or in Earth's shadow (False)
+    los_list = []    # unit line-of-sight to target, ECEF
     for (t, q), r_sc in zip(samples, traj):
         sc_to_t_u = target_km - r_sc
         sc_to_t_u = sc_to_t_u / np.linalg.norm(sc_to_t_u)
+        los_list.append(sc_to_t_u)
         for name, axv, _, _ in AXIS_DEFS:
             axes_ecef[name].append(eci_to_ecef(body_axis_in_eci(q, body_axis=axv), t))
         angles_deg.append(angle_between(axes_ecef["+X (antenna)"][-1], sc_to_t_u))
         sunlit.append(is_sunlit(r_sc, eci_to_ecef(sun_unit_eci(t), t), R_earth_km))
     axes_ecef = {k: np.array(v) for k, v in axes_ecef.items()}
     sunlit = np.array(sunlit)
+
+    # Boresight-scope coordinates: project the line of sight onto the two body
+    # transverse axes (+Y, +Z) and plot the target at a radius equal to the
+    # pointing error around the +X boresight (mirrors the boresight TUI scope).
+    los_arr = np.array(los_list)
+    y_comp = np.einsum("ij,ij->i", los_arr, axes_ecef["+Y"])
+    z_comp = np.einsum("ij,ij->i", los_arr, axes_ecef["+Z"])
+    trans = np.hypot(y_comp, z_comp)
+    ang_arr = np.array(angles_deg)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        scope_x = np.where(trans > 1e-9, ang_arr * y_comp / trans, 0.0)
+        scope_y = np.where(trans > 1e-9, ang_arr * z_comp / trans, 0.0)
+    max_err = float(ang_arr.max()) if len(ang_arr) else 5.0
+    ring_step = _nice_ring_step(max(max_err, 5.0))
+    r_max = ring_step * int(np.ceil(max(max_err, 5.0) / ring_step))
+    scope_colors = [_err_color(a, r_max) for a in ang_arr]
 
     # Which capture (1-based) is running at each frame, or 0 if none.
     def _capture_at(t):
@@ -172,9 +213,10 @@ def main():
         return 0
     cap_idx = [_capture_at(t) for t in times]
 
-    # Set up the figure
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection="3d")
+    # Set up the figure: 3D attitude scene on the left, boresight scope on the right.
+    fig = plt.figure(figsize=(15, 7))
+    ax = fig.add_subplot(1, 2, 1, projection="3d")
+    ax2 = fig.add_subplot(1, 2, 2)
 
     # Regional meridians and parallels around the target only, kept light to
     # avoid drawing a full sphere wireframe.
@@ -231,7 +273,7 @@ def main():
                         label=f"Line of sight to {args.target_name}")
     fig.suptitle(f"OPS-SAT PRETTY attitude vs {args.target_name}",
                  fontsize=13, weight="bold")
-    fig.subplots_adjust(top=0.78)
+    fig.subplots_adjust(top=0.78, left=0.02, right=0.98, wspace=0.08)
     clock_text = fig.text(0.5, 0.935, "", ha="center", fontsize=11)
     status_text = fig.text(0.5, 0.892, "", ha="center", fontsize=15, weight="bold")
     target_text = fig.text(0.5, 0.852, "", ha="center", fontsize=12,
@@ -239,6 +281,41 @@ def main():
     sun_text = fig.text(0.5, 0.812, "", ha="center", fontsize=11, weight="bold")
 
     ax.legend(loc="upper right", fontsize=8)
+
+    # --- Boresight scope (right panel) ---------------------------------------
+    # Polar view around the +X boresight: the target sits at a radius equal to
+    # the pointing error, with concentric rings in degrees, decomposed onto the
+    # +Y / +Z transverse body axes. The dot fades green -> amber -> red as the
+    # error grows, matching the boresight TUI.
+    scope_lim = r_max * 1.18
+    ax2.set_aspect("equal")
+    ax2.set_xlim(-scope_lim, scope_lim)
+    ax2.set_ylim(-scope_lim, scope_lim)
+    ax2.axis("off")
+    _ring_theta = np.linspace(0, 2 * np.pi, 200)
+    for rr in np.arange(ring_step, r_max + 0.1, ring_step):
+        ax2.plot(rr * np.cos(_ring_theta), rr * np.sin(_ring_theta),
+                 color="#c9c9c9", linewidth=0.8, zorder=1)
+        ax2.text(0, rr, f"{int(round(rr))}°", color="#888888", fontsize=7,
+                 ha="center", va="bottom", zorder=2)
+    ax2.plot([-r_max, r_max], [0, 0], color="#c9c9c9", linewidth=0.6, zorder=1)
+    ax2.plot([0, 0], [-r_max, r_max], color="#c9c9c9", linewidth=0.6, zorder=1)
+    for lx, ly, lab, ha, va in [
+        (scope_lim, 0, "+Y", "right", "center"),
+        (-scope_lim, 0, "-Y", "left", "center"),
+        (0, scope_lim, "+Z", "center", "top"),
+        (0, -scope_lim, "-Z", "center", "bottom"),
+    ]:
+        ax2.text(lx * 0.99, ly * 0.99, lab, ha=ha, va=va, fontsize=9, color="#555555")
+    ax2.set_title("boresight scope · +X (antenna)\n"
+                  "target at radius = pointing error", fontsize=10)
+
+    # Dynamic scope artists.
+    scope_blip = ax2.scatter([0], [0], s=110, zorder=6,
+                             edgecolor="black", linewidth=0.7)
+    scope_radial, = ax2.plot([0, 0], [0, 0], linewidth=1.8, zorder=5)
+    scope_err_text = ax2.text(0, -scope_lim * 0.9, "", ha="center",
+                              fontsize=12, weight="bold")
 
     arrow_len = 1500  # km
 
@@ -282,8 +359,19 @@ def main():
         else:
             ax.view_init(elev=18, azim=-50)
 
+        # Boresight scope: move the target blip and its radial line, colored by
+        # the current pointing error.
+        col = scope_colors[i]
+        scope_blip.set_offsets([[scope_x[i], scope_y[i]]])
+        scope_blip.set_facecolor(col)
+        scope_radial.set_data([0, scope_x[i]], [0, scope_y[i]])
+        scope_radial.set_color(col)
+        scope_err_text.set_text(f"{ang_arr[i]:.1f}° off boresight")
+        scope_err_text.set_color(col)
+
         return tuple(axis_lines.values()) + (sc_marker, los_line, clock_text,
-                                             status_text, target_text, sun_text)
+                                             status_text, target_text, sun_text,
+                                             scope_blip, scope_radial, scope_err_text)
 
     anim = animation.FuncAnimation(
         fig, update, frames=len(samples),
