@@ -9,7 +9,7 @@ Used originally to confirm OPS-SAT PRETTY pointing for the 2026-05-22 voice-upli
 | File | Purpose |
 |---|---|
 | `plot_pointing.py` | Static figures: a four-panel 3D plot showing the body triad over the orbit at four timestamps around the experiment, and a pointing-error / ground-station-elevation vs. time plot with the capture windows, the Earth-shadow region, and the eclipse-exit marker. |
-| `animate_pointing.py` | Animated 3D figure: the spacecraft moves along its trajectory with the body triad updating each frame, the trajectory coloured by sunlit vs. Earth-shadow, the capture window indicated as a recording banner, and the experiment moment flagged. Outputs GIF or MP4. |
+| `animate_pointing.py` | Animated two-panel figure: a 3D scene where the spacecraft moves along its trajectory with the body triad updating each frame (trajectory coloured by sunlit vs. Earth-shadow, capture window shown as a recording banner, experiment moment flagged), and a boresight scope panel that plots the target at a radius equal to the +X pointing error, fading green to amber to red. Outputs GIF or MP4. |
 | `README.md` | This file. |
 | `requirements.txt` | Python dependencies. |
 
