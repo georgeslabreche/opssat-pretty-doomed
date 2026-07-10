@@ -25,9 +25,9 @@ Each `data/run-NN-YYYY-MM-DD/` directory contains:
 - `captures/capture-NNN-scores.txt`, `capture-NNN-summary.txt`, `capture-NNN-transcription.txt`: detection scores, capture summary, and the speech-to-text output.
 - `captures/capture-NNN-spectrogram.png` and `capture-NNN-psd.png`: per-capture spectrogram and PSD plot generated on board.
 
-The raw I/Q, the WAV audio, and the constellation BMPs are left in the gitignored `artifacts/pretty/` packs; the receiver-side story is fully covered by the files above.
+The raw I/Q, the WAV audio, and the constellation BMPs are too large for the repo and are not included; the receiver-side story is fully covered by the files above.
 
-Run 5 is an RF-link test rather than a Doom-pipeline run, so `data/run-05-2026-07-03/` instead holds the ground-side carrier-detection outputs (`carrier.txt`, `carrier.json`, `spectrogram.svg`, `carrier.svg`, `carrier_drift.svg`, `psd.svg`) and a demodulated `audio-cw.wav`. Its raw wideband IQ stays in the gitignored `artifacts/pretty/rf_test/`. See its README.
+Run 5 is an RF-link test rather than a Doom-pipeline run, so `data/run-05-2026-07-03/` instead holds the ground-side carrier-detection outputs (`carrier.txt`, `carrier.json`, `spectrogram.svg`, `carrier.svg`, `carrier_drift.svg`, `psd.svg`), a demodulated `audio-cw.wav`, and `rf_test.zip` with all six snapshots demodulated several ways. Its raw wideband IQ is not included. See its README.
 
 ## Debriefings
 
@@ -38,4 +38,3 @@ Post-run debriefings are written in markdown under `debriefings/YYYY-MM-DD/`, wh
 - [`debriefings/2026-06-10/`](debriefings/2026-06-10/): Run 4, a high-elevation pass the upgraded ground station (100 W, ~10 deg beam) likely could not track due to its mount elevation limit, though a beam-miss cannot be confirmed. The lifted impulsive floor reproduced on this second June pass; its FM-incompatible signature, the absent Doppler track, and the April/May-vs-June timing make pulsed ground RFI the strongly preferred cause. A new band-limited hump appears 50-80 kHz below 1296 MHz.
 - [`debriefings/2026-07-03/`](debriefings/2026-07-03/): Run 5, a simplified RF-link test proposed by ESOC / TU Graz, with a radio-amateur team based in Oslo transmitting a carrier and the spacecraft recording wideband raw IQ. A signal near 1296 MHz is detected in 5 of 6 snapshots across both passes, +23 to +26 dB over the noise floor, switching with the antenna-rotation pauses and drifting at the pass Doppler rate. The on/off timing and Doppler-rate drift rule out a static internal spur and strongly support an externally received signal. It is FM voice (confirmed by the operators, transmitted wide), recoverable on the ground but hard to make out. The pipeline's FM discriminator is the right demod but it is fed the full wide band, so the voice comes out as static and the on-board speech-to-text transcribes only noise fragments; narrowing to the signal bandwidth before the discriminator recovers it. The detection is in the spectrum, not the demod/STT chain.
 
-The longer prose write-up of the flight runs lives at `artifacts/pretty/FLIGHT_ANALYSIS.md` and is not committed to the repo.

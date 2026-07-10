@@ -1,6 +1,6 @@
 # Run 5: 2026-07-03 (RF-link test)
 
-- **Recording:** `sdr_20260703_192511_1295500000_2500000_1.cs16`, the zenith snapshot of the first pass, detailed below. Six snapshots were downlinked in all: three from a first pass near 19:25 UTC without an amplifier, three from a second pass near 20:58 UTC with an amplifier. The raw IQ is kept out of git under `artifacts/pretty/rf_test/` like the other raw IQ downlinks; the cross-snapshot comparison is in `carriers_summary.txt` / `.json` here.
+- **Recording:** `sdr_20260703_192511_1295500000_2500000_1.cs16`, the zenith snapshot of the first pass, detailed below. Six snapshots were downlinked in all: three from a first pass near 19:25 UTC without an amplifier, three from a second pass near 20:58 UTC with an amplifier. The raw IQ is too large for the repo and is not included, like the other raw IQ downlinks; the cross-snapshot comparison is in `carriers_summary.txt` / `.json` here.
 - **Spacecraft:** OPS-SAT PRETTY, NORAD 58023
 - **SDR:** center 1295.5 MHz, 2.5 MSPS, 2.3 MHz analog bandwidth, manual gain 65 dB
 - **Transmitter:** radio-amateur team based in Oslo (uplink near 1296.0 MHz)
@@ -67,4 +67,4 @@ python3 demod_audio.py <recording>.cs16 --sample-rate 2500000 \
     --mode cw --auto --center-freq 1295.5e6 --output-dir <dir>
 ```
 
-The raw recording (`sdr_20260703_192511_1295500000_2500000_1.cs16`, ~19 MiB) and its ION metadata `.xml` are kept under `artifacts/pretty/rf_test/`, outside git, consistent with how raw IQ is handled for the other runs.
+The raw recordings (`sdr_<timestamp>_1295500000_2500000_1.cs16`, ~19 MiB each) and their ION metadata `.xml` are not included in the repo, consistent with how raw IQ is handled for the other runs.

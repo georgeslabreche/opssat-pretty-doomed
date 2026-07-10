@@ -75,11 +75,11 @@ docker exec pd-preview bash -lc '
       tools/preview_onboard.cpp src/config.cpp -o build/local/preview_onboard \
       $(pkg-config --libs $GR) -lfmt -lsndfile -lfftw3f -lpthread -lm'
 
-# Run over the RF-test clips
+# Run over a set of downlinked clips (put them under input/, for example)
 docker exec pd-preview bash -lc '
   cd /work/pretty-doomed
-  RF=artifacts/pretty/rf_test; OUT=$RF/onboard-preview; mkdir -p $OUT
-  for f in $RF/raw/pass1/*.cs16 $RF/raw/pass2/*.cs16; do
+  OUT=toGround/onboard-preview; mkdir -p $OUT
+  for f in input/*.cs16; do
     id=$(basename "$f" | sed -E "s/sdr_[0-9]+_([0-9]+)_.*/\1/")
     ./build/local/preview_onboard "$f" "$OUT/onboard_$id.wav" \
         config.cfg 1295500000 2500000
@@ -92,9 +92,8 @@ docker rm -f pd-preview
 ### Option B: inside the full flight image
 
 The Makefile has a `preview-onboard` target that links against the same GNU
-Radio libs as the flight build. The compose service does not mount `artifacts/`
-by default, so point it at a file under a mounted path (or add an `artifacts`
-volume to `docker-compose.yml`).
+Radio libs as the flight build. Point it at a file under a mounted path such as
+`input/`.
 
 ```bash
 docker-compose run --rm pretty-doomed make preview-onboard
@@ -123,12 +122,12 @@ It needs the full build (STT models under `models/`), so run it in the image:
 # Build the full image once (compiles sherpa-onnx from source)
 docker compose build
 
-# Build the app + the preview tool, then run a clip end to end.
-# Mount artifacts/ so the tool can reach the downlinked sc16.
-docker compose run --rm -v "$PWD/artifacts:/app/artifacts" pretty-doomed bash -lc '
+# Build the app + the preview tool, then run a clip end to end
+# (the downlinked sc16 placed under the mounted input/ folder).
+docker compose run --rm pretty-doomed bash -lc '
   make all preview-onboard
   tools/preview_onboard_e2e.sh \
-    artifacts/pretty/rf_test/raw/pass2/sdr_20260703_205825_1295500000_2500000_1.cs16 \
+    input/sdr_20260703_205825_1295500000_2500000_1.cs16 \
     toGround/e2e/205825 1295500000 2500000'
 ```
 
@@ -146,5 +145,5 @@ correct demodulator, but the pipeline feeds it the full wide band (about 170 kHz
 of noise for a signal a few kHz wide), which pushes it below FM threshold and
 turns the voice to static. The link itself is fine (the carrier and recoverable
 voice are in the raw I/Q); the gap is bandwidth. Narrowing to the signal band
-before the discriminator recovers the voice; compare against the narrowed
-recovery in `artifacts/pretty/rf_test/enhancement/voice/`.
+before the discriminator recovers the voice; hear the difference in the
+narrowed renderings inside `docs/flight/data/run-05-2026-07-03/rf_test.zip`.

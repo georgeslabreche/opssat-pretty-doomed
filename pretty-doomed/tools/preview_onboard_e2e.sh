@@ -13,9 +13,9 @@
 #
 # Run from the pretty-doomed/ directory inside the build container (needs the
 # built app, preview_onboard, and the STT models under models/). Example:
-#   docker compose run --rm -v "$PWD/artifacts:/app/artifacts" pretty-doomed \
+#   docker compose run --rm pretty-doomed \
 #     bash -lc 'make all preview-onboard && \
-#       tools/preview_onboard_e2e.sh artifacts/pretty/rf_test/raw/pass2/<clip>.cs16 toGround/e2e/<id>'
+#       tools/preview_onboard_e2e.sh input/<clip>.cs16 toGround/e2e/<id>'
 #
 set -euo pipefail
 

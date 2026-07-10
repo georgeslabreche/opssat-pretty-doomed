@@ -82,7 +82,7 @@ def load_clip(json_path, target_freq):
         "label": label,
         "sortkey": sortkey,
         "secs": secs,
-        "path": json_path,
+        "capture": os.path.basename(os.path.dirname(os.path.abspath(json_path))),
         "carrier_freq_hz": r.get("carrier_freq_hz"),
         "offset_from_target_hz": off_tgt,
         "snr_db": r.get("snr_db"),
