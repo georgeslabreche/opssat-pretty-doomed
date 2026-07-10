@@ -1,14 +1,8 @@
 # On-board audio preview from a downlinked raw sc16
 
-`preview_onboard` runs a downlinked raw I/Q recording through the **same GNU
-Radio DSP chain the flight app uses** (`src/capture.cpp`), so you can hear what
-the on-board doom pipeline would have produced from a pass that was instead
-captured as wideband raw I/Q (as in the RF-link test, Run 5).
+`preview_onboard` runs a downlinked raw I/Q recording through the **same GNU Radio DSP chain the flight app uses** (`src/capture.cpp`), so you can hear what the on-board doom pipeline would have produced from a pass that was instead captured as wideband raw I/Q (as in the RF-link test, Run 5).
 
-The flight `capture.cpp` is wired to the AD9361 `device_source` and cannot read
-a file, so `tools/preview_onboard.cpp` reuses the same `PipelineConfig` and
-copies the audio flowgraph verbatim. It is a ground-only tool and lives in
-`tools/`, not in `src/` where the flight software is:
+The flight `capture.cpp` is wired to the AD9361 `device_source` and cannot read a file, so `tools/preview_onboard.cpp` reuses the same `PipelineConfig` and copies the audio flowgraph verbatim. It is a ground-only tool and lives in `tools/`, not in `src/` where the flight software is:
 
 ```
 fir_filter_ccf(decimation, firdes::low_pass 85 kHz)   # channel filter + decimate
@@ -18,26 +12,16 @@ fir_filter_ccf(decimation, firdes::low_pass 85 kHz)   # channel filter + decimat
   -> wavfile_sink ; then rms_normalize(-20 dBFS)
 ```
 
-All rates, taps, and the FM gain are derived from `config.cfg` exactly as
-`capture.cpp` derives them, so the DSP is identical to flight.
+All rates, taps, and the FM gain are derived from `config.cfg` exactly as `capture.cpp` derives them, so the DSP is identical to flight.
 
 ## What it emulates (front end only)
 
-A raw recording made for the RF-link test bypasses two pieces of SDR hardware
-that the operational path uses. `preview_onboard` emulates them before the
-flight chain, and this is the only part that is not flight C code:
+A raw recording made for the RF-link test bypasses two pieces of SDR hardware that the operational path uses. `preview_onboard` emulates them before the flight chain, and this is the only part that is not flight C code:
 
-1. **LO tuning.** The recording is centered off the uplink (1295.5 MHz) so the
-   carrier lands clear of the DC spike; the flight config tunes to the uplink
-   (1296.0 MHz). The tool rotates the spectrum by that difference so the uplink
-   sits near DC, inside the 85 kHz channel filter, where the on-board receiver
-   would place it.
-2. **AD9361 decimating HW FIR.** The recording is raw 2.5 MSPS; the flight path
-   feeds GNU Radio at 600 kSPS post-FIR. The tool rational-resamples to that
-   rate.
+1. **LO tuning.** The recording is centered off the uplink (1295.5 MHz) so the carrier lands clear of the DC spike; the flight config tunes to the uplink (1296.0 MHz). The tool rotates the spectrum by that difference so the uplink sits near DC, inside the 85 kHz channel filter, where the on-board receiver would place it.
+2. **AD9361 decimating HW FIR.** The recording is raw 2.5 MSPS; the flight path feeds GNU Radio at 600 kSPS post-FIR. The tool rational-resamples to that rate.
 
-The center frequency and sample rate of the recording are passed on the command
-line (they are also in the capture filename, `sdr_<date>_<time>_<center>_<rate>_*`).
+The center frequency and sample rate of the recording are passed on the command line (they are also in the capture filename, `sdr_<date>_<time>_<center>_<rate>_*`).
 
 ## Usage
 
@@ -55,9 +39,7 @@ preview_onboard <in.sc16> <out.wav> [config.cfg] [rec_center_hz] [rec_rate_hz]
 
 ### Option A: quick, with a slim GNU Radio container
 
-This needs only GNU Radio and libsndfile, not the full flight image (no
-sherpa-onnx build). Run from the repo root; the whole repo is mounted at `/work`
-so the tool can reach files under `artifacts/`.
+This needs only GNU Radio and libsndfile, not the full flight image (no sherpa-onnx build). Run from the repo root; the whole repo is mounted at `/work`.
 
 ```bash
 # One-time: start a container with the toolchain
@@ -91,9 +73,7 @@ docker rm -f pd-preview
 
 ### Option B: inside the full flight image
 
-The Makefile has a `preview-onboard` target that links against the same GNU
-Radio libs as the flight build. Point it at a file under a mounted path such as
-`input/`.
+The Makefile has a `preview-onboard` target that links against the same GNU Radio libs as the flight build. Point it at a file under a mounted path such as `input/`.
 
 ```bash
 docker-compose run --rm pretty-doomed make preview-onboard
@@ -104,19 +84,13 @@ docker-compose run --rm pretty-doomed \
 
 ## End to end, through speech recognition
 
-`preview_onboard` stops at the audio, on purpose: it is a small ground tool with
-no STT dependency. To take a clip all the way through the on-board experience
-(audio -> transcript -> wake word / call sign / command detection), chain it
-into the flight app's single-file mode, which runs the real `process_wav`
-(the same denoise + resample + sherpa-onnx STT + keyword matcher as flight):
+`preview_onboard` stops at the audio, on purpose: it is a small ground tool with no STT dependency. To take a clip all the way through the on-board experience (audio -> transcript -> wake word / call sign / command detection), chain it into the flight app's single-file mode, which runs the real `process_wav` (the same denoise + resample + sherpa-onnx STT + keyword matcher as flight):
 
 ```
 raw sc16 --preview_onboard--> onboard.wav --pretty-doomed -i--> transcription.txt + summary.txt
 ```
 
-`tools/preview_onboard_e2e.sh` wraps both stages. Stage 2 is the unmodified
-flight binary, so the recognition result is exactly what would run on-board.
-It needs the full build (STT models under `models/`), so run it in the image:
+`tools/preview_onboard_e2e.sh` wraps both stages. Stage 2 is the unmodified flight binary, so the recognition result is exactly what would run on-board. It needs the full build (STT models under `models/`), so run it in the image:
 
 ```bash
 # Build the full image once (compiles sherpa-onnx from source)
@@ -131,19 +105,8 @@ docker compose run --rm pretty-doomed bash -lc '
     toGround/e2e/205825 1295500000 2500000'
 ```
 
-The wrapper writes `onboard.wav`, `processed.wav`, `transcription.txt`,
-`scores.txt`, and `summary.txt` into the output directory and prints the
-transcript and detection summary. Overridable via env: `CONFIG`, `VARIANTS`,
-`DEMOS`, `DOOM`, `PREVIEW`, `APP`.
+The wrapper writes `onboard.wav`, `processed.wav`, `transcription.txt`, `scores.txt`, and `summary.txt` into the output directory and prints the transcript and detection summary. Overridable via env: `CONFIG`, `VARIANTS`, `DEMOS`, `DOOM`, `PREVIEW`, `APP`.
 
 ## Interpreting the output
 
-For the Run 5 clips the previews are mostly broadband noise with only faint
-syllabic structure during the strongest voice bursts. The transmission is FM
-voice (confirmed by the operators, sent wide), so the FM discriminator is the
-correct demodulator, but the pipeline feeds it the full wide band (about 170 kHz
-of noise for a signal a few kHz wide), which pushes it below FM threshold and
-turns the voice to static. The link itself is fine (the carrier and recoverable
-voice are in the raw I/Q); the gap is bandwidth. Narrowing to the signal band
-before the discriminator recovers the voice; hear the difference in the
-narrowed renderings inside `docs/flight/data/run-05-2026-07-03/rf_test.zip`.
+For the Run 5 clips the previews are mostly broadband noise with only faint syllabic structure during the strongest voice bursts. The transmission is FM voice (confirmed by the operators, sent wide), so the FM discriminator is the correct demodulator, but the pipeline feeds it the full wide band (about 170 kHz of noise, far more than the signal occupies), which pushes it below FM threshold and turns the voice to static. The link itself is fine (the carrier and recoverable voice are in the raw I/Q); the gap is bandwidth. Narrowing to the signal band before the discriminator recovers the voice; hear the difference in the narrowed renderings inside `docs/flight/data/run-05-2026-07-03/rf_test.zip`.
