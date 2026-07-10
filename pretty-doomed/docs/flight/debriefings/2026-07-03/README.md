@@ -1,7 +1,3 @@
-<style>
-h2 { page-break-before: always; }
-</style>
-
 # Flight analysis debriefing: Run 5 (RF-link test)
 
 **Flight (Run 5):** 2026-07-03
@@ -89,41 +85,29 @@ Analysis produced on the ground from the raw IQ with [`detect_carrier.py`](../..
 
 ## Appendix: per-recording plots
 
-All six snapshots, in time order, one page each. For each: the spectrogram with the detected carrier marked and its on/off envelope, the carrier frequency drift (Doppler), and the power spectral density. The first snapshot (19:24:33) has no carrier; the detector locks onto the noise background, which is why its plots look featureless.
-
-<div style="page-break-before: always;"></div>
+All six snapshots, in time order. For each: the spectrogram with the detected carrier marked and its on/off envelope, the carrier frequency drift (Doppler), and the power spectral density. The first snapshot (19:24:33) has no carrier; the detector locks onto the noise background, which is why its plots look featureless.
 
 ### 19:24:33 UTC, pass 1 (no amplifier), no carrier detected
 
-<img src="montage_192433.png" style="width:100%;">
-
-<div style="page-break-before: always;"></div>
+![Plots for 19:24:33](montage_192433.png)
 
 ### 19:25:11 UTC, pass 1 (no amplifier), zenith
 
-<img src="montage_192511.png" style="width:100%;">
-
-<div style="page-break-before: always;"></div>
+![Plots for 19:25:11](montage_192511.png)
 
 ### 19:25:31 UTC, pass 1 (no amplifier)
 
-<img src="montage_192531.png" style="width:100%;">
-
-<div style="page-break-before: always;"></div>
+![Plots for 19:25:31](montage_192531.png)
 
 ### 20:57:27 UTC, pass 2 (with amplifier)
 
-<img src="montage_205727.png" style="width:100%;">
-
-<div style="page-break-before: always;"></div>
+![Plots for 20:57:27](montage_205727.png)
 
 ### 20:58:05 UTC, pass 2 (with amplifier)
 
-<img src="montage_205805.png" style="width:100%;">
-
-<div style="page-break-before: always;"></div>
+![Plots for 20:58:05](montage_205805.png)
 
 ### 20:58:25 UTC, pass 2 (with amplifier)
 
-<img src="montage_205825.png" style="width:100%;">
+![Plots for 20:58:25](montage_205825.png)
 
