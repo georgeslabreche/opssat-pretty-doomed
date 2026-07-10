@@ -66,7 +66,7 @@ Once narrowed to the signal bandwidth, the voice is clearly recoverable: demodul
 
 The operational doom pipeline demodulates FM, then runs speech-to-text. To preview what it would have made of this pass, the raw IQ was run through the exact on-board DSP chain (the same GNU Radio blocks and filter designs as `src/capture.cpp`, driven from the flight `config.cfg`), then through the real flight speech-to-text and keyword matcher in the app's single-file mode. See [`docs/ONBOARD_PREVIEW.md`](../../ONBOARD_PREVIEW.md).
 
-The demodulator is the right one, but it is fed the full wide band, about 170 kHz of noise for a signal only a few kHz wide, which pushes the discriminator below its FM threshold and turns the voice to static. Narrowing to the signal bandwidth before the discriminator recovers it. The figure shows the current wide FM output (upper), mostly noise, against the same snapshot narrowed before demod (lower), where the voice returns.
+The demodulator is the right one, but it is fed the full wide band, about 170 kHz of noise, far more than the signal occupies, which pushes the discriminator below its FM threshold and turns the voice to static. Narrowing to the signal bandwidth before the discriminator recovers it. The figure shows the current wide FM output (upper), mostly noise, against the same snapshot narrowed before demod (lower), where the voice returns.
 
 ![On-board wide FM output vs the same snapshot narrowed before demod, 20:58:25](onboard_wide_vs_narrow.png)
 
