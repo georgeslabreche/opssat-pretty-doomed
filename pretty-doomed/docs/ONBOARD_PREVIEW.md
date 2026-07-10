@@ -140,9 +140,11 @@ transcript and detection summary. Overridable via env: `CONFIG`, `VARIANTS`,
 ## Interpreting the output
 
 For the Run 5 clips the previews are mostly broadband noise with only faint
-syllabic structure during the strongest voice bursts. That is expected: the
-transmissions are SSB voice, and the FM discriminator does not cleanly recover
-SSB, so the on-board FM -> speech-to-text chain would likely transcribe nothing.
-The link itself is fine (the carrier and recoverable voice are in the raw I/Q);
-the mismatch is between an FM pipeline and an SSB transmission. Compare against
-the single-sideband recovery in `artifacts/pretty/rf_test/enhancement/voice/`.
+syllabic structure during the strongest voice bursts. The transmission is FM
+voice (confirmed by the operators, sent wide), so the FM discriminator is the
+correct demodulator, but the pipeline feeds it the full wide band (about 170 kHz
+of noise for a signal a few kHz wide), which pushes it below FM threshold and
+turns the voice to static. The link itself is fine (the carrier and recoverable
+voice are in the raw I/Q); the gap is bandwidth. Narrowing to the signal band
+before the discriminator recovers the voice; compare against the narrowed
+recovery in `artifacts/pretty/rf_test/enhancement/voice/`.
