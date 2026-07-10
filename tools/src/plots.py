@@ -228,6 +228,66 @@ def plot_psd_comparison(sc16_paths, sample_rate, save_path=None, fft_size=4096,
     return fig_to_svg(fig, save_path)
 
 
+def plot_carrier(iq, sample_rate, carrier_offset_hz, save_path=None, fft_size=4096,
+                 center_freq=None):
+    """Two-panel carrier view: a spectrogram with the detected carrier marked,
+    and the carrier's on/off envelope over time. Returns SVG string."""
+    from iq import carrier_envelope
+    from matplotlib.ticker import FuncFormatter
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    # specgram (raster, fast) with Fs in Hz so the time axis is real seconds,
+    # matching the envelope panel; the frequency axis is relabeled to kHz.
+    ax1.specgram(iq, NFFT=fft_size, Fs=sample_rate, noverlap=fft_size // 2,
+                 cmap="turbo", scale="dB", Fc=0)
+    ax1.axhline(carrier_offset_hz, color="w", linestyle=":", linewidth=0.8)
+    ax1.yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"{y/1e3:.0f}"))
+    ax1.set_ylabel("Offset (kHz)")
+    ax1.set_xlabel("Time (s)")
+    title = f"Spectrogram (carrier at {carrier_offset_hz/1e3:+.1f} kHz"
+    if center_freq:
+        title += f" = {(center_freq + carrier_offset_hz)/1e6:.4f} MHz"
+    ax1.set_title(title + ")")
+    fig.colorbar(ax1.images[0], ax=ax1, label="Power (dB)")
+
+    tt, env_db = carrier_envelope(iq, sample_rate, carrier_offset_hz)
+    ax2.plot(tt, env_db - env_db.max(), linewidth=0.7, color="steelblue")
+    ax2.axhline(-10, color="red", linestyle="--", alpha=0.5, label="-10 dB (on threshold)")
+    ax2.set_ylabel("Carrier level (dB, rel. peak)")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_title("Carrier on/off envelope")
+    ax2.legend(fontsize=8)
+    ax2.grid(True, alpha=0.3)
+    fig.tight_layout()
+    return fig_to_svg(fig, save_path)
+
+
+def plot_carrier_drift(drift, save_path=None):
+    """Carrier frequency vs time with the fitted drift (Doppler rate). `drift`
+    is the dict from iq.carrier_drift / analyze_carrier. Returns SVG string."""
+    t = np.array(drift["times_s"])
+    f = np.array(drift["freqs_hz"])
+    present = np.array(drift["present"], dtype=bool) if drift["present"] else np.zeros(len(t), bool)
+    slope = drift["slope_hz_per_s"]
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.scatter(t[~present], f[~present], s=18, c="#bbbbbb", label="carrier absent")
+    ax.scatter(t[present], f[present], s=24, c="steelblue", label="carrier present")
+    if np.isfinite(slope) and present.sum() >= 2:
+        tp = t[present]
+        p = np.polyfit(tp, f[present], 1)
+        xs = np.array([t.min(), t.max()])
+        ax.plot(xs, np.polyval(p, xs), "r--", linewidth=1.2,
+                label=f"fit: {slope:+.0f} Hz/s")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Carrier frequency, relative to detected offset (Hz)")
+    ax.set_title("Carrier frequency drift (Doppler rate)")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    return fig_to_svg(fig, save_path)
+
+
 def _default_label(path):
     """Create a short label from a file path."""
     import os
