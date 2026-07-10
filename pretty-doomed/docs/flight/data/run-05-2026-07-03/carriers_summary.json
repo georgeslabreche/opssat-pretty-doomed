@@ -1,0 +1,80 @@
+[
+  {
+    "label": "19:24:33",
+    "secs": 69873,
+    "path": "/Users/georgeslabreche/Development/other/opssat-pretty-doomed/pretty-doomed/artifacts/pretty/rf_test/analysis/sdr_20260703_192433_1295500000_2500000_1/carrier.json",
+    "carrier_freq_hz": 1296018404.3462336,
+    "offset_from_target_hz": 18404.34623360634,
+    "snr_db": 10.928829147547233,
+    "bw_3db_hz": 21059.69967036997,
+    "on_fraction": 0.0085,
+    "keying_100ms": "....................",
+    "drift_hz_per_s": -2.7229646167821717,
+    "detected": false
+  },
+  {
+    "label": "19:25:11",
+    "secs": 69911,
+    "path": "/Users/georgeslabreche/Development/other/opssat-pretty-doomed/pretty-doomed/artifacts/pretty/rf_test/analysis/sdr_20260703_192511_1295500000_2500000_1/carrier.json",
+    "carrier_freq_hz": 1295991850.8118668,
+    "offset_from_target_hz": -8149.188133239746,
+    "snr_db": 22.7041743751189,
+    "bw_3db_hz": 610.426077401964,
+    "on_fraction": 0.6715,
+    "keying_100ms": "#####.....#########.",
+    "drift_hz_per_s": -353.4023592438059,
+    "detected": true
+  },
+  {
+    "label": "19:25:31",
+    "secs": 69931,
+    "path": "/Users/georgeslabreche/Development/other/opssat-pretty-doomed/pretty-doomed/artifacts/pretty/rf_test/analysis/sdr_20260703_192531_1295500000_2500000_1/carrier.json",
+    "carrier_freq_hz": 1295989103.8945184,
+    "offset_from_target_hz": -10896.105481624603,
+    "snr_db": 24.134081325353456,
+    "bw_3db_hz": 305.2130387010984,
+    "on_fraction": 0.895,
+    "keying_100ms": "############...#####",
+    "drift_hz_per_s": -368.4908109585297,
+    "detected": true
+  },
+  {
+    "label": "20:57:27",
+    "secs": 75447,
+    "path": "/Users/georgeslabreche/Development/other/opssat-pretty-doomed/pretty-doomed/artifacts/pretty/rf_test/analysis/sdr_20260703_205727_1295500000_2500000_1/carrier.json",
+    "carrier_freq_hz": 1296005890.611647,
+    "offset_from_target_hz": 5890.61164689064,
+    "snr_db": 26.18599913610622,
+    "bw_3db_hz": 305.2130387008656,
+    "on_fraction": 0.8275,
+    "keying_100ms": "#################...",
+    "drift_hz_per_s": -631.0249680328421,
+    "detected": true
+  },
+  {
+    "label": "20:58:05",
+    "secs": 75485,
+    "path": "/Users/georgeslabreche/Development/other/opssat-pretty-doomed/pretty-doomed/artifacts/pretty/rf_test/analysis/sdr_20260703_205805_1295500000_2500000_1/carrier.json",
+    "carrier_freq_hz": 1296018709.5592723,
+    "offset_from_target_hz": 18709.559272289276,
+    "snr_db": 24.193993029789205,
+    "bw_3db_hz": 305.2130387010984,
+    "on_fraction": 0.676,
+    "keying_100ms": "......#############.",
+    "drift_hz_per_s": -137.2128352193458,
+    "detected": true
+  },
+  {
+    "label": "20:58:25",
+    "secs": 75505,
+    "path": "/Users/georgeslabreche/Development/other/opssat-pretty-doomed/pretty-doomed/artifacts/pretty/rf_test/analysis/sdr_20260703_205825_1295500000_2500000_1/carrier.json",
+    "carrier_freq_hz": 1295984220.4858992,
+    "offset_from_target_hz": -15779.514100790024,
+    "snr_db": 25.670288383391174,
+    "bw_3db_hz": 305.2130387008656,
+    "on_fraction": 1.0,
+    "keying_100ms": "####################",
+    "drift_hz_per_s": -840.0227660785429,
+    "detected": true
+  }
+]
