@@ -2,7 +2,7 @@
 
 `preview_onboard` runs a downlinked raw I/Q recording through the **same GNU Radio DSP chain the flight app uses** (`src/capture.cpp`), so you can hear what the on-board doom pipeline would have produced from a pass that was instead captured as wideband raw I/Q (as in the RF-link test, Run 5).
 
-The flight `capture.cpp` is wired to the AD9361 `device_source` and cannot read a file, so `tools/preview_onboard.cpp` reuses the same `PipelineConfig` and copies the audio flowgraph verbatim. It is a ground-only tool and lives in `tools/`, not in `src/` where the flight software is:
+The flight `capture.cpp` is wired to the AD9361 `device_source` and cannot read a file, so `tools/preview_onboard.cpp` builds its audio chain from the same shared module `capture.cpp` uses (`src/chain.{h,cpp}`, #112), driven by the same `PipelineConfig` - preview and flight execute the same DSP by construction. It is a ground-only tool and lives in `tools/`, not in `src/` where the flight software is:
 
 ```
 fir_filter_ccf(decimation, firdes::low_pass 85 kHz)   # channel filter + decimate
@@ -12,7 +12,7 @@ fir_filter_ccf(decimation, firdes::low_pass 85 kHz)   # channel filter + decimat
   -> wavfile_sink ; then rms_normalize(-20 dBFS)
 ```
 
-All rates, taps, and the FM gain are derived from `config.cfg` exactly as `capture.cpp` derives them, so the DSP is identical to flight.
+All rates, taps, and the FM gain come from the shared `src/chain.cpp`, the module `capture.cpp` itself builds from, so the DSP is the flight code, not a copy of it.
 
 ## What it emulates (front end only)
 
@@ -55,7 +55,7 @@ docker exec pd-preview bash -lc '
   cd /work/pretty-doomed && mkdir -p build/local
   GR="gnuradio-runtime gnuradio-blocks gnuradio-filter gnuradio-fft gnuradio-analog"
   g++ -Wall -O3 -std=c++17 -Isrc -I../common/include $(pkg-config --cflags $GR) \
-      tools/preview_onboard.cpp src/config.cpp -o build/local/preview_onboard \
+      tools/preview_onboard.cpp src/config.cpp src/chain.cpp -o build/local/preview_onboard \
       $(pkg-config --libs $GR) -lfmt -lsndfile -lfftw3f -lpthread -lm'
 
 # Run over a set of downlinked clips (put them under input/, for example)

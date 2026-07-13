@@ -1,6 +1,6 @@
 # tools/ - ground-only utilities
 
-Ground-side tooling for the pretty-doomed app. This is **not flight software**: nothing here runs on the spacecraft. It lives outside `src/` on purpose. These tools reuse the flight code (`src/config.cpp`, `src/capture.cpp`'s DSP chain) but are built and run on the ground.
+Ground-side tooling for the pretty-doomed app. This is **not flight software**: nothing here runs on the spacecraft. It lives outside `src/` on purpose. These tools reuse the flight code (`src/config.cpp` and the shared DSP chain in `src/chain.cpp` that `capture.cpp` also builds from, #112) but are built and run on the ground.
 
 ## Contents
 

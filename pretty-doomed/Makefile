@@ -67,7 +67,7 @@ SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SR
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
-OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/sdr.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o $(BUILDDIR)/postcard.o
+OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/chain.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/sdr.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o $(BUILDDIR)/postcard.o
 OBJS_MAIN = $(BUILDDIR)/main.o
 
 TARGET = $(BUILDDIR)/pretty-doomed
@@ -138,6 +138,9 @@ $(BUILDDIR)/postcard.o: $(SRCDIR)/postcard.cpp $(SRCDIR)/postcard.h $(SRCDIR)/po
 $(BUILDDIR)/dsp.o: $(SRCDIR)/dsp.cpp $(SRCDIR)/dsp.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
+$(BUILDDIR)/chain.o: $(SRCDIR)/chain.cpp $(SRCDIR)/chain.h $(SRCDIR)/config.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
+
 $(BUILDDIR)/audio_io.o: $(SRCDIR)/audio_io.cpp $(SRCDIR)/audio_io.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -147,7 +150,7 @@ $(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h | $
 $(BUILDDIR)/sdr.o: $(SRCDIR)/sdr.cpp $(SRCDIR)/sdr.h $(SRCDIR)/config.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h | $(BUILDDIR)
+$(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/chain.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/audio_io.h $(SRCDIR)/dsp.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
@@ -182,10 +185,13 @@ test: $(TEST_TARGET)
 
 TEST_DSP_TARGET = $(BUILDDIR)/test_dsp_runner
 
-$(TEST_DSP_TARGET): $(BUILDDIR)/test_main.o $(BUILDDIR)/test_dsp.o $(BUILDDIR)/dsp.o | $(BUILDDIR)
+$(TEST_DSP_TARGET): $(BUILDDIR)/test_main.o $(BUILDDIR)/test_dsp.o $(BUILDDIR)/test_chain.o $(BUILDDIR)/dsp.o $(BUILDDIR)/chain.o | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(GNURADIO_LIBS)
 
 $(BUILDDIR)/test_dsp.o: $(TESTDIR)/test_dsp.cpp | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
+
+$(BUILDDIR)/test_chain.o: $(TESTDIR)/test_chain.cpp $(SRCDIR)/chain.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
 
 test-dsp: $(TEST_DSP_TARGET)
@@ -200,10 +206,10 @@ test-dsp: $(TEST_DSP_TARGET)
 TOOLSDIR = tools
 PREVIEW_TARGET = $(BUILDDIR)/preview_onboard
 
-$(BUILDDIR)/preview_onboard.o: $(TOOLSDIR)/preview_onboard.cpp $(SRCDIR)/config.h | $(BUILDDIR)
+$(BUILDDIR)/preview_onboard.o: $(TOOLSDIR)/preview_onboard.cpp $(SRCDIR)/config.h $(SRCDIR)/chain.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -I$(SRCDIR) -c $< -o $@
 
-$(PREVIEW_TARGET): $(BUILDDIR)/preview_onboard.o $(BUILDDIR)/config.o | $(BUILDDIR)
+$(PREVIEW_TARGET): $(BUILDDIR)/preview_onboard.o $(BUILDDIR)/config.o $(BUILDDIR)/chain.o | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(GNURADIO_LIBS) $(SNDFILE_LIBS) -lpthread -lm
 
 preview-onboard: $(PREVIEW_TARGET)
