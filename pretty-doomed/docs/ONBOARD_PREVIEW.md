@@ -26,7 +26,7 @@ The center frequency and sample rate of the recording are passed on the command 
 ## Usage
 
 ```
-preview_onboard <in.sc16> <out.wav> [config.cfg] [rec_center_hz] [rec_rate_hz]
+preview_onboard <in.sc16> <out.wav> [config.cfg] [rec_center_hz] [rec_rate_hz] [narrow_bw_hz]
 ```
 
 - `in.sc16` -- downlinked raw interleaved int16 I/Q
@@ -34,6 +34,7 @@ preview_onboard <in.sc16> <out.wav> [config.cfg] [rec_center_hz] [rec_rate_hz]
 - `config.cfg` -- flight config to read the SDR/DSP parameters from (default `config.cfg`)
 - `rec_center_hz` -- SDR center of the recording (default `1295500000`)
 - `rec_rate_hz` -- sample rate of the recording (default `2500000`)
+- `narrow_bw_hz` -- optional narrowing stage (issue #107): find the strongest peak within ±100 kHz of the uplink, tune it to DC, low-pass to ±`narrow_bw_hz`/2 and decimate to ~25 kSPS before the FM discriminator. `0` (default) keeps the flight chain exactly as flown; `20000` reproduces the validated ±10 kHz narrowing.
 
 ## Build and run
 
@@ -109,4 +110,4 @@ The wrapper writes `onboard.wav`, `processed.wav`, `transcription.txt`, `scores.
 
 ## Interpreting the output
 
-For the Run 5 clips the previews are mostly broadband noise with only faint syllabic structure during the strongest voice bursts. The transmission is FM voice (confirmed by the operators, sent wide), so the FM discriminator is the correct demodulator, but the pipeline feeds it the full wide band (about 170 kHz of noise, far more than the signal occupies), which pushes it below FM threshold and turns the voice to static. The link itself is fine (the carrier and recoverable voice are in the raw I/Q); the gap is bandwidth. Narrowing to the signal band before the discriminator recovers the voice; hear the difference in the narrowed renderings inside `docs/flight/data/run-05-2026-07-03/rf_test.zip`.
+For the Run 5 clips the previews are mostly broadband noise with only faint syllabic structure during the strongest voice bursts. The transmission is FM voice (confirmed by the operators, sent wide), so the FM discriminator is the correct demodulator, but the pipeline feeds it the full wide band (about 170 kHz of noise, far more than the signal occupies), which pushes it below FM threshold and turns the voice to static. The link itself is fine (the carrier and recoverable voice are in the raw I/Q); the gap is bandwidth. Narrowing to the signal band before the discriminator recovers the voice; hear the difference in the narrowed renderings inside `docs/flight/debriefings/run-05-2026-07-03/run-05-audio-processing.zip`.

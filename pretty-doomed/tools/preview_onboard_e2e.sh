@@ -19,10 +19,11 @@
 #
 set -euo pipefail
 
-IN_SC16=${1:?usage: preview_onboard_e2e.sh <in.sc16> <out_dir> [rec_center_hz] [rec_rate_hz]}
-OUT_DIR=${2:?usage: preview_onboard_e2e.sh <in.sc16> <out_dir> [rec_center_hz] [rec_rate_hz]}
+IN_SC16=${1:?usage: preview_onboard_e2e.sh <in.sc16> <out_dir> [rec_center_hz] [rec_rate_hz] [narrow_bw_hz]}
+OUT_DIR=${2:?usage: preview_onboard_e2e.sh <in.sc16> <out_dir> [rec_center_hz] [rec_rate_hz] [narrow_bw_hz]}
 REC_CENTER=${3:-1295500000}
 REC_RATE=${4:-2500000}
+NARROW_BW=${5:-0}   # 0 = flight chain as flown; e.g. 20000 for the #107 narrowing
 
 # Overridable paths (defaults match the in-container layout)
 CONFIG=${CONFIG:-config.cfg}
@@ -36,7 +37,7 @@ mkdir -p "$OUT_DIR"
 WAV="$OUT_DIR/onboard.wav"
 
 echo "[1/2] on-board audio preview: $IN_SC16 -> $WAV"
-"$PREVIEW" "$IN_SC16" "$WAV" "$CONFIG" "$REC_CENTER" "$REC_RATE"
+"$PREVIEW" "$IN_SC16" "$WAV" "$CONFIG" "$REC_CENTER" "$REC_RATE" "$NARROW_BW"
 
 echo "[2/2] flight STT + keyword matcher on $WAV"
 "$APP" -i "$WAV" -c "$CONFIG" -f "$VARIANTS" -o "$OUT_DIR" -d "$DEMOS" -e "$DOOM" || true

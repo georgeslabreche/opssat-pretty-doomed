@@ -1,0 +1,29 @@
+Carrier Detection
+============================================
+Duration:          2.00 s
+Sample rate:       2,500,000 Hz
+SDR center:        1295.5000 MHz
+Target uplink:     1296.0000 MHz
+
+Strongest carrier
+--------------------------------------------
+Offset (baseband): +484.2 kHz
+Absolute freq:     1295.9842 MHz
+Offset vs target:  -15.8 kHz
+SNR over floor:    25.7 dB
+-3 dB width:       0.31 kHz
+-20 dB width:      37.24 kHz
+On fraction:       100%
+Keying (100 ms):   ####################
+Doppler drift:     -840 Hz/s (-1596 Hz across carrier-present windows)
+
+Top peaks (offset : SNR over floor)
+--------------------------------------------
+     +484.2 kHz   +25.7 dB
+     +516.9 kHz   +19.6 dB
+      -42.3 kHz    +7.3 dB
+     +599.9 kHz    +7.1 dB
+     -662.8 kHz    +6.7 dB
+     +393.3 kHz    +5.8 dB
+    -1114.5 kHz    +4.2 dB
+    -1135.5 kHz    +4.2 dB
