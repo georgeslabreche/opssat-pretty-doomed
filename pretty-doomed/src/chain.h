@@ -67,11 +67,21 @@ void connect_audio_chain(gr::top_block_sptr tb, const AudioChain& chain,
                          gr::blocks::head::sptr audio_head,
                          gr::blocks::wavfile_sink::sptr wav_sink);
 
+// Wire narrow_lpf -> fm_demod -> resampler -> bandpass -> wav_sink, for
+// reprocessing an already channel-filtered baseband (a capture.sc16): the
+// channel LPF is skipped because the sc16 is recorded after it (#111). The
+// chain must have been built with narrowing parameters.
+void connect_audio_chain_from_baseband(gr::top_block_sptr tb, const AudioChain& chain,
+                                       gr::blocks::wavfile_sink::sptr wav_sink);
+
 // Averaged-PSD peak search in a raw interleaved-int16 I/Q file, within
-// +/-search_hz of expect_hz (Hann-windowed 8192-point FFTs). Returns the
-// strongest bin's offset in Hz relative to the recording center, or expect_hz
-// if the file cannot be read.
+// +/-search_hz of expect_hz (Hann-windowed 8192-point FFTs). Bins within
+// +/-dc_guard_hz of DC are excluded (the AD9361 DC spike would otherwise win
+// when searching around a DC-centered uplink). Returns the strongest bin's
+// offset in Hz relative to the recording center, or expect_hz if the file
+// cannot be read or no bin qualifies.
 double find_peak_offset(const std::string& path, double sample_rate,
-                        double expect_hz, double search_hz);
+                        double expect_hz, double search_hz,
+                        double dc_guard_hz = 0.0);
 
 #endif

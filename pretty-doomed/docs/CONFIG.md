@@ -93,6 +93,18 @@ The AD9361 minimum baseband rate without the FIR is 2.083 MSPS (25 MSPS / 12). W
 
 The FIR is disabled at the end of the run so subsequent experiments are not affected.
 
+### Narrowing stage
+
+The [Run 5 RF-link test](flight/debriefings/run-05-2026-07-03/) showed the FM discriminator being fed the full ~170 kHz effective baseband while the uplink occupies only a few kHz, pushing it below FM threshold (issue #107). With `sdr_narrow_enable=true`, after each capture completes, `capture.wav` is regenerated from the just-written `capture.sc16`: a peak search within ±`sdr_narrow_search` of DC finds the uplink (a 2 kHz guard excludes the AD9361 DC spike; the found offset is logged and doubles as a Doppler measurement), the peak is shifted to DC, and the signal is low-passed to ±`sdr_narrow_bw`/2 and decimated to ~25 kSPS before the unchanged demod chain. The streaming flowgraph and the sc16 tap are untouched, and any failure falls back to the wide audio. A missing key or `false` keeps the chain exactly as flown.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `sdr_narrow_enable` | false | Regenerate audio through the narrowing stage after each capture |
+| `sdr_narrow_bw` | 20000 | Total narrowing width in Hz (±10 kHz, validated in #107) |
+| `sdr_narrow_search` | 100000 | Peak-search half-width in Hz around DC |
+
+### Hardware FIR
+
 Must be disabled for emulator testing (the IIO emulator does not expose TX channels required by `libad9361-iio`).
 
 | Key | Default | Description |

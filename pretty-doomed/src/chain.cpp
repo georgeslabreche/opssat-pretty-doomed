@@ -97,8 +97,17 @@ void connect_audio_chain(gr::top_block_sptr tb, const AudioChain& chain,
     }
 }
 
+void connect_audio_chain_from_baseband(gr::top_block_sptr tb, const AudioChain& chain,
+                                       gr::blocks::wavfile_sink::sptr wav_sink) {
+    tb->connect(chain.narrow_lpf, 0, chain.fm_demod, 0);
+    tb->connect(chain.fm_demod, 0, chain.resampler, 0);
+    tb->connect(chain.resampler, 0, chain.bandpass, 0);
+    tb->connect(chain.bandpass, 0, wav_sink, 0);
+}
+
 double find_peak_offset(const std::string& path, double sample_rate,
-                        double expect_hz, double search_hz) {
+                        double expect_hz, double search_hz,
+                        double dc_guard_hz) {
     const int N = 8192;
     FILE* f = std::fopen(path.c_str(), "rb");
     if (!f) return expect_hz;
@@ -129,6 +138,7 @@ double find_peak_offset(const std::string& path, double sample_rate,
     for (int k = 0; k < N; k++) {
         double freq = (k <= N / 2 ? k : k - N) * sample_rate / N;
         if (std::abs(freq - expect_hz) > search_hz) continue;
+        if (dc_guard_hz > 0.0 && std::abs(freq) < dc_guard_hz) continue;
         if (psd[k] > best_pow) { best_pow = psd[k]; best = freq; }
     }
     return best;
