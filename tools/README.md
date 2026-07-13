@@ -18,6 +18,9 @@ tools/
 ├── README.md
 └── src/
     ├── plot_iq.py        # I/Q file visualization
+    ├── detect_carrier.py # Carrier detection in a wideband I/Q file
+    ├── summarize_carriers.py # Compare carrier detections across clips
+    ├── demod_audio.py    # Demodulate raw I/Q to audio (FM / CW / SSB)
     ├── plot_audio.py     # WAV audio visualization
     ├── plot_loopback.py  # Loopback TX/RX comparison
     ├── compare_psd.py    # Multi-capture PSD overlay
@@ -143,6 +146,86 @@ Options:
 - `--sample-rate` — Sample rate in Hz (default: 200000, the effective rate after 12x decimation)
 - `--output-dir` — Output directory (default: same as input file)
 - `--fft-size` — FFT size for spectrogram (default: 1024)
+
+### detect_carrier.py — Carrier detection
+
+Finds and characterizes the strongest narrowband carrier in a wideband sc16/cs16 I/Q file. Built for the RF-link test, where the spacecraft records a wide band with the SDR center offset from the expected uplink so a ground carrier lands clear of the DC spike. Reports how far the carrier stands above the noise floor, its width, whether it keys on and off, and its offset from a target uplink frequency.
+
+```bash
+docker-compose run --rm tools src/detect_carrier.py <file.cs16> \
+    --sample-rate 2500000 --center-freq 1295.5e6 --target-freq 1296.0e6 --output-dir /output
+```
+
+| Output | Description |
+|--------|-------------|
+| `spectrogram.svg` | Full-band time-frequency waterfall |
+| `carrier.svg` | Spectrogram with the detected carrier marked, plus its on/off envelope |
+| `psd.svg` | Power spectral density |
+| `carrier.txt` | Carrier detection summary (human-readable) |
+| `carrier.json` | Carrier detection summary (machine-readable) |
+
+**Carrier report includes:**
+- Carrier offset from band center, absolute frequency, and offset from the target uplink
+- SNR over the noise floor, and -3 dB / -20 dB widths (carrier vs modulated)
+- On fraction and a coarse 100 ms on/off keying timeline (transmit pauses, Morse)
+- Top spectral peaks, to distinguish a real carrier from fixed internal spurs
+
+Options:
+- `--sample-rate` — Sample rate in Hz (required, e.g. 2500000)
+- `--center-freq` — SDR center frequency in Hz, for absolute labeling (e.g. 1295.5e6)
+- `--target-freq` — Expected uplink frequency in Hz, to report the offset (e.g. 1296.0e6)
+- `--output-dir` — Output directory (default: same as input file)
+- `--fft-size` — FFT size for PSD and detection (default: 8192)
+
+### summarize_carriers.py — Compare carriers across clips
+
+Companion to `detect_carrier.py`: reads the `carrier.json` files from several clips (for example the snapshots of one pass, or two passes of an RF-link test) and tabulates them side by side so the trend is visible: how the absolute carrier frequency walks with Doppler, how the SNR changes, and where the carrier keys on and off. Inputs may be `carrier.json` files or directories searched recursively for them; when a file sits in a capture-named directory (`sdr_YYYYMMDD_HHMMSS_...`) the timestamp is parsed to order and label the clips.
+
+```bash
+docker-compose run --rm tools src/summarize_carriers.py /output/analysis --target-freq 1296.0e6
+```
+
+| Output | Description |
+|--------|-------------|
+| `carriers_summary.txt` | Human-readable comparison table |
+| `carriers_summary.json` | Machine-readable per-clip metrics |
+| `carriers_summary.svg` | Offset-vs-time and SNR-vs-time across the clips |
+
+Options:
+- `inputs` — one or more `carrier.json` files or directories to search (required)
+- `--target-freq` — expected uplink frequency in Hz, overrides per-file target
+- `--output-dir` — output directory (default: common parent of the inputs)
+- `--title` — plot title
+
+### demod_audio.py — Demodulate raw I/Q to audio
+
+Turns a raw sc16/cs16 I/Q downlink into a WAV. The on-board pipeline demodulates during capture, so raw I/Q downlinks arrive without audio; this reproduces that step on the ground. `fm` mode mirrors the flight chain (channel low-pass, quadrature FM demod, resample, 300-3400 Hz voice band-pass) for voice broadcasts; `cw` mode mixes the carrier to an audible beat tone so a keyed transmission can be heard on/off; `ssb` mode is a single-sideband product detector for amateur SSB voice (tune to the suppressed carrier, keep one sideband).
+
+```bash
+# Voice broadcast, tuned to a known offset
+docker-compose run --rm tools src/demod_audio.py <file.sc16> --sample-rate 200000 --mode fm --offset -8000
+# Keyed carrier, auto-tuned to the strongest carrier
+docker-compose run --rm tools src/demod_audio.py <file.cs16> --sample-rate 2500000 --mode cw --auto --center-freq 1295.5e6 --output-dir /output
+# SSB voice, auto sideband
+docker-compose run --rm tools src/demod_audio.py <file.cs16> --sample-rate 2500000 --mode ssb --auto --center-freq 1295.5e6 --channel-bw 8000 --output-dir /output
+```
+
+| Output | Description |
+|--------|-------------|
+| `audio.wav` | Demodulated mono audio (16 kHz by default) |
+
+Options:
+- `--sample-rate` — Input sample rate in Hz (required)
+- `--mode` — `fm` (default, flight-matching), `cw` (beat tone for keyed carriers), or `ssb` (single-sideband voice)
+- `--sideband` — `auto` (default), `lsb`, or `usb` for `--mode ssb`
+- `--auto` — Auto-detect the strongest carrier and tune to it
+- `--offset` / `--carrier-freq` (+`--center-freq`) — Carrier as a baseband offset or absolute frequency
+- `--deviation` — FM deviation in Hz (default: 5000, flight NBFM)
+- `--channel-bw` — Channel bandwidth before demod (default: 15000)
+- `--audio-rate` — Output audio sample rate (default: 16000)
+- `--bandpass` — Voice band-pass `low,high` Hz, or `none` (default: 300,3400)
+- `--bfo` — CW beat tone in Hz for `--mode cw` (default: 800)
+- `--output-dir` — Output directory (default: same as input file)
 
 ### plot_audio.py — WAV audio visualization
 

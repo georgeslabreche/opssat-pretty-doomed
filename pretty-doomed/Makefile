@@ -192,6 +192,23 @@ test-dsp: $(TEST_DSP_TARGET)
 	./$(TEST_DSP_TARGET)
 
 #############################################
+# Ground-only: offline preview of the on-board audio pipeline (requires GNU Radio)
+# Feeds a downlinked raw sc16 through the same DSP chain as capture.cpp.
+# Source lives in tools/ (ground execution), not src/ (flight software).
+#############################################
+
+TOOLSDIR = tools
+PREVIEW_TARGET = $(BUILDDIR)/preview_onboard
+
+$(BUILDDIR)/preview_onboard.o: $(TOOLSDIR)/preview_onboard.cpp $(SRCDIR)/config.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -I$(SRCDIR) -c $< -o $@
+
+$(PREVIEW_TARGET): $(BUILDDIR)/preview_onboard.o $(BUILDDIR)/config.o | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(GNURADIO_LIBS) $(SNDFILE_LIBS) -lpthread -lm
+
+preview-onboard: $(PREVIEW_TARGET)
+
+#############################################
 # Sherpa-ONNX static library build (ARM32 container)
 #
 # Built as static libs (BUILD_SHARED_LIBS=OFF) because the pre-built
