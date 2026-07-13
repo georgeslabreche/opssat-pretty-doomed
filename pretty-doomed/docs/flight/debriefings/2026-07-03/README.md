@@ -70,9 +70,9 @@ The demodulator is the right one, but it is fed the full wide band, about 170 kH
 
 ![On-board wide FM output vs the same snapshot narrowed before demod, 20:58:25](onboard_wide_vs_narrow.png)
 
-What matters is downstream. Run through the flight speech-to-text on all six snapshots, the transcripts are single noise-driven fragments (`A`, `I`, `OF THE`), not intelligible words. The operators did transmit a spoken command on this pass (their call sign and "play doom"), so this is a real miss: a voice signal like this, taken through the FM chain, does not come out as usable text for the speech-to-text.
+What matters is downstream. Run through that same flight speech-to-text on the ground, all six snapshots come back as single noise-driven fragments (`A`, `I`, `OF THE`), not intelligible words. The operators did transmit a spoken command on this pass (their call sign and "play doom"), so this is a real miss: a voice signal like this, taken through the FM chain, does not come out as usable text for the speech-to-text.
 
-This holds even for the cleanest audio available. The radio-amateur team also processed these captures with their own numpy/scipy chain, producing the cleanest voice recovery we have, clear enough to follow by ear in places; run through the identical on-board speech-to-text on the ground, that audio still does not transcribe the command. Audio a person can follow is not the same as audio the on-board recognizer can read.
+This holds even for the cleanest audio available. The radio-amateur team also processed these captures with their own numpy/scipy chain, producing the cleanest voice recovery we have, clear enough to follow by ear in places; run through the identical on-board speech-to-text on the ground, that audio still does not transcribe the command. Audio a person can follow is not the same as audio the recognizer can read.
 
 ## What it means and next steps
 
