@@ -203,3 +203,24 @@ TEST_CASE("load_variants ignores comment-only input") {
     REQUIRE(load_variants(input, variants));
     CHECK(variants.empty());
 }
+
+TEST_CASE("load_config parses narrowing settings (#111)") {
+    std::istringstream input(
+        "sdr_narrow_enable=true\n"
+        "sdr_narrow_bw=20000\n"
+        "sdr_narrow_search=100000\n");
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.sdr_narrow_enable == true);
+    CHECK(cfg.sdr_narrow_bw == doctest::Approx(20000.0));
+    CHECK(cfg.sdr_narrow_search == doctest::Approx(100000.0));
+}
+
+TEST_CASE("narrowing defaults keep the chain as flown") {
+    std::istringstream input("sdr_frequency=1296000000\n");
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.sdr_narrow_enable == false);   // missing key = behavior as flown
+    CHECK(cfg.sdr_narrow_bw == doctest::Approx(20000.0));
+    CHECK(cfg.sdr_narrow_search == doctest::Approx(100000.0));
+}

@@ -23,6 +23,9 @@
 #include <gnuradio/blocks/float_to_complex.h>
 #include <gnuradio/blocks/complex_to_interleaved_short.h>
 #include <gnuradio/blocks/file_sink.h>
+#include <gnuradio/blocks/file_source.h>
+#include <gnuradio/blocks/interleaved_short_to_complex.h>
+#include <gnuradio/blocks/rotator_cc.h>
 #include <gnuradio/blocks/wavfile_sink.h>
 #include <gnuradio/iio/device_source.h>
 
@@ -36,6 +39,57 @@
 #include "sdr.h"
 
 using namespace pretty;
+
+// #111: regenerate the WAV from the just-written sc16 with the narrowing
+// stage: peak search around DC, shift the found peak to DC, band-limit to
+// +/-sdr_narrow_bw/2 and decimate before the unchanged demod chain (the same
+// shared blocks the streaming flowgraph uses, #112). The streaming flowgraph
+// is untouched; this replaces capture.wav before normalization. Returns false
+// (keeping the wide audio) on any failure.
+static bool narrow_rewrite_wav(const PipelineConfig& cfg,
+                               const std::string& iq_file,
+                               const std::string& wav_file,
+                               unsigned long effective_rate) {
+    try {
+        ChainParams np = compute_chain_params(cfg, cfg.sdr_narrow_bw);
+        if (!np.valid || np.narrow_decim == 0) {
+            log_warning() << "Narrowing: invalid parameters, keeping wide audio\n";
+            return false;
+        }
+
+        // The AD9361 DC spike sits at 0 Hz, where the uplink is also expected
+        // operationally; exclude a small guard so the spike cannot win.
+        const double DC_GUARD_HZ = 2000.0;
+        double f_peak = find_peak_offset(iq_file, (double)effective_rate, 0.0,
+                                         cfg.sdr_narrow_search, DC_GUARD_HZ);
+        log_info() << "Narrowing: peak at " << f_peak / 1e3
+                   << " kHz from center; regenerating audio (+/-"
+                   << cfg.sdr_narrow_bw / 2e3 << " kHz, "
+                   << np.disc_rate << " Hz at the discriminator)\n";
+
+        auto tb = gr::make_top_block("narrow_rewrite");
+        auto src = gr::blocks::file_source::make(sizeof(short), iq_file.c_str(), false);
+        auto s2c = gr::blocks::interleaved_short_to_complex::make();
+        auto rot = gr::blocks::rotator_cc::make(
+            -2.0 * M_PI * f_peak / (double)effective_rate);
+        AudioChain chain = make_audio_chain(np, cfg);
+        auto wav_sink = gr::blocks::wavfile_sink::make(
+            wav_file.c_str(), 1, cfg.sdr_audio_rate,
+            gr::blocks::FORMAT_WAV, gr::blocks::FORMAT_PCM_16);
+
+        tb->connect(src, 0, s2c, 0);
+        tb->connect(s2c, 0, rot, 0);
+        tb->connect(rot, 0, chain.narrow_lpf, 0);
+        connect_audio_chain_from_baseband(tb, chain, wav_sink);
+        tb->run();
+        tb.reset();  // flush and close the WAV
+        return true;
+    } catch (const std::exception& e) {
+        log_warning() << "Narrowing failed (" << e.what()
+                      << "), keeping wide audio\n";
+        return false;
+    }
+}
 
 bool run_capture(const PipelineConfig& cfg,
                      const std::string& output_dir,
@@ -257,6 +311,13 @@ bool run_capture(const PipelineConfig& cfg,
     }
 
     bool early_stop = timed_out || interrupted;
+
+    // #111: config-gated narrowing, entirely post-capture. Runs on whatever
+    // the sc16 holds (including partial captures); sdr_narrow_enable=false or
+    // a missing key keeps the chain exactly as flown.
+    if (cfg.sdr_narrow_enable) {
+        narrow_rewrite_wav(cfg, iq_file, wav_file, params.effective_rate);
+    }
 
     // I/Q artifact generation (diagnostics, metrics, spectrogram, constellation, PSD)
     auto generate_artifacts = [

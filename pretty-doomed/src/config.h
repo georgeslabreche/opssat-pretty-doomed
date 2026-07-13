@@ -74,6 +74,15 @@ struct PipelineConfig {
     // SDR: init strategy
     bool sdr_init_per_capture = false;  // true = re-init AD9361 each capture (robust mode)
 
+    // SDR: narrowing stage before the FM discriminator (#111). Regenerates
+    // capture.wav from the sc16 after capture: peak search within
+    // +/-sdr_narrow_search of DC, shift the found peak to DC, low-pass to
+    // +/-sdr_narrow_bw/2 and decimate before the unchanged demod chain.
+    // Disabled by default: a missing key keeps the chain exactly as flown.
+    bool sdr_narrow_enable = false;
+    double sdr_narrow_bw = 20000.0;      // total width in Hz (validated in #107)
+    double sdr_narrow_search = 100000.0; // peak-search half-width in Hz
+
     // SDR: hardware FIR decimation (AD9361 programmable FIR via libad9361)
     bool sdr_hw_fir_enable = false;
     long sdr_hw_fir_rate = 0;         // Post-FIR baseband rate in Hz (e.g. 600000)
