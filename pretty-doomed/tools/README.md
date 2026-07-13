@@ -4,16 +4,16 @@ Ground-side tooling for the pretty-doomed app. This is **not flight software**: 
 
 ## Contents
 
-- **`preview_onboard.cpp`** - offline preview of the on-board audio pipeline. Feeds a downlinked raw sc16 I/Q file through the same GNU Radio DSP chain the flight app runs in `capture.cpp` (channel low-pass + decimation, quadrature FM demod, resample, voice band-pass, RMS normalize), so you can hear what the on-board pipeline would have produced from a pass that was instead downlinked as raw I/Q. Built with `make preview-onboard`.
+- **`preview_onboard.cpp`** - offline preview of the on-board audio pipeline. Feeds a downlinked raw sc16 I/Q file through the same GNU Radio DSP chain the flight app runs in `capture.cpp` (channel low-pass + decimation, quadrature FM demod, resample, voice band-pass, RMS normalize), so you can hear what the on-board pipeline would have produced from a pass that was instead downlinked as raw I/Q. An optional `narrow_bw_hz` inserts the issue #107 narrowing stage (peak find, shift to DC, low-pass) before the discriminator; `0` (default) keeps the flight chain exactly as flown. Built with `make preview-onboard`.
 
   ```
-  preview_onboard <in.sc16> <out.wav> [config.cfg] [rec_center_hz] [rec_rate_hz]
+  preview_onboard <in.sc16> <out.wav> [config.cfg] [rec_center_hz] [rec_rate_hz] [narrow_bw_hz]
   ```
 
 - **`preview_onboard_e2e.sh`** - end-to-end wrapper: runs `preview_onboard` to get the audio, then the real flight app in single-file mode (`pretty-doomed -i`) so the audio goes through the genuine speech-to-text and keyword matcher.
 
   ```
-  tools/preview_onboard_e2e.sh <in.sc16> <out_dir> [rec_center_hz] [rec_rate_hz]
+  tools/preview_onboard_e2e.sh <in.sc16> <out_dir> [rec_center_hz] [rec_rate_hz] [narrow_bw_hz]
   ```
 
 ## Build and run

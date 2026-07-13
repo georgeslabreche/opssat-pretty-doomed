@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<metadata xmlns="http://www.ion.org/standards/sdrwg/schema/metadata.xsd">
+  <system id="PRETTY">
+    <freqbase format="Hz">2500000</freqbase>
+  </system>
+  <band id="band">
+    <centerfreq format="Hz">1295499998</centerfreq>
+    <translatedfreq format="kHz">0.0000000000000000e+00</translatedfreq>
+  </band>
+  <file>
+    <owner>exp4023</owner>
+    <url>sdr_20260703_192511_1295500000_2500000_1.cs16</url>
+    <timestamp>2026-07-03T19:25:20Z</timestamp>
+    <lane id="lane"/>
+  </file>
+  <!--
+rf_bandwidth = 2300000
+dev 'ad9361-phy', channel 'voltage0' (input), attr 'gain_control_mode', value 'manual'
+dev 'ad9361-phy', channel 'voltage1' (input), attr 'gain_control_mode', value 'manual'
+dev 'ad9361-phy', channel 'voltage0' (input), attr 'hardwaregain', value '65.000000 dB'
+dev 'ad9361-phy', channel 'voltage1' (input), attr 'hardwaregain', value '65.000000 dB'
+dev 'ad9361-phy', channel 'voltage0' (input), attr 'rssi', value '99.50 dB'
+dev 'ad9361-phy', channel 'voltage1' (input), attr 'rssi', value '99.25 dB'
+    -->
+  <lane id="lane">
+    <bandsrc idband="band" idsrc="none"/>
+    <system id="PRETTY"/>
+    <block>
+      <cycles>0</cycles>
+      <chunk>
+        <sizeword>2</sizeword>
+        <countwords>2</countwords>
+        <endian>Little</endian>
+        <padding>None</padding>
+        <wordshift>Left</wordshift>
+        <lump>
+          <stream id="ant0">
+            <ratefactor>1</ratefactor>
+            <quantization>16</quantization>
+            <packedbits>32</packedbits>
+            <alignment>Right</alignment>
+            <shift>Left</shift>
+            <format>IQ</format>
+            <encoding>TC</encoding>
+            <band id="band"/>
+          </stream>
+        </lump>
+      </chunk>
+    </block>
+  </lane>
+</metadata>
