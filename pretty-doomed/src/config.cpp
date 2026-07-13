@@ -79,6 +79,10 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "process_mode") cfg.process_mode = value;
     // SDR: init strategy
     else if (key == "sdr_init_per_capture") cfg.sdr_init_per_capture = (value == "true" || value == "1");
+    // SDR: narrowing stage (#111)
+    else if (key == "sdr_narrow_enable") cfg.sdr_narrow_enable = (value == "true" || value == "1");
+    else if (key == "sdr_narrow_bw") cfg.sdr_narrow_bw = std::stod(value);
+    else if (key == "sdr_narrow_search") cfg.sdr_narrow_search = std::stod(value);
     // SDR: hardware FIR
     else if (key == "sdr_hw_fir_enable") cfg.sdr_hw_fir_enable = (value == "true" || value == "1");
     else if (key == "sdr_hw_fir_rate") cfg.sdr_hw_fir_rate = std::stol(value);

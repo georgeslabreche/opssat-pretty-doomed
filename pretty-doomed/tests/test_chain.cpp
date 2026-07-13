@@ -142,3 +142,27 @@ TEST_CASE("find_peak_offset returns the expected offset for a missing file") {
     CHECK(find_peak_offset("/nonexistent/file.sc16", 2500000.0, 123.0, 100e3)
           == doctest::Approx(123.0));
 }
+
+TEST_CASE("find_peak_offset DC guard excludes a spike at DC (#111)") {
+    // Tone at +1 kHz stands in for the AD9361 DC spike region; with a 2 kHz
+    // guard it must not win, so the expected offset comes back.
+    const double fs = 200000.0;
+    std::string path = write_tone_sc16(fs, 1000.0, 8192 * 5);
+    double guarded = find_peak_offset(path, fs, 0.0, 100e3, 2000.0);
+    CHECK(std::abs(guarded) <= 100e3);
+    CHECK(std::abs(guarded - 1000.0) > fs / 8192.0);   // the tone was excluded
+    // Without the guard the same tone is found.
+    double unguarded = find_peak_offset(path, fs, 0.0, 100e3);
+    CHECK(std::abs(unguarded - 1000.0) <= fs / 8192.0);
+    std::remove(path.c_str());
+}
+
+TEST_CASE("find_peak_offset finds an off-DC uplink despite the guard (#111)") {
+    // The zenith capture measured the uplink about -8 kHz from nominal; a
+    // 2 kHz DC guard must not hide it.
+    const double fs = 200000.0;
+    std::string path = write_tone_sc16(fs, -8400.0, 8192 * 5);
+    double found = find_peak_offset(path, fs, 0.0, 100e3, 2000.0);
+    CHECK(std::abs(found - (-8400.0)) <= fs / 8192.0);
+    std::remove(path.c_str());
+}
