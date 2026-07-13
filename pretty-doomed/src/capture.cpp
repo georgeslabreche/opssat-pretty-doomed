@@ -24,10 +24,6 @@
 #include <gnuradio/blocks/complex_to_interleaved_short.h>
 #include <gnuradio/blocks/file_sink.h>
 #include <gnuradio/blocks/wavfile_sink.h>
-#include <gnuradio/analog/quadrature_demod_cf.h>
-#include <gnuradio/filter/rational_resampler.h>
-#include <gnuradio/filter/fir_filter_blk.h>
-#include <gnuradio/filter/firdes.h>
 #include <gnuradio/iio/device_source.h>
 
 #include "pretty_log.h"
@@ -36,6 +32,7 @@
 #include "pretty_spectrogram.h"
 #include "pretty_constellation.h"
 
+#include "chain.h"
 #include "sdr.h"
 
 using namespace pretty;
@@ -45,11 +42,7 @@ bool run_capture(const PipelineConfig& cfg,
                      CaptureResult& result) {
     result.success = false;
 
-    // Derived rates
-    if (cfg.sdr_decimation <= 0 || cfg.sdr_rate <= 0) {
-        log_error() << "Invalid SDR rate or decimation\n";
-        return false;
-    }
+    // Validate hardware FIR parameters before deriving rates from them
     if (cfg.sdr_hw_fir_enable) {
         if (cfg.sdr_hw_fir_rate <= 0 || cfg.sdr_hw_fir_fpass <= 0 ||
             cfg.sdr_hw_fir_fstop <= 0 || cfg.sdr_hw_fir_wnom_tx <= 0 ||
@@ -59,12 +52,13 @@ bool run_capture(const PipelineConfig& cfg,
         }
     }
 
-    // The rate entering GNU Radio: sdr_rate (no hw FIR) or sdr_hw_fir_rate (hw FIR)
-    long gnuradio_input_rate = cfg.sdr_hw_fir_enable ? cfg.sdr_hw_fir_rate : cfg.sdr_rate;
-
-    unsigned long effective_rate = gnuradio_input_rate / cfg.sdr_decimation;
-    if (effective_rate == 0) {
-        log_error() << "Effective rate is 0\n";
+    // Shared audio-chain parameters (#112): rates, resampler ratios, and
+    // filter taps, derived exactly as this file historically derived them.
+    // The ground preview tool (tools/preview_onboard) uses the same module, so
+    // preview and flight execute the same chain by construction. Narrowing
+    // stays disabled here until the config-gated fold-in (#111).
+    ChainParams params = compute_chain_params(cfg);
+    if (!params.valid) {
         return false;
     }
 
@@ -73,7 +67,7 @@ bool run_capture(const PipelineConfig& cfg,
     std::string iq_file = output_dir + "/capture.sc16";
 
     // Sample counts
-    long long iq_samples = (long long)(cfg.sdr_duration * (double)effective_rate);
+    long long iq_samples = (long long)(cfg.sdr_duration * (double)params.effective_rate);
 
     // Cap to downlink budget
     const long long max_iq_bytes = (long long)cfg.sdr_max_iq_mb * 1024LL * 1024;
@@ -85,11 +79,8 @@ bool run_capture(const PipelineConfig& cfg,
     }
 
     // Snap to resampler decimation multiple
-    unsigned long rx_gcd = std::gcd((unsigned long)effective_rate, (unsigned long)cfg.sdr_audio_rate);
-    unsigned long interpolation = cfg.sdr_audio_rate / rx_gcd;
-    unsigned long decimation = effective_rate / rx_gcd;
     {
-        long long rem = iq_samples % (long long)decimation;
+        long long rem = iq_samples % (long long)params.decimation;
         if (rem != 0) iq_samples -= rem;
     }
     if (iq_samples <= 0) {
@@ -97,39 +88,25 @@ bool run_capture(const PipelineConfig& cfg,
         return false;
     }
 
-    long long audio_samples = (iq_samples / (long long)decimation) * (long long)interpolation;
-    double duration_sec = (double)iq_samples / effective_rate;
+    long long audio_samples = (iq_samples / (long long)params.decimation) * (long long)params.interpolation;
+    double duration_sec = (double)iq_samples / params.effective_rate;
 
     log_info() << "Configuring SDR...\n";
-    log_info() << "SDR Capture: " << duration_sec << "s at " << effective_rate << " Hz effective\n";
+    log_info() << "SDR Capture: " << duration_sec << "s at " << params.effective_rate << " Hz effective\n";
     log_info() << "  Frequency:   " << cfg.sdr_frequency / 1e6 << " MHz\n";
     if (cfg.sdr_hw_fir_enable) {
         log_info() << "  HW FIR:      " << cfg.sdr_rate << " Hz ADC -> "
                    << cfg.sdr_hw_fir_rate << " Hz post-FIR\n";
-        log_info() << "  SDR rate:    " << gnuradio_input_rate << " Hz (post-FIR), decimation "
+        log_info() << "  SDR rate:    " << params.gnuradio_input_rate << " Hz (post-FIR), decimation "
                    << cfg.sdr_decimation << "x\n";
     } else {
         log_info() << "  SDR rate:    " << cfg.sdr_rate << " Hz, decimation "
                    << cfg.sdr_decimation << "x\n";
     }
     log_info() << "  I/Q samples: " << iq_samples << ", audio samples: " << audio_samples << "\n";
-    log_info() << "  Resample:    " << effective_rate << " -> " << cfg.sdr_audio_rate
-               << " (interp=" << interpolation << ", decim=" << decimation << ")\n";
-
-    // Design filters
-    if (cfg.sdr_lpf_cutoff <= 0 || cfg.sdr_lpf_cutoff >= gnuradio_input_rate / 2.0) {
-        log_error() << "LPF cutoff out of range\n";
-        return false;
-    }
-    std::vector<float> lpf_taps = gr::filter::firdes::low_pass(
-        1.0, gnuradio_input_rate, cfg.sdr_lpf_cutoff, cfg.sdr_lpf_transition,
-        gr::fft::window::WIN_HAMMING
-    );
-    std::vector<float> bp_taps = gr::filter::firdes::band_pass(
-        1.0, cfg.sdr_audio_rate, cfg.sdr_bandpass_low, cfg.sdr_bandpass_high, 200.0,
-        gr::fft::window::WIN_HAMMING
-    );
-    log_info() << "  LPF taps: " << lpf_taps.size() << ", bandpass taps: " << bp_taps.size() << "\n";
+    log_info() << "  Resample:    " << params.effective_rate << " -> " << cfg.sdr_audio_rate
+               << " (interp=" << params.interpolation << ", decim=" << params.decimation << ")\n";
+    log_info() << "  LPF taps: " << params.lpf_taps.size() << ", bandpass taps: " << params.bp_taps.size() << "\n";
 
     // Configure AD9361 if running in per-capture init mode.
     // Default (sdr_init_per_capture=false): init is done once before the capture
@@ -164,15 +141,13 @@ bool run_capture(const PipelineConfig& cfg,
         auto q_s2f   = gr::blocks::short_to_float::make(1, 2048.0f);
         auto to_fc32 = gr::blocks::float_to_complex::make(1);
 
-        auto lpf       = gr::filter::fir_filter_ccf::make(cfg.sdr_decimation, lpf_taps);
+        // Shared audio chain (#112): channel LPF -> FM demod -> resampler ->
+        // voice band-pass, identical to the ground preview tool by construction.
+        AudioChain chain = make_audio_chain(params, cfg);
+
         auto to_short  = gr::blocks::complex_to_interleaved_short::make(false, IQ_SCALE);
         iq_head        = gr::blocks::head::make(sizeof(gr_complex), iq_samples);
         auto iq_sink   = gr::blocks::file_sink::make(sizeof(short), iq_file.c_str(), false);
-        auto fm_demod  = gr::analog::quadrature_demod_cf::make(
-            effective_rate / (2.0 * M_PI * cfg.sdr_fm_deviation)
-        );
-        auto resampler = gr::filter::rational_resampler_fff::make(interpolation, decimation);
-        auto bandpass  = gr::filter::fir_filter_fff::make(1, bp_taps);
         audio_head     = gr::blocks::head::make(sizeof(float), audio_samples);
         auto wav_sink  = gr::blocks::wavfile_sink::make(
             wav_file.c_str(), 1, cfg.sdr_audio_rate,
@@ -184,19 +159,15 @@ bool run_capture(const PipelineConfig& cfg,
         tb->connect(iio_src, 1, q_s2f, 0);
         tb->connect(i_s2f, 0, to_fc32, 0);
         tb->connect(q_s2f, 0, to_fc32, 1);
-        tb->connect(to_fc32, 0, lpf, 0);
+        tb->connect(to_fc32, 0, chain.lpf, 0);
 
-        // Branch 1: sc16 file
-        tb->connect(lpf, 0, iq_head, 0);
+        // Branch 1: sc16 file, tapped off the channel LPF
+        tb->connect(chain.lpf, 0, iq_head, 0);
         tb->connect(iq_head, 0, to_short, 0);
         tb->connect(to_short, 0, iq_sink, 0);
 
         // Branch 2: FM demod -> audio WAV
-        tb->connect(lpf, 0, fm_demod, 0);
-        tb->connect(fm_demod, 0, resampler, 0);
-        tb->connect(resampler, 0, bandpass, 0);
-        tb->connect(bandpass, 0, audio_head, 0);
-        tb->connect(audio_head, 0, wav_sink, 0);
+        connect_audio_chain(tb, chain, audio_head, wav_sink);
 
         log_info() << "Starting capture...\n";
         tb->start();
@@ -289,7 +260,7 @@ bool run_capture(const PipelineConfig& cfg,
 
     // I/Q artifact generation (diagnostics, metrics, spectrogram, constellation, PSD)
     auto generate_artifacts = [
-        iq_file, effective_rate,
+        iq_file, effective_rate = params.effective_rate,
         enable_spec = cfg.sdr_enable_spectrogram,
         enable_const = cfg.sdr_enable_constellation,
         enable_psd = cfg.sdr_enable_psd
