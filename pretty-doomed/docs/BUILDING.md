@@ -62,6 +62,18 @@ make package-demos
 make package-tar
 ```
 
+### Patch Package (skip the model)
+
+When the target already has the models deployed (they are unchanged since v1), build a patch package that reinstalls everything except `models/` and extracts over the existing installation:
+
+```bash
+make package-demos
+make package-patch PATCH_FROM=v6 PACKAGE_VERSION=v7 \
+    PATCH_FILES="pretty-doomed opssat-doom run VERSION config.cfg variants.cfg ascii.txt libs demos assets"
+```
+
+This produces `package/exp4023-pretty-DOOMed-v6-to-v7.tar.gz`. `package-prepare` must have run first.
+
 ## SEPP Deployment
 
 The SEPP build creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz` containing:

@@ -28,3 +28,7 @@ TODO.md
 
 # Artifacts from development
 artifacts
+
+# Generated replay inputs (see docs/TESTING.md)
+input/*.cs16
+input/*.sc16

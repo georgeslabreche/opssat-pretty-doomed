@@ -1,0 +1,56 @@
+[2026-07-14 02:23:08.381][c1/t36] === PRETTY DOOMed v7 ===
+[2026-07-14 02:23:08.383][c1/t36] Loading config: /app/toGround/em-deploy/toGround/run-00001/config.cfg
+[2026-07-14 02:23:08.391][c1/t36] SC16 replay mode: /app/toGround/em-deploy/input/replay.cs16, processing=background
+[2026-07-14 02:23:08.391][c1/t36] Loading STT model (concurrent with capture)...
+[2026-07-14 02:23:08.398][c1/t58] Loading STT model...
+[2026-07-14 02:23:08.410][c1/t58]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-07-14 02:23:08.414][c1/t58]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-07-14 02:23:08.415][c1/t58]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-07-14 02:23:08.415][c1/t58]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-07-14 02:23:08.426][c1/t36] === Capture 1/1 ===
+[2026-07-14 02:23:08.473][c1/t36] SC16 replay: /app/toGround/em-deploy/input/replay.cs16 (2s at 200000 Hz effective)
+[2026-07-14 02:23:08.848][c1/t36] Narrowing: scanning /app/toGround/em-deploy/toGround/run-00001/capture-001/capture.sc16 (+/-100 kHz)...
+[2026-07-14 02:23:09.000][c1/t36] Narrowing: peak at -8.27637 kHz from center; regenerating audio (+/-10 kHz, 25000 Hz at the discriminator)
+[2026-07-14 02:23:09.195][c1/t36] Narrowing: audio regenerated: /app/toGround/em-deploy/toGround/run-00001/capture-001/capture.wav
+[2026-07-14 02:23:09.195][c1/t36] Normalizing audio...
+[2026-07-14 02:23:09.200][c1/t36] RMS normalize: rms=0.136517, scale=0.73251, target=-20 dBFS
+[2026-07-14 02:23:09.235][c1/t36] IQ diag:  400000 samples analyzed
+[2026-07-14 02:23:09.235][c1/t36] IQ RMS:   I=45.4868 (-45.1101 dBFS)  Q=45.1493 (-45.1748 dBFS)
+[2026-07-14 02:23:09.236][c1/t36] IQ zeros: I=0.80175%  Q=0.81475%
+[2026-07-14 02:23:09.238][c1/t36] IQ metrics: /app/toGround/em-deploy/toGround/run-00001/capture-001/capture-metrics.csv
+[2026-07-14 02:23:09.238][c1/t36] Spectrogram: /app/toGround/em-deploy/toGround/run-00001/capture-001/spectrogram.bmp
+[2026-07-14 02:23:09.369][c1/t36] Spectrogram: 1024x256 (768 KB), 2s, freq res 781.25 Hz
+[2026-07-14 02:23:09.371][c1/t36] Constellation: /app/toGround/em-deploy/toGround/run-00001/capture-001/constellation.bmp
+[2026-07-14 02:23:09.393][c1/t36] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-07-14 02:23:09.394][c1/t36] PSD: /app/toGround/em-deploy/toGround/run-00001/capture-001/capture-psd.csv
+[2026-07-14 02:23:09.532][c1/t36] PSD: 800x256, 1024 bins, freq res 195.312 Hz, 780 segments
+[2026-07-14 02:23:09.533][c1/t36] SC16 replay OK
+[2026-07-14 02:23:16.762][c0/t58] STT model loaded (8346 ms)
+[2026-07-14 02:23:16.764][c0/t221] Background STT of capture 1 started
+[2026-07-14 02:23:16.764][c0/t221] --- Processing: /app/toGround/em-deploy/toGround/run-00001/capture-001/capture.wav ---
+[2026-07-14 02:23:16.765][c0/t221] Reading audio: /app/toGround/em-deploy/toGround/run-00001/capture-001/capture.wav
+[2026-07-14 02:23:16.769][c1/t221]   16000 Hz, 31967 samples (1.99794s)
+[2026-07-14 02:23:16.770][c1/t221] Resampling to 16 kHz...
+[2026-07-14 02:23:16.770][c1/t221]   31967 samples, DSP time: 0.0s
+[2026-07-14 02:23:16.771][c1/t221] Transcribing (modified_beam_search)...
+[2026-07-14 02:23:20.930][c1/t221]   STT time: 4.1s
+[2026-07-14 02:23:20.930][c1/t221]   Transcription:  LIMA OLFAR FOR VIGILIUM
+[2026-07-14 02:23:20.933][c1/t221] Detecting command...
+[2026-07-14 02:23:20.935][c1/t221]   Wake word: 0 (exact=0, approx=0)
+[2026-07-14 02:23:20.935][c1/t221]   Call sign [LIMA]: 1
+[2026-07-14 02:23:20.941][c1/t221] Force-triggering (doom_force_trigger=true)
+[2026-07-14 02:23:20.941][c1/t221] Background STT of capture 1 complete (4.1s)
+[2026-07-14 02:23:20.943][c0/t294] Command detected! Launching DOOM...
+[2026-07-14 02:23:20.948][c0/t294] Running DOOM demo: gl-e1m2b (1/7)
+[2026-07-14 02:23:27.631][c0/t294] Completed demo: gl-e1m2b
+[2026-07-14 02:23:27.633][c0/t294] Generating postcard (scale=2)...
+[2026-07-14 02:23:27.633][c0/t294]   Frame: /app/toGround/em-deploy/toGround/run-00001/capture-001/gl-e1m2b/frames-000480-000540.gif
+[2026-07-14 02:23:27.633][c0/t294]   SC16:  /app/toGround/em-deploy/toGround/run-00001/capture-001/capture.sc16
+  GIF: 61 frames, picked frame 25
+  I/Q scatter: 133334 points from 400000 samples
+[2026-07-14 02:23:32.245][c0/t294] Postcard: /app/toGround/em-deploy/toGround/run-00001/capture-001/postcard.png (2520x1800), 4.61178s
+[2026-07-14 02:23:32.249][c0/t294] SC16 deleted: /app/toGround/em-deploy/toGround/run-00001/capture-001/capture.sc16
+[2026-07-14 02:23:32.249][c1/t36] Unloading STT model...
+[2026-07-14 02:23:32.303][c1/t36] STT model unloaded
+[2026-07-14 02:23:32.303][c1/t36] Total time: 23.9s
+[2026-07-14 02:23:32.303][c1/t36] === Done ===
