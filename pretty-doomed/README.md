@@ -39,8 +39,9 @@ Download models before running, see [`models/README.md`](models/README.md).
 
 | Option | Description | Required |
 |--------|-------------|----------|
-| `-i <file>` | Input WAV file (48 kHz mono) | Yes (unless `-s`) |
+| `-i <file>` | Input WAV file (48 kHz mono) | Yes (unless `-s`/`-r`) |
 | `-s` | SDR capture mode (capture RF audio from AD9361) | No |
+| `-r <file>` | Replay a `capture.sc16` through the capture pipeline (post-capture processing without SDR hardware) | No |
 | `-c <file>` | Pipeline config file | Yes |
 | `-f <file>` | Fuzzy match variants file | Yes |
 | `-o <dir>` | Output directory | Yes |
