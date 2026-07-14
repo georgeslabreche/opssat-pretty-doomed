@@ -11,7 +11,7 @@
 #include "pretty_log.h"
 
 #include "audio_io.h"
-#include "dsp.h"
+#include "pretty_resample.h"
 #include "matcher.h"
 #include "output.h"
 #include "executor.h"
@@ -68,22 +68,13 @@ PipelineStageResult process_wav_stt(const std::string& input_file,
     AudioStats audio_stats;
     compute_audio_stats(samples, audio_stats.rms_raw, audio_stats.peak_raw);
 
-    // DSP: lowpass -> bandpass -> resample
-    log_info() << "Filtering (GNU Radio)...\n";
+    // Resample straight to the model rate. The second-stage filtering that
+    // used to run here (low-pass + band-pass ahead of the STT) was removed
+    // (#108): capture audio is already band-passed at capture, and the second
+    // pass cost recognition margin on marginal audio.
     auto dsp_start = std::chrono::steady_clock::now();
-    auto filtered = apply_lowpass(samples, sample_rate,
-                                   cfg.dsp_lowpass_cutoff, cfg.dsp_lowpass_transition);
-    filtered = apply_bandpass(filtered, sample_rate,
-                               cfg.dsp_bandpass_low, cfg.dsp_bandpass_high,
-                               cfg.dsp_bandpass_transition);
-
-    compute_audio_stats(filtered, audio_stats.rms_filtered, audio_stats.peak_filtered);
-
-    std::string denoised_path = output_dir + "/processed.wav";
-    write_wav(denoised_path, filtered, sample_rate);
-
     log_info() << "Resampling to 16 kHz...\n";
-    auto resampled = resample(filtered, sample_rate, 16000);
+    auto resampled = resample(samples, sample_rate, 16000);
     auto dsp_end = std::chrono::steady_clock::now();
     log_info() << "  " << resampled.size() << " samples, DSP time: "
                << format_duration(dsp_end - dsp_start) << "\n";
@@ -302,6 +293,6 @@ bool process_wav(const std::string& input_file,
 
     auto proc_end = std::chrono::steady_clock::now();
     log_info() << "Pipeline time: " << format_duration(proc_end - proc_start)
-               << " (DSP + STT + detection)\n";
+               << " (resample + STT + detection)\n";
     return stage1.command_detected;
 }

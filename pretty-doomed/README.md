@@ -54,8 +54,8 @@ Download models before running, see [`models/README.md`](models/README.md).
 # Unit tests (pure C++17, no external deps)
 docker-compose run --rm pretty-doomed make test
 
-# DSP integration tests (requires GNU Radio)
-docker-compose run --rm pretty-doomed make test-dsp
+# Chain integration tests (requires GNU Radio)
+docker-compose run --rm pretty-doomed make test-chain
 ```
 
 See [docs/TESTING.md](docs/TESTING.md) for local, emulator, and EM testing instructions.

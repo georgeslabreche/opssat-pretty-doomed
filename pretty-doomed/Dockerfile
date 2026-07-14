@@ -1,7 +1,7 @@
 # PRETTY DOOMed build environment
 #
 # Unit tests:        make test      (pure C++17, no external deps)
-# Integration tests: make test-dsp  (requires GNU Radio)
+# Integration tests: make test-chain (requires GNU Radio)
 # Full build:        make           (requires GNU Radio + sherpa-onnx + libsndfile)
 
 # ============================================================

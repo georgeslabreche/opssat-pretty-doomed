@@ -85,7 +85,7 @@ docker-compose run --rm pretty-doomed \
 
 ## End to end, through speech recognition
 
-`preview_onboard` stops at the audio, on purpose: it is a small ground tool with no STT dependency. To take a clip all the way through the on-board experience (audio -> transcript -> wake word / call sign / command detection), chain it into the flight app's single-file mode, which runs the real `process_wav` (the same denoise + resample + sherpa-onnx STT + keyword matcher as flight):
+`preview_onboard` stops at the audio, on purpose: it is a small ground tool with no STT dependency. To take a clip all the way through the on-board experience (audio -> transcript -> wake word / call sign / command detection), chain it into the flight app's single-file mode, which runs the real `process_wav` (the same resample + sherpa-onnx STT + keyword matcher as flight):
 
 ```
 raw sc16 --preview_onboard--> onboard.wav --pretty-doomed -i--> transcription.txt + summary.txt
@@ -106,7 +106,7 @@ docker compose run --rm pretty-doomed bash -lc '
     toGround/e2e/205825 1295500000 2500000'
 ```
 
-The wrapper writes `onboard.wav`, `processed.wav`, `transcription.txt`, `scores.txt`, and `summary.txt` into the output directory and prints the transcript and detection summary. Overridable via env: `CONFIG`, `VARIANTS`, `DEMOS`, `DOOM`, `PREVIEW`, `APP`.
+The wrapper writes `onboard.wav`, `transcription.txt`, `scores.txt`, and `summary.txt` into the output directory and prints the transcript and detection summary. Overridable via env: `CONFIG`, `VARIANTS`, `DEMOS`, `DOOM`, `PREVIEW`, `APP`.
 
 ## Interpreting the output
 

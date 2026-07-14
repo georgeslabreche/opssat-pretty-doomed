@@ -3,14 +3,7 @@
 #include <sstream>
 
 TEST_CASE("load_config parses key=value pairs") {
-    std::istringstream input(
-        "# Signal Processing\n"
-        "dsp_lowpass_cutoff=4000\n"
-        "dsp_bandpass_low=300\n"
-        "dsp_bandpass_high=3400\n"
-        "dsp_lowpass_transition=600\n"
-        "dsp_bandpass_transition=150\n"
-        "\n"
+    std::istringstream input(        "\n"
         "# Speech-to-Text\n"
         "stt_model_encoder=models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx\n"
         "stt_model_decoder=models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx\n"
@@ -34,11 +27,6 @@ TEST_CASE("load_config parses key=value pairs") {
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
 
-    CHECK(cfg.dsp_lowpass_cutoff == doctest::Approx(4000.0f));
-    CHECK(cfg.dsp_bandpass_low == doctest::Approx(300.0f));
-    CHECK(cfg.dsp_bandpass_high == doctest::Approx(3400.0f));
-    CHECK(cfg.dsp_lowpass_transition == doctest::Approx(600.0f));
-    CHECK(cfg.dsp_bandpass_transition == doctest::Approx(150.0f));
     CHECK(cfg.stt_model_encoder == "models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx");
     CHECK(cfg.stt_model_decoder == "models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx");
     CHECK(cfg.stt_model_joiner == "models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx");
@@ -79,7 +67,6 @@ TEST_CASE("load_config preserves defaults for missing keys") {
     REQUIRE(load_config(input, cfg));
     CHECK(cfg.detect_wake_word == "HELLO");
     // Defaults preserved
-    CHECK(cfg.dsp_lowpass_cutoff == doctest::Approx(3400.0f));
     CHECK(cfg.stt_decoding_method == "modified_beam_search");
     CHECK(cfg.detect_fuzzy_max_distance == 2);
     CHECK(cfg.doom_frames.empty());
