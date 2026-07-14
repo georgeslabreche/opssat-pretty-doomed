@@ -106,6 +106,8 @@ static bool narrow_rewrite_wav(const PipelineConfig& cfg,
         // The AD9361 DC spike sits at 0 Hz, where the uplink is also expected
         // operationally; exclude a small guard so the spike cannot win.
         const double DC_GUARD_HZ = 2000.0;
+        log_info() << "Narrowing: scanning " << iq_file << " (+/-"
+                   << cfg.sdr_narrow_search / 1e3 << " kHz)...\n";
         double f_peak = find_peak_offset(iq_file, (double)effective_rate, 0.0,
                                          cfg.sdr_narrow_search, DC_GUARD_HZ);
         log_info() << "Narrowing: peak at " << f_peak / 1e3
@@ -129,6 +131,7 @@ static bool narrow_rewrite_wav(const PipelineConfig& cfg,
         connect_audio_chain_from_baseband(tb, chain, wav_sink);
         tb->run();
         tb.reset();  // flush and close the WAV
+        log_info() << "Narrowing: audio regenerated: " << wav_file << "\n";
         return true;
     } catch (const std::exception& e) {
         log_warning() << "Narrowing failed (" << e.what()
