@@ -97,7 +97,19 @@ This executes all runs defined in the `run` script with resource monitoring and 
 - **No SIGFPE.** The pretty-doomed binary runs natively on x86_64, avoiding the intermittent SIGFPE that affects ARM32 binaries under QEMU (see SEPP emulator section below).
 - **No hardware FIR.** The AD9361 hardware FIR (`sdr_hw_fir_enable`) cannot be used with the emulator. The FIR configuration via `libad9361-iio` requires TX channels which the IIO emulator does not expose. Set `sdr_hw_fir_enable=false` in `config.emu.cfg`.
 
-### Replaying flight captures
+### Replaying a capture.sc16 directly (no emulator)
+
+The app can replay an sc16 file through the capture pipeline itself, with no SDR hardware and no IIO emulator (issue #116). The input is treated as a `capture.sc16`: post-channel-LPF complex baseband at the effective rate (200 kHz for the flight config), interleaved little-endian int16. The post-capture processing is identical to a live capture: wide demod to `capture.wav`, the config-gated narrowing, RMS normalization, I/Q artifacts, and the normal STT and detection downstream.
+
+```bash
+docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
+    -r input/capture.sc16 -c config.cfg -f variants.cfg \
+    -o toGround/replay-test -d demos -e doom-build/local/opssat-doom
+```
+
+Inputs can come from any capture that ran with `sdr_keep_sc16=true` (flight, EM, or the SDR emulator below), which makes this the simplest way to exercise the full pipeline on the EM against real flight signal: capture once anywhere, then replay the sc16 on the ARM32 binary.
+
+### Replaying flight captures through the emulator
 
 The emulator can replay real flight recordings instead of the default noise sample, turning the test into an end-to-end check against actual received RF (issue #114). Build a replay file from the raw Run 5 recordings with [`tools/src/make_emu_replay.py`](../../tools/README.md) (run from the repo's `tools/src/`):
 

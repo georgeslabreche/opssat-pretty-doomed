@@ -40,6 +40,52 @@
 
 using namespace pretty;
 
+// I/Q artifact generation (diagnostics, metrics, spectrogram, constellation,
+// PSD), shared by the live capture and the sc16 replay input (#116).
+static void generate_iq_artifacts(const PipelineConfig& cfg,
+                                  const std::string& iq_file,
+                                  unsigned long effective_rate) {
+        Sc16Stats iq_stats = analyze_sc16(iq_file);
+        if (iq_stats.valid) {
+            double rms_i_db = (iq_stats.rms_i > 0) ? 20.0 * std::log10(iq_stats.rms_i / IQ_SCALE) : -999.0;
+            double rms_q_db = (iq_stats.rms_q > 0) ? 20.0 * std::log10(iq_stats.rms_q / IQ_SCALE) : -999.0;
+            log_info() << "IQ diag:  " << iq_stats.samples << " samples analyzed\n";
+            log_info() << "IQ RMS:   I=" << iq_stats.rms_i << " (" << rms_i_db << " dBFS)"
+                       << "  Q=" << iq_stats.rms_q << " (" << rms_q_db << " dBFS)\n";
+            double zero_pct_i = 100.0 * iq_stats.zero_i / iq_stats.samples;
+            double zero_pct_q = 100.0 * iq_stats.zero_q / iq_stats.samples;
+            log_info() << "IQ zeros: I=" << zero_pct_i << "%  Q=" << zero_pct_q << "%\n";
+
+            std::string metrics_file = make_metrics_filename(iq_file);
+            if (write_sc16_metrics(metrics_file, iq_stats, IQ_SCALE)) {
+                log_info() << "IQ metrics: " << metrics_file << "\n";
+            }
+        }
+
+        if (cfg.sdr_enable_spectrogram) {
+            std::string spec_file = make_spectrogram_filename(iq_file);
+            log_info() << "Spectrogram: " << spec_file << "\n";
+            if (!generate_spectrogram(iq_file, spec_file, (long long)effective_rate)) {
+                log_warning() << "Spectrogram generation failed\n";
+            }
+        }
+        if (cfg.sdr_enable_constellation) {
+            std::string const_file = make_constellation_filename(iq_file);
+            log_info() << "Constellation: " << const_file << "\n";
+            if (!generate_constellation(iq_file, const_file)) {
+                log_warning() << "Constellation generation failed\n";
+            }
+        }
+        if (cfg.sdr_enable_psd) {
+            std::string psd_csv = make_psd_csv_filename(iq_file);
+            std::string psd_bmp = make_psd_bmp_filename(iq_file);
+            log_info() << "PSD: " << psd_csv << "\n";
+            if (!generate_psd(iq_file, psd_csv, psd_bmp, (long long)effective_rate)) {
+                log_warning() << "PSD generation failed\n";
+            }
+        }
+}
+
 // #111: regenerate the WAV from the just-written sc16 with the narrowing
 // stage: peak search around DC, shift the found peak to DC, band-limit to
 // +/-sdr_narrow_bw/2 and decimate before the unchanged demod chain (the same
@@ -319,52 +365,9 @@ bool run_capture(const PipelineConfig& cfg,
         narrow_rewrite_wav(cfg, iq_file, wav_file, params.effective_rate);
     }
 
-    // I/Q artifact generation (diagnostics, metrics, spectrogram, constellation, PSD)
-    auto generate_artifacts = [
-        iq_file, effective_rate = params.effective_rate,
-        enable_spec = cfg.sdr_enable_spectrogram,
-        enable_const = cfg.sdr_enable_constellation,
-        enable_psd = cfg.sdr_enable_psd
-    ]() {
-        Sc16Stats iq_stats = analyze_sc16(iq_file);
-        if (iq_stats.valid) {
-            double rms_i_db = (iq_stats.rms_i > 0) ? 20.0 * std::log10(iq_stats.rms_i / IQ_SCALE) : -999.0;
-            double rms_q_db = (iq_stats.rms_q > 0) ? 20.0 * std::log10(iq_stats.rms_q / IQ_SCALE) : -999.0;
-            log_info() << "IQ diag:  " << iq_stats.samples << " samples analyzed\n";
-            log_info() << "IQ RMS:   I=" << iq_stats.rms_i << " (" << rms_i_db << " dBFS)"
-                       << "  Q=" << iq_stats.rms_q << " (" << rms_q_db << " dBFS)\n";
-            double zero_pct_i = 100.0 * iq_stats.zero_i / iq_stats.samples;
-            double zero_pct_q = 100.0 * iq_stats.zero_q / iq_stats.samples;
-            log_info() << "IQ zeros: I=" << zero_pct_i << "%  Q=" << zero_pct_q << "%\n";
-
-            std::string metrics_file = make_metrics_filename(iq_file);
-            if (write_sc16_metrics(metrics_file, iq_stats, IQ_SCALE)) {
-                log_info() << "IQ metrics: " << metrics_file << "\n";
-            }
-        }
-
-        if (enable_spec) {
-            std::string spec_file = make_spectrogram_filename(iq_file);
-            log_info() << "Spectrogram: " << spec_file << "\n";
-            if (!generate_spectrogram(iq_file, spec_file, (long long)effective_rate)) {
-                log_warning() << "Spectrogram generation failed\n";
-            }
-        }
-        if (enable_const) {
-            std::string const_file = make_constellation_filename(iq_file);
-            log_info() << "Constellation: " << const_file << "\n";
-            if (!generate_constellation(iq_file, const_file)) {
-                log_warning() << "Constellation generation failed\n";
-            }
-        }
-        if (enable_psd) {
-            std::string psd_csv = make_psd_csv_filename(iq_file);
-            std::string psd_bmp = make_psd_bmp_filename(iq_file);
-            log_info() << "PSD: " << psd_csv << "\n";
-            if (!generate_psd(iq_file, psd_csv, psd_bmp, (long long)effective_rate)) {
-                log_warning() << "PSD generation failed\n";
-            }
-        }
+    // I/Q artifact generation (shared with the sc16 replay input, #116)
+    auto generate_artifacts = [&cfg, iq_file, effective_rate = params.effective_rate]() {
+        generate_iq_artifacts(cfg, iq_file, effective_rate);
     };
 
     // Normalize audio
@@ -390,5 +393,85 @@ bool run_capture(const PipelineConfig& cfg,
     result.success = !early_stop;
 
     log_info() << "SDR capture " << (result.success ? "OK" : "partial") << "\n";
+    return true;
+}
+
+bool run_capture_from_file(const PipelineConfig& cfg,
+                           const std::string& sc16_input,
+                           const std::string& output_dir,
+                           CaptureResult& result) {
+    result.success = false;
+
+    ChainParams params = compute_chain_params(cfg);
+    if (!params.valid) {
+        return false;
+    }
+
+    // Copy the input into place as capture.sc16 so downstream semantics are
+    // identical to a live capture (artifacts derive from it, and
+    // sdr_keep_sc16=false may delete it after processing).
+    std::string wav_file = output_dir + "/capture.wav";
+    std::string iq_file = output_dir + "/capture.sc16";
+    {
+        std::ifstream src(sc16_input, std::ios::binary);
+        if (!src) {
+            log_error() << "sc16 input not readable: " << sc16_input << "\n";
+            return false;
+        }
+        std::ofstream dst(iq_file, std::ios::binary);
+        dst << src.rdbuf();
+        if (!dst) {
+            log_error() << "failed to write " << iq_file << "\n";
+            return false;
+        }
+    }
+
+    long long n_bytes = 0;
+    {
+        std::ifstream f(iq_file, std::ios::binary | std::ios::ate);
+        n_bytes = (long long)f.tellg();
+    }
+    double duration_sec = (double)(n_bytes / 4) / params.effective_rate;
+    log_info() << "SC16 replay: " << sc16_input << " (" << duration_sec
+               << "s at " << params.effective_rate << " Hz effective)\n";
+
+    try {
+        // Wide demod of the baseband, matching the live audio branch: the
+        // sc16 is post-channel-LPF, so the chain enters at the discriminator.
+        auto tb = gr::make_top_block("sc16_replay");
+        auto src = gr::blocks::file_source::make(sizeof(short), iq_file.c_str(), false);
+        auto s2c = gr::blocks::interleaved_short_to_complex::make();
+        AudioChain chain = make_audio_chain(params, cfg);
+        auto wav_sink = gr::blocks::wavfile_sink::make(
+            wav_file.c_str(), 1, cfg.sdr_audio_rate,
+            gr::blocks::FORMAT_WAV, gr::blocks::FORMAT_PCM_16);
+        tb->connect(src, 0, s2c, 0);
+        tb->connect(s2c, 0, chain.fm_demod, 0);
+        tb->connect(chain.fm_demod, 0, chain.resampler, 0);
+        tb->connect(chain.resampler, 0, chain.bandpass, 0);
+        tb->connect(chain.bandpass, 0, wav_sink, 0);
+        tb->run();
+        tb.reset();
+    } catch (const std::exception& e) {
+        log_error() << "sc16 replay flowgraph failed: " << e.what() << "\n";
+        return false;
+    }
+
+    // Identical post-capture stages as a live capture.
+    if (cfg.sdr_narrow_enable) {
+        narrow_rewrite_wav(cfg, iq_file, wav_file, params.effective_rate);
+    }
+
+    log_info() << "Normalizing audio...\n";
+    if (!rms_normalize(wav_file, -20.0)) {
+        log_warning() << "Audio normalization failed\n";
+    }
+    generate_iq_artifacts(cfg, iq_file, params.effective_rate);
+
+    result.wav_path = wav_file;
+    result.sc16_path = iq_file;
+    result.duration_sec = duration_sec;
+    result.success = true;
+    log_info() << "SC16 replay OK\n";
     return true;
 }

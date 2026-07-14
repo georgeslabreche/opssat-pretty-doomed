@@ -68,6 +68,7 @@ struct Args {
     std::string output_dir;
     std::string demos_dir;
     std::string doom_binary;
+    std::string sc16_replay;
     bool verbose = false;
     bool sdr_capture = false;
 };
@@ -84,13 +85,15 @@ void print_usage(const char* prog) {
               << "  -e <file>   DOOM binary path\n"
               << "\nOptional:\n"
               << "  -s          SDR capture mode (capture RF audio from AD9361)\n"
+              << "  -r <file>   Replay a capture.sc16 through the capture pipeline\n"
+              << "              (post-capture processing without SDR hardware)\n"
               << "  -v          Verbose output\n"
               << "  -h          Show this help\n";
 }
 
 bool parse_args(int argc, char** argv, Args& args) {
     int opt;
-    while ((opt = getopt(argc, argv, "i:q:c:f:o:d:e:svh")) != -1) {
+    while ((opt = getopt(argc, argv, "i:q:r:c:f:o:d:e:svh")) != -1) {
         switch (opt) {
             case 'i': args.input_file = optarg; break;
             case 'q': args.sc16_file = optarg; break;
@@ -99,6 +102,7 @@ bool parse_args(int argc, char** argv, Args& args) {
             case 'o': args.output_dir = optarg; break;
             case 'd': args.demos_dir = optarg; break;
             case 'e': args.doom_binary = optarg; break;
+            case 'r': args.sc16_replay = optarg; break;
             case 's': args.sdr_capture = true; break;
             case 'v': args.verbose = true; break;
             case 'h': print_usage(argv[0]); return false;
@@ -106,8 +110,13 @@ bool parse_args(int argc, char** argv, Args& args) {
         }
     }
 
-    if (!args.sdr_capture && args.input_file.empty()) {
-        std::cerr << "Error: Input WAV file required (use -i or -s for SDR capture)\n\n";
+    if (!args.sdr_capture && args.input_file.empty() && args.sc16_replay.empty()) {
+        std::cerr << "Error: Input required (use -i <wav>, -r <sc16>, or -s for SDR capture)\n\n";
+        print_usage(argv[0]);
+        return false;
+    }
+    if (!args.sc16_replay.empty() && (args.sdr_capture || !args.input_file.empty())) {
+        std::cerr << "Error: -r cannot be combined with -i or -s\n\n";
         print_usage(argv[0]);
         return false;
     }
@@ -173,11 +182,18 @@ int main(int argc, char** argv) {
 
     bool any_detected = false;
 
-    if (args.sdr_capture) {
-        int num_captures = cfg.sdr_captures;
+    if (args.sdr_capture || !args.sc16_replay.empty()) {
+        // sc16 replay (#116): one file, one capture, no SDR hardware; the
+        // post-capture processing is identical to a live capture.
+        const bool file_replay = !args.sc16_replay.empty();
+        int num_captures = file_replay ? 1 : cfg.sdr_captures;
         if (num_captures <= 0) num_captures = 1;
         bool background = (cfg.process_mode == "background");
 
+        if (file_replay) {
+            log_info() << "SC16 replay mode: " << args.sc16_replay
+                       << ", processing=" << cfg.process_mode << "\n";
+        } else
         log_info() << "SDR Capture mode: " << num_captures << " capture(s) of "
                    << cfg.sdr_duration << "s, processing=" << cfg.process_mode
                    << ", decimation=" << (cfg.sdr_hw_fir_enable ? "hardware FIR" : "software")
@@ -185,7 +201,7 @@ int main(int argc, char** argv) {
 
         // Configure AD9361 once before the capture loop (default).
         // Per-capture mode skips this and re-inits inside run_capture() instead.
-        if (!cfg.sdr_init_per_capture) {
+        if (!file_replay && !cfg.sdr_init_per_capture) {
             if (!ad9361_configure(cfg)) {
                 log_error() << "AD9361 configuration failed\n";
                 return 1;
@@ -261,7 +277,11 @@ int main(int argc, char** argv) {
 
             log_info() << "=== Capture " << i << "/" << num_captures << " ===\n";
             CaptureResult result;
-            if (!run_capture(cfg, capture_dir, result)) {
+            if (file_replay) {
+                if (!run_capture_from_file(cfg, args.sc16_replay, capture_dir, result)) {
+                    log_error() << "SC16 replay failed\n";
+                }
+            } else if (!run_capture(cfg, capture_dir, result)) {
                 log_warning() << "Capture " << i << " failed, retrying in 2s...\n";
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 if (!run_capture(cfg, capture_dir, result)) {
@@ -324,7 +344,9 @@ int main(int argc, char** argv) {
         // Disable hardware FIR now that all captures are done.
         // Processing uses WAV files, not the AD9361, so free the hardware state
         // sooner for subsequent experiments.
-        ad9361_cleanup_fir(cfg);
+        if (!file_replay) {
+            ad9361_cleanup_fir(cfg);
+        }
 
         if (!background) {
             // Sequential: load STT model now (deferred from before captures)

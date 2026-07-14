@@ -20,4 +20,15 @@ bool run_capture(const PipelineConfig& cfg,
                  const std::string& output_dir,
                  CaptureResult& result);
 
+// Replay a capture from an sc16 file instead of the AD9361 (#116): the input
+// is treated as a capture.sc16 (post-channel-LPF complex baseband at the
+// effective rate, interleaved int16) and runs the identical post-capture
+// processing as a live capture: demod to capture.wav, the config-gated
+// narrowing, RMS normalization, and I/Q artifacts. For EM validation without
+// SDR hardware or the IIO emulator.
+bool run_capture_from_file(const PipelineConfig& cfg,
+                           const std::string& sc16_input,
+                           const std::string& output_dir,
+                           CaptureResult& result);
+
 #endif
