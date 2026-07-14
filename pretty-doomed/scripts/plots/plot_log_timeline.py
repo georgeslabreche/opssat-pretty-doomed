@@ -34,6 +34,7 @@ PHASE_PATTERNS = [
     ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:|Building flowgraph")),
     ("SDR Capture",        re.compile(r"Starting capture|Capture complete|Timeout:|Progress \[")),
     ("SDR Teardown",       re.compile(r"Stopping flowgraph")),
+    ("Narrowing",      re.compile(r"Narrowing:|Narrowing failed")),
     ("Normalize",      re.compile(r"Normalizing audio|RMS normalize:")),
     ("Dispatch",       re.compile(r"SDR capture OK|SDR capture partial|Background STT of capture \d+ started")),
     ("Artifacts",      re.compile(r"IQ diag:|IQ RMS:|IQ zeros:|IQ metrics:|Spectrogram:|Constellation:|PSD:")),
@@ -50,6 +51,7 @@ PHASE_COLORS = {
     "SDR Init":       "#b2df8a",  # light green
     "SDR Capture":    "#1f78b4",  # dark blue
     "SDR Teardown":   "#e31a1c",  # dark red
+    "Narrowing":      "#17becf",  # teal
     "Normalize":      "#fdbf6f",  # light orange
     "Dispatch":       "#ff7f00",  # dark orange
     "Artifacts":      "#a6cee3",  # light blue
@@ -313,8 +315,8 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
 
     # Legend outside plot area
     base_order = ["STT Model Load", "SDR Init", "SDR Capture", "SDR Teardown",
-                  "Normalize", "Artifacts", "DSP Filter", "STT Inference",
-                  "Detection", "DOOM", "Postcard"]
+                  "Narrowing", "Normalize", "Artifacts", "DSP Filter",
+                  "STT Inference", "Detection", "DOOM", "Postcard"]
     seen_bases = set(phase_base(s[0]) for s in spans)
     handles = []
     for phase in base_order:
