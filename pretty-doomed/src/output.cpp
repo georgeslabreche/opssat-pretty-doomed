@@ -94,8 +94,6 @@ std::string format_scores(const DetectionResult& detection,
     s += "total_points_approx=" + std::to_string(totals.points_approx) + "\n";
     s += "audio_rms_raw=" + fmt_float(audio.rms_raw) + "\n";
     s += "audio_peak_raw=" + fmt_float(audio.peak_raw) + "\n";
-    s += "audio_rms_filtered=" + fmt_float(audio.rms_filtered) + "\n";
-    s += "audio_peak_filtered=" + fmt_float(audio.peak_filtered) + "\n";
     return s;
 }
 

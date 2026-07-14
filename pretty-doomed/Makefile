@@ -67,7 +67,7 @@ SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SR
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
-OBJS_EXT = $(BUILDDIR)/dsp.o $(BUILDDIR)/chain.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/sdr.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o $(BUILDDIR)/postcard.o
+OBJS_EXT = $(BUILDDIR)/chain.o $(BUILDDIR)/audio_io.o $(BUILDDIR)/transcriber.o $(BUILDDIR)/sdr.o $(BUILDDIR)/capture.o $(BUILDDIR)/pipeline.o $(BUILDDIR)/postcard.o
 OBJS_MAIN = $(BUILDDIR)/main.o
 
 TARGET = $(BUILDDIR)/pretty-doomed
@@ -81,7 +81,7 @@ MODEL_FILES = models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx \
               models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx \
               models/sherpa-onnx/small/tokens.txt
 
-.PHONY: all clean test test-dsp doom clone-sherpa patch-sherpa build-sherpa \
+.PHONY: all clean test test-chain doom clone-sherpa patch-sherpa build-sherpa \
        check-model package-prepare package-model package-demos package-tar
 
 all: check-model $(TARGET) doom
@@ -135,9 +135,6 @@ $(BUILDDIR)/postcard.o: $(SRCDIR)/postcard.cpp $(SRCDIR)/postcard.h $(SRCDIR)/po
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -DPOSTCARD_USE_FFTW -c $< -o $@
 
 # Objects with external deps
-$(BUILDDIR)/dsp.o: $(SRCDIR)/dsp.cpp $(SRCDIR)/dsp.h | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
-
 $(BUILDDIR)/chain.o: $(SRCDIR)/chain.cpp $(SRCDIR)/chain.h $(SRCDIR)/config.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
@@ -153,7 +150,7 @@ $(BUILDDIR)/sdr.o: $(SRCDIR)/sdr.cpp $(SRCDIR)/sdr.h $(SRCDIR)/config.h | $(BUIL
 $(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/chain.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/audio_io.h $(SRCDIR)/dsp.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
+$(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/audio_io.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
@@ -163,7 +160,7 @@ $(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $
 # Unit tests - pure C++17 modules only
 #############################################
 
-TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp $(TESTDIR)/test_postcard.cpp
+TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_resample.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp $(TESTDIR)/test_postcard.cpp
 TEST_OBJS = $(patsubst $(TESTDIR)/%.cpp,$(BUILDDIR)/%.o,$(TEST_SRCS))
 
 $(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp $(SRCDIR)/config.h | $(BUILDDIR)
@@ -180,22 +177,19 @@ test: $(TEST_TARGET)
 	./$(TEST_TARGET)
 
 #############################################
-# Integration tests - requires GNU Radio
+# Chain integration tests - requires GNU Radio
 #############################################
 
-TEST_DSP_TARGET = $(BUILDDIR)/test_dsp_runner
+TEST_CHAIN_TARGET = $(BUILDDIR)/test_chain_runner
 
-$(TEST_DSP_TARGET): $(BUILDDIR)/test_main.o $(BUILDDIR)/test_dsp.o $(BUILDDIR)/test_chain.o $(BUILDDIR)/dsp.o $(BUILDDIR)/chain.o | $(BUILDDIR)
+$(TEST_CHAIN_TARGET): $(BUILDDIR)/test_main.o $(BUILDDIR)/test_chain.o $(BUILDDIR)/chain.o | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(GNURADIO_LIBS)
-
-$(BUILDDIR)/test_dsp.o: $(TESTDIR)/test_dsp.cpp | $(BUILDDIR)
-	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
 
 $(BUILDDIR)/test_chain.o: $(TESTDIR)/test_chain.cpp $(SRCDIR)/chain.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(GNURADIO_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
 
-test-dsp: $(TEST_DSP_TARGET)
-	./$(TEST_DSP_TARGET)
+test-chain: $(TEST_CHAIN_TARGET)
+	./$(TEST_CHAIN_TARGET)
 
 #############################################
 # Ground-only: offline preview of the on-board audio pipeline (requires GNU Radio)

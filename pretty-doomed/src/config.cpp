@@ -26,12 +26,6 @@ static void apply_config_entry(const std::string& key, const std::string& value,
                                 PipelineConfig& cfg) {
     // Operation
     if (key == "operation") cfg.operation = value;
-    // DSP
-    else if (key == "dsp_lowpass_cutoff") cfg.dsp_lowpass_cutoff = std::stof(value);
-    else if (key == "dsp_lowpass_transition") cfg.dsp_lowpass_transition = std::stof(value);
-    else if (key == "dsp_bandpass_low") cfg.dsp_bandpass_low = std::stof(value);
-    else if (key == "dsp_bandpass_high") cfg.dsp_bandpass_high = std::stof(value);
-    else if (key == "dsp_bandpass_transition") cfg.dsp_bandpass_transition = std::stof(value);
     // STT
     else if (key == "stt_model_encoder") cfg.stt_model_encoder = value;
     else if (key == "stt_model_decoder") cfg.stt_model_decoder = value;

@@ -13,13 +13,6 @@ struct PipelineConfig {
     // Operation: what the voice command triggers (feature flag)
     std::string operation = "doom";     // "doom" (only implementation for now)
 
-    // DSP: signal processing filters
-    float dsp_lowpass_cutoff = 3400.0f;
-    float dsp_lowpass_transition = 500.0f;
-    float dsp_bandpass_low = 300.0f;
-    float dsp_bandpass_high = 3400.0f;
-    float dsp_bandpass_transition = 100.0f;
-
     // STT: speech-to-text model
     std::string stt_model_encoder;
     std::string stt_model_decoder;

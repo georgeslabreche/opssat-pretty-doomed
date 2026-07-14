@@ -8,8 +8,6 @@
 struct AudioStats {
     float rms_raw = 0.0f;
     float peak_raw = 0.0f;
-    float rms_filtered = 0.0f;
-    float peak_filtered = 0.0f;
 };
 
 struct DetectionTotals {

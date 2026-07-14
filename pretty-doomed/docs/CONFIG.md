@@ -1,6 +1,6 @@
 # Configuration Reference
 
-All config keys use semantic prefixes: `dsp_`, `stt_`, `detect_`, `doom_`, `sdr_`.
+All config keys use semantic prefixes: `stt_`, `detect_`, `doom_`, `sdr_`.
 
 ## Operation
 
@@ -12,16 +12,6 @@ The `operation` key selects what action the pipeline executes when a voice comma
 
 Currently supported operations:
 - `doom` -- runs a DOOM demo, captures frames, generates a postcard. All `doom_*` config keys apply.
-
-## DSP: Signal Processing
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `dsp_lowpass_cutoff` | 3400 | Lowpass filter cutoff frequency in Hz |
-| `dsp_lowpass_transition` | 500 | Lowpass transition bandwidth in Hz |
-| `dsp_bandpass_low` | 300 | Bandpass lower edge in Hz |
-| `dsp_bandpass_high` | 3400 | Bandpass upper edge in Hz |
-| `dsp_bandpass_transition` | 100 | Bandpass transition bandwidth in Hz |
 
 ## STT: Speech-to-Text
 
