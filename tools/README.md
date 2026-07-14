@@ -21,6 +21,7 @@ tools/
     ├── detect_carrier.py # Carrier detection in a wideband I/Q file
     ├── summarize_carriers.py # Compare carrier detections across clips
     ├── demod_audio.py    # Demodulate raw I/Q to audio (FM / CW / SSB)
+    ├── make_emu_replay.py # Build an SDR-emulator replay file from flight captures
     ├── plot_audio.py     # WAV audio visualization
     ├── plot_loopback.py  # Loopback TX/RX comparison
     ├── compare_psd.py    # Multi-capture PSD overlay
@@ -196,6 +197,29 @@ Options:
 - `--target-freq` — expected uplink frequency in Hz, overrides per-file target
 - `--output-dir` — output directory (default: common parent of the inputs)
 - `--title` — plot title
+
+### make_emu_replay.py — SDR-emulator replay from flight captures
+
+Converts raw flight recordings into a file the iio-emu based test (`pretty-doomed/docker-compose.emu-test.yml`) can replay: locates the uplink in each capture, shifts it to a chosen offset near DC (default -8 kHz so a peak search is genuinely exercised), resamples to the configured radio rate, rescales to the AD9361 12-bit range, and concatenates the inputs. Note: generate with `--out-rate` at twice the configured `sdr_rate` (the emulator consumes two complex samples per delivered sample). See `pretty-doomed/docs/TESTING.md` for the replay workflow.
+
+```bash
+python3 src/make_emu_replay.py <raw1.cs16> <raw2.cs16> ... \
+    --output ../sandbox/gnuradio/sdr-capture/emu-samples/run05_replay.cs16 \
+    --out-rate 4800000
+```
+
+| Output | Description |
+|--------|-------------|
+| `<output>` | Emulator-ready cs16 (interleaved little-endian int16), inputs concatenated |
+
+Options:
+- `inputs` — raw `.sc16`/`.cs16` recordings, concatenated in the order given (required)
+- `--output` — output replay file (required)
+- `--sample-rate` — input sample rate in Hz (default: 2500000)
+- `--center-freq` / `--target-freq` — input SDR center and expected uplink in Hz, to locate the carrier
+- `--out-rate` — replay sample rate in Hz (default: 2400000; use 2x `sdr_rate` for iio-emu)
+- `--offset-hz` — where to place the uplink relative to DC (default: -8000)
+- `--peak` — peak int16 amplitude (default: 2000)
 
 ### demod_audio.py — Demodulate raw I/Q to audio
 

@@ -97,7 +97,41 @@ This executes all runs defined in the `run` script with resource monitoring and 
 - **No SIGFPE.** The pretty-doomed binary runs natively on x86_64, avoiding the intermittent SIGFPE that affects ARM32 binaries under QEMU (see SEPP emulator section below).
 - **No hardware FIR.** The AD9361 hardware FIR (`sdr_hw_fir_enable`) cannot be used with the emulator. The FIR configuration via `libad9361-iio` requires TX channels which the IIO emulator does not expose. Set `sdr_hw_fir_enable=false` in `config.emu.cfg`.
 
-**What it tests:** IIO connection, AD9361 config write/readback, GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass), sc16/WAV output, spectrogram/constellation BMP generation, RMS normalization, multi-capture loop, STT on captured audio.
+### Replaying flight captures
+
+The emulator can replay real flight recordings instead of the default noise sample, turning the test into an end-to-end check against actual received RF (issue #114). Build a replay file from the raw Run 5 recordings with [`tools/src/make_emu_replay.py`](../../tools/README.md) (run from the repo's `tools/src/`):
+
+```bash
+python3 make_emu_replay.py <path-to-raw>/sdr_20260703_*.cs16     --output ../../sandbox/gnuradio/sdr-capture/emu-samples/run05_replay.cs16     --out-rate 4800000
+```
+
+Two things matter:
+
+- **`--out-rate` is twice `sdr_rate`** (4.8 MSPS for the 2.4 MSPS emulator config): this iio-emu build consumes two complex samples per delivered sample, so a 1x-rate file plays back with all frequencies doubled.
+- **Export `SDR_EMU_SAMPLE` for every compose invocation** (both `up` and `run`): `docker compose run` re-evaluates the `sdr-emu` service and recreates it with the default sample if the variable is not set.
+
+```bash
+export SDR_EMU_SAMPLE=run05_replay.cs16
+docker-compose -f docker-compose.emu-test.yml up -d sdr-emu
+sleep 3
+docker-compose -f docker-compose.emu-test.yml run --rm pretty-doomed     ./build/local/pretty-doomed -s -c config.emu.cfg -f variants.cfg     -o toGround/emu-replay -d demos -e doom-build/local/opssat-doom
+docker-compose -f docker-compose.emu-test.yml down
+```
+
+With `sdr_narrow_enable=true` in the config, expect per capture: a `Narrowing: peak at ...` log within a few hundred Hz of the injected offset (default -8 kHz; the residual is the snapshot's own Doppler drift), a regenerated `capture.wav` carrying the voice transmission, and voice-like fragments from the speech-to-text.
+
+For a clean one-to-one mapping between recordings and outputs, build one replay per recording and restart the emulator for each (capture windows drift across snapshot boundaries in a concatenated replay):
+
+```bash
+for id in 192433 192511 192531 205727 205805 205825; do
+    python3 make_emu_replay.py <path-to-raw>/sdr_20260703_${id}_*.cs16         --output ../../sandbox/gnuradio/sdr-capture/emu-samples/run05_${id}.cs16         --out-rate 4800000
+done
+# then per id: export SDR_EMU_SAMPLE=run05_<id>.cs16, force-recreate sdr-emu,
+# and run one capture (sdr_captures=1) into its own output directory. Keep the
+# capture duration below the replay length (e.g. 1.5 s for a 2 s recording) so
+# the emulator does not run dry mid-capture.
+
+**What it tests:** IIO connection, AD9361 config write/readback, GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass), sc16/WAV output, spectrogram/constellation BMP generation, RMS normalization, multi-capture loop, STT on captured audio; with a flight-capture replay, reception and the narrowing stage against real signal.
 
 **What it does NOT test:** real RF reception, actual AD9361 hardware behavior, ARM32 performance (STT timing, memory pressure), satellite pass timing.
 
