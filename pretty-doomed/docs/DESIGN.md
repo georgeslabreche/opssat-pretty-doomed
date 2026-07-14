@@ -23,7 +23,6 @@ The project is split into modules by single responsibility, with external librar
 main.cpp (orchestrator)
 ├── config.h         [pure C++17]
 ├── audio_io.h       [libsndfile]
-├── dsp.h            [GNU Radio]
 ├── transcriber.h    [sherpa-onnx]
 ├── matcher.h        [pure C++17]
 ├── executor.h       [pure C++17]
@@ -40,7 +39,6 @@ main.cpp (orchestrator)
 |--------|------|----------------|---------------|
 | Config | `config.cpp` | Parse `config.cfg` (KEY=VALUE, including model paths) and `variants.cfg` (TARGET=V1,V2,...) | None |
 | Audio I/O | `audio_io.cpp` | Read/write WAV files, stereo-to-mono downmix | libsndfile |
-| DSP | `dsp.cpp` | GNU Radio FIR filter blocks (lowpass, bandpass) + linear interpolation resampling | GNU Radio |
 | Transcriber | `transcriber.cpp` | Sherpa-ONNX offline recognition: init, feed audio, decode, get text. Persistent instance, model loaded once and reused across multiple captures. | sherpa-onnx |
 | Matcher | `matcher.cpp` | Fuzzy matching with Levenshtein distance + variant lookup, command detection | None |
 | Executor | `executor.cpp` | Fork+exec DOOM binary for each demo file | None |
@@ -48,7 +46,7 @@ main.cpp (orchestrator)
 | Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. Scatter uses adaptive range (0.35 for strong signals, 1.1 for weak) with dithering and alpha boost for weak signal visibility. | stb, FFTW |
 | SDR | `sdr.cpp` | AD9361 lifecycle: `ad9361_configure()` (hardware FIR or software-only path with readback verification), `ad9361_cleanup_fir()` (disable FIR after captures). | libiio, libad9361 |
 | Capture | `capture.cpp` | SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files. Artifact generation (spectrogram, constellation, PSD BMPs with axis labels, metrics CSV) runs async in background mode. | GNU Radio, libiio, FFTW |
-| Pipeline | `pipeline.cpp` | WAV processing pipeline in two stages: `process_wav_stt()` (DSP, STT, detection) runs serially across captures; `process_wav_exec()` (DOOM, postcard, sc16 cleanup) runs async, overlapping with the next capture's STT. Combined `process_wav()` for sequential mode. | All |
+| Pipeline | `pipeline.cpp` | WAV processing pipeline in two stages: `process_wav_stt()` (resample, STT, detection) runs serially across captures; `process_wav_exec()` (DOOM, postcard, sc16 cleanup) runs async, overlapping with the next capture's STT. Combined `process_wav()` for sequential mode. | All |
 | Main | `main.cpp` | CLI arg parsing (`-i` WAV input, `-q` sc16 input for postcard scatter, `-s` SDR capture), input mode dispatch, multi-capture loop, process_mode (sequential/background), SDR init/cleanup orchestration, output file writing | All |
 
 ### Dependency Isolation
@@ -60,7 +58,7 @@ Four modules are pure C++17 with zero external dependencies:
 - **executor** -- DOOM process execution
 - **output** -- summary and log formatting
 
-These are fully unit-testable without installing GNU Radio, sherpa-onnx, or libsndfile. The test binary links only these pure modules. DSP integration tests require GNU Radio and run via `make test-dsp`.
+These are fully unit-testable without installing GNU Radio, sherpa-onnx, or libsndfile. The test binary links only these pure modules. Chain integration tests require GNU Radio and run via `make test-chain`.
 
 ### Multi-Capture Loop and Processing Modes
 
@@ -94,7 +92,7 @@ The `[cN/tM]` tags appear on all platforms running Linux (using `sched_getcpu()`
 
 ## Configuration
 
-All config keys use semantic prefixes (`dsp_`, `stt_`, `detect_`, `doom_`, `sdr_`). An `operation` key selects what the voice command triggers (only `doom` for now).
+All config keys use semantic prefixes (`stt_`, `detect_`, `doom_`, `sdr_`). An `operation` key selects what the voice command triggers (only `doom` for now).
 
 See [CONFIG.md](CONFIG.md) for the full configuration reference.
 
@@ -155,7 +153,8 @@ Unit tests use [doctest](https://github.com/doctest/doctest), a single-header C+
 | executor | `test_executor.cpp` | Demo file discovery, frame resolution, cycling logic |
 | output | `test_output.cpp` | Summary formatting, ASCII art rendering |
 | postcard | `test_postcard.cpp` | Postcard generation, frame discovery, graceful failure handling |
-| dsp | `test_dsp.cpp` | FIR convolution correctness, resampling ratios |
+| resample | `test_resample.cpp` | Resampling ratios and signal preservation |
+| chain | `test_chain.cpp` | Shared DSP chain params, narrowing, peak search (GNU Radio, `make test-chain`) |
 
 ### Running Tests
 
@@ -185,7 +184,6 @@ Each pipeline run produces:
 toGround/run-00001/
 ├── resource.csv            # Per-second CPU + memory utilization (from run script monitor)
 ├── pretty-doomed.log       # Full pipeline log
-├── processed.wav           # Filtered audio
 ├── transcription.txt       # Transcription text
 ├── scores.txt              # Detection scores (exact/approximate breakdown)
 ├── summary.txt             # Human-readable summary
@@ -216,7 +214,6 @@ toGround/run-00002/
 │   ├── capture-psd.bmp     # PSD line plot
 │   ├── spectrogram.bmp     # I/Q spectrogram (with axis labels)
 │   ├── constellation.bmp   # I/Q constellation (with axis labels)
-│   ├── processed.wav       # Filtered audio (pipeline output)
 │   ├── transcription.txt   # STT output
 │   ├── scores.txt
 │   ├── summary.txt
@@ -245,7 +242,6 @@ toGround/run-00003/
 │   ├── capture-psd.bmp
 │   ├── spectrogram.bmp
 │   ├── constellation.bmp
-│   ├── processed.wav
 │   ├── transcription.txt
 │   ├── scores.txt
 │   ├── summary.txt

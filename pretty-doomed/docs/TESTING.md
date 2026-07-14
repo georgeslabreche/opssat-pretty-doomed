@@ -13,8 +13,8 @@ docker-compose run --rm pretty-doomed make clean all
 # Unit tests (pure C++17, no external deps)
 docker-compose run --rm pretty-doomed make test
 
-# DSP integration tests (GNU Radio filters + resampling)
-docker-compose run --rm pretty-doomed make test-dsp
+# Chain integration tests (GNU Radio chain params, narrowing, peak search)
+docker-compose run --rm pretty-doomed make test-chain
 
 # File input pipeline (single file)
 docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
@@ -34,7 +34,7 @@ docker-compose run --rm pretty-doomed ./build/local/test_postcard_scatter \
 docker-compose run --rm pretty-doomed ./run
 ```
 
-**What it tests:** config parsing, DSP filters, STT transcription, fuzzy matching, DOOM execution, demo cycling, log output, multi-run orchestration, postcard I/Q scatter rendering (with `-q` flag or standalone test).
+**What it tests:** config parsing, STT transcription, fuzzy matching, DOOM execution, demo cycling, log output, multi-run orchestration, postcard I/Q scatter rendering (with `-q` flag or standalone test).
 
 **What it does NOT test:** IIO connection, AD9361 config write/readback, GNU Radio IIO flowgraph, SDR capture pipeline.
 
@@ -206,7 +206,6 @@ toGround/
         ├── capture-psd.bmp      # PSD line plot
         ├── spectrogram.bmp      # Time-frequency spectrogram
         ├── constellation.bmp    # I/Q constellation scatter
-        ├── processed.wav        # DSP-filtered audio
         ├── transcription.txt    # STT output
         ├── scores.txt           # Detection scores (exact vs fuzzy)
         ├── summary.txt          # Human-readable summary
