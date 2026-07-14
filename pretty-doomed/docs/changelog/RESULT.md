@@ -2,7 +2,32 @@
 
 Verification results from experiment runs on the OPS-SAT Engineering Model (EM), ARM32 dual-core SEPP. See [TESTING.md](../TESTING.md) for the test environment. On-orbit flight results live separately in [`flight/`](../flight/).
 
-For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md).
+For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md). For the v7 changes (narrowing stage, second-stage filtering removal, sc16 replay input), see [V6_TO_V7.md](V6_TO_V7.md).
+
+## v7 Local Validation (pre-EM)
+
+Data in [data/local-v7/](data/local-v7/). EM validation of the v7 patch package is pending; this run is the ground dress rehearsal of exactly what the EM will execute: the `exp4023-pretty-DOOMed-v6-to-v7.tar.gz` patch extracted over a v6-style installation (models provided by the existing deployment), run as-shipped via `./run` on the ARM32 binaries with the bundled libraries, under QEMU user-mode emulation.
+
+The package's `input/replay.cs16` (Run 5 pass 2 recording `sdr_20260703_205825`, converted to flight `capture.sc16` form) switched the run to sc16 replay mode automatically. Full sequence in 23.9 s:
+
+| Stage | Result |
+|---|---|
+| Replay | `input/replay.cs16`, 2 s at 200 kHz effective |
+| Narrowing | peak at -8.27637 kHz (injected -8 kHz plus Doppler residual), audio regenerated |
+| Transcription | `LIMA OLFAR FOR VIGILIUM`, call sign token match (`LIMA`) |
+| Detection | no command (expected; the recording carries no command phrase) |
+| DOOM | force-triggered (`doom_force_trigger=true`), demo `gl-e1m2b` completed |
+| Postcard | 2520x1800 generated from the replay's I/Q |
+
+The narrowing peak is identical to the x86 reference run of the same input, and the transcription is in the same phonetic-alphabet family (the trailing words differ across runs because GNU Radio scheduling is not bit-deterministic, which shifts the beam search on the noise tail; the leading call-sign token is stable).
+
+![v7 local run](data/local-v7/run-00001-timeline-and-resource.png)
+
+The timeline shows the first ARM32 measurement of the narrowing phase (teal, about 0.6 s for a 2 s capture including the sc16 scan and audio regeneration, on QEMU-emulated cores). STT model load 8.4 s, inference 4.2 s, DOOM 6.7 s, postcard 4.6 s.
+
+![v7 local postcard](data/local-v7/run-00001-capture-001-postcard.png)
+
+A second leg (live capture from the SDR emulator into the deployed package, exercising the IIO streaming path on ARM32) was attempted three times and each attempt died at a different point with the documented intermittent QEMU SIGFPE (see [TESTING.md](../TESTING.md)); the streaming flowgraph is unchanged since v6, was validated on the real EM then, and was validated end-to-end against the same emulator on x86 with the Run 5 replays. The live path will be confirmed on the real EM by leaving `input/replay.cs16` out, or on the next flight pass.
 
 ## v6 Validation
 
