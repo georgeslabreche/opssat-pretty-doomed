@@ -29,29 +29,37 @@ PHASE_PATTERNS = [
     ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:")),
     ("SDR Config",     re.compile(r"AD9361(?! hardware FIR disabled)")),
     ("SDR Init",       re.compile(r"=== Capture \d+/\d+ ===")),
-    ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:|Building flowgraph")),
+    ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:|SC16 replay(?! OK)|Building flowgraph")),
     ("SDR Capture",    re.compile(r"Starting capture|Capture complete|Timeout:|Progress \[")),
     ("SDR Teardown",   re.compile(r"Stopping flowgraph")),
+    ("Narrowing",      re.compile(r"Narrowing:|Narrowing failed")),
     ("Normalize",      re.compile(r"Normalizing audio|RMS normalize:")),
-    ("Dispatch",       re.compile(r"SDR capture OK|SDR capture partial|Background STT of capture \d+ started")),
+    ("Dispatch",       re.compile(r"SDR capture OK|SDR capture partial|SC16 replay OK|Background STT of capture \d+ started")),
     ("Artifacts",      re.compile(r"IQ diag:|IQ RMS:|IQ zeros:|IQ metrics:|Spectrogram:|Constellation:|PSD:")),
-    ("DSP Filter",     re.compile(r"Filtering \(GNU Radio\)|Resampling to")),
+    ("DSP Filter",     re.compile(r"Filtering \(GNU Radio\)")),   # legacy logs (pre-v7)
+    ("Resample",       re.compile(r"Resampling to")),
     ("STT Inference",  re.compile(r"Transcribing \(|STT time:")),
-    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|Command detected")),
-    ("DOOM",           re.compile(r"Running DOOM demo:|Completed demo:")),
-    ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16")),
+    # Detection runs on the STT thread; "Command detected! Launching DOOM" is
+    # the exec thread announcing the launch, so it belongs to the DOOM phase.
+    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering")),
+    ("DOOM",           re.compile(r"Command detected|Running DOOM demo:|Completed demo:")),
+    # "SC16 replay" lines match SDR Init above (first match wins); these are
+    # the postcard/exec-stage lines (input path, keep/delete cleanup).
+    ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16:|SC16 deleted|SC16 kept")),
 ]
 
 PHASE_COLORS = {
-    "STT Model Load": "#cab2d6",  # light purple
+    "STT Model Load": "#f781bf",  # pink (distinct from Postcard's light purple)
     "SDR Config":     "#33a02c",  # dark green
     "SDR Init":       "#b2df8a",  # light green
     "SDR Capture":    "#1f78b4",  # dark blue
     "SDR Teardown":   "#e31a1c",  # dark red
+    "Narrowing":      "#17becf",  # teal
     "Normalize":      "#fdbf6f",  # light orange
     "Dispatch":       "#ff7f00",  # dark orange
     "Artifacts":      "#a6cee3",  # light blue
-    "DSP Filter":     "#ffff99",  # yellow
+    "DSP Filter":     "#d9d96a",  # dark yellow (legacy logs, pre-v7)
+    "Resample":       "#ffff99",  # yellow
     "STT Inference":  "#fb9a99",  # light red
     "Detection":      "#b15928",  # brown
     "DOOM":           "#6a3d9a",  # dark purple
@@ -59,7 +67,7 @@ PHASE_COLORS = {
 }
 
 PHASE_ORDER = ["STT Model Load", "SDR Config", "SDR Init", "SDR Capture", "SDR Teardown",
-               "Normalize", "Dispatch", "Artifacts", "DSP Filter",
+               "Narrowing", "Normalize", "Dispatch", "Artifacts", "DSP Filter", "Resample",
                "STT Inference", "Detection", "DOOM", "Postcard"]
 
 LOG_RE = re.compile(
@@ -377,13 +385,19 @@ def plot_combined(run_dir, output_path, title, x_max=None):
     # --- Gantt timeline ---
     LABEL_PHASES = {"STT Model Load", "SDR Config", "SDR Init", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
     bar_height = 0.55
-    for phase, tid, ts, te in spans:
+    # Opaque bars, longest first: stretched minimum-width slivers can overlap
+    # real spans, and translucent overlaps would blend into colors that exist
+    # in no legend entry. Drawing longest-first keeps slivers visible on top.
+    for phase, tid, ts, te in sorted(spans, key=lambda s: s[3] - s[2], reverse=True):
         color = PHASE_COLORS.get(phase_base(phase), "#CCCCCC")
-        min_bar = max(0.3, t_max * 0.005)  # at least 0.5% of x-axis
+        # Minimum visible width so millisecond spans (e.g. Detection) do not
+        # vanish. This stretches them past their true end: a bar this narrow
+        # marks where a phase happened, not how long it ran or what it overlaps.
+        min_bar = max(0.1, t_max * 0.003)
         duration = max(te - ts, min_bar)
         y = tid_y.get(tid, 0)
         ax_gantt.barh(y, duration, left=ts, height=bar_height, color=color,
-                      edgecolor="none", linewidth=0, alpha=0.85)
+                      edgecolor="none", linewidth=0)
         # Label inside bar
         if phase_base(phase) in LABEL_PHASES and (te - ts) > 0.5:
             secs = te - ts

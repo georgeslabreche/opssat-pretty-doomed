@@ -6,11 +6,21 @@ PRETTY DOOMed is a voice-command-to-DOOM pipeline for the OPS-SAT spacecraft. It
 
 ## Pipeline
 
+The capture side produces the audio; the processing side transcribes and detects. There is no second filtering stage between them: `capture.wav` is already band-limited by the capture chain, and the STT model is trained on full-band 16 kHz speech, so re-filtering the audio hurt detection (v7, [V6_TO_V7.md](changelog/V6_TO_V7.md)).
+
 ```
-WAV File ──> Lowpass Filter ──> Bandpass Filter ──> Resample ──> Sherpa-ONNX STT ──> Fuzzy Match ──> DOOM
- (48 kHz)     (FIR, cutoff      (FIR, 300-3400     (to 16 kHz)   (offline, int8      (wake word,
-               3400 Hz)           Hz voice band)                    ~27 MB model)      call sign,
-                                                                                        command)
+SDR capture (-s) or sc16 replay (-r):
+
+AD9361 ──> Channel LPF ──> [Narrowing: peak search, shift ──> FM Demod ──> Resample ──> Bandpass
+            (decimate to      to DC, +/-10 kHz, 25 kSPS]                   (to 16 kHz)  (300-3400 Hz)
+             200 kHz)          (config-gated, post-capture                                    │
+                                sc16 rewrite)                                            capture.wav
+                                                                                              │
+Processing:                                                                                   v
+capture.wav / input WAV (-i) ──> Resample (to 16 kHz) ──> Sherpa-ONNX STT ──> Fuzzy Match ──> DOOM
+                                                           (offline, int8     (wake word,
+                                                            ~27 MB model)      call sign,
+                                                                                command)
 ```
 
 ## Architecture
@@ -29,6 +39,7 @@ main.cpp (orchestrator)
 ├── output.h         [pure C++17]
 ├── postcard.h       [stb, FFTW]
 ├── sdr.h            [libiio, libad9361]
+├── chain.h          [GNU Radio, FFTW]
 ├── capture.h        [GNU Radio, libiio]
 └── pipeline.h       [all of the above]
 ```
@@ -45,9 +56,10 @@ main.cpp (orchestrator)
 | Output | `output.cpp` | Summary + log output formatting (ASCII art, scores) | None |
 | Postcard | `postcard.cpp` | DOOM-themed composite image: frame, I/Q blood splatter, FFTW spectrogram, logos, metadata. Uses PLAYPAL palette. Scatter uses adaptive range (0.35 for strong signals, 1.1 for weak) with dithering and alpha boost for weak signal visibility. | stb, FFTW |
 | SDR | `sdr.cpp` | AD9361 lifecycle: `ad9361_configure()` (hardware FIR or software-only path with readback verification), `ad9361_cleanup_fir()` (disable FIR after captures). | libiio, libad9361 |
-| Capture | `capture.cpp` | SDR capture via GNU Radio IIO flowgraph (device_source, LPF, FM demod, resampler, bandpass). Writes WAV and sc16 files. Artifact generation (spectrogram, constellation, PSD BMPs with axis labels, metrics CSV) runs async in background mode. | GNU Radio, libiio, FFTW |
-| Pipeline | `pipeline.cpp` | WAV processing pipeline in two stages: `process_wav_stt()` (resample, STT, detection) runs serially across captures; `process_wav_exec()` (DOOM, postcard, sc16 cleanup) runs async, overlapping with the next capture's STT. Combined `process_wav()` for sequential mode. | All |
-| Main | `main.cpp` | CLI arg parsing (`-i` WAV input, `-q` sc16 input for postcard scatter, `-s` SDR capture), input mode dispatch, multi-capture loop, process_mode (sequential/background), SDR init/cleanup orchestration, output file writing | All |
+| Chain | `chain.cpp` | Shared audio DSP chain: config-derived rates/ratios/taps (`compute_chain_params`), block construction and wiring (channel LPF, optional narrowing LPF, FM demod, resampler, bandpass), and the averaged-PSD peak search (`find_peak_offset`). Used by capture and by the ground preview tool, so both execute the same chain by construction. | GNU Radio, FFTW |
+| Capture | `capture.cpp` | SDR capture via GNU Radio IIO flowgraph (device_source + shared chain). Writes WAV and sc16 files. Config-gated narrowing rewrite of the WAV from the sc16 (`narrow_rewrite_wav`). SC16 replay mode (`run_capture_from_file`) runs the same post-capture stages from a file. Artifact generation (spectrogram, constellation, PSD BMPs with axis labels, metrics CSV) runs async in background mode. | GNU Radio, libiio, FFTW |
+| Pipeline | `pipeline.cpp` | WAV processing pipeline in two stages: `process_wav_stt()` (resample, STT, detection) runs serially across captures; `process_wav_exec()` (DOOM, postcard, sc16 cleanup) runs async, overlapping with the next capture's STT. Combined `process_wav()` for sequential mode. No filtering: the audio goes to STT as captured (resampled to 16 kHz if needed). | All |
+| Main | `main.cpp` | CLI arg parsing (`-i` WAV input, `-q` sc16 input for postcard scatter, `-r` sc16 replay through the capture pipeline, `-s` SDR capture), input mode dispatch, multi-capture loop, process_mode (sequential/background), SDR init/cleanup orchestration, output file writing | All |
 
 ### Dependency Isolation
 
@@ -291,7 +303,7 @@ Target: Alpine Linux 3.21.3, ARM32 (armv7l), musl libc.
 
 ```
 exp4023-pretty-DOOMed-v<VERSION>/
-├── run                     # Entrypoint
+├── run                     # Entrypoint (switches to -r replay if input/replay.cs16 exists)
 ├── pretty-doomed           # Pipeline binary (sherpa-onnx statically linked)
 ├── opssat-doom             # DOOM binary (static)
 ├── config.cfg
@@ -305,11 +317,13 @@ exp4023-pretty-DOOMed-v<VERSION>/
 └── toGround/
 ```
 
+From v7 on, deliveries are patch packages (`exp4023-pretty-DOOMed-vN-to-vN+1.tar.gz`) containing everything except `models/`, extracted over the previous installation; the model is unchanged since v1 and stays deployed. See [BUILDING.md](BUILDING.md) and the version changelog for the recipe.
+
 ## Key Design Decisions
 
-1. **In-memory processing** -- No intermediate files between pipeline stages. WAV is read once into a float buffer, filtered in-place, resampled, and fed directly to sherpa-onnx. In SDR capture mode, the capture flowgraph writes WAV and sc16 files for diagnostics, but the subsequent pipeline processing still operates in memory from the WAV read onward.
+1. **In-memory processing** -- No intermediate files between pipeline stages. WAV is read once into a float buffer, resampled to 16 kHz if needed, and fed directly to sherpa-onnx. In SDR capture mode, the capture flowgraph writes WAV and sc16 files for diagnostics, but the subsequent pipeline processing still operates in memory from the WAV read onward.
 
-2. **GNU Radio for signal processing** -- Uses GNU Radio `top_block` with `vector_source_f` -> `fir_filter_fff` -> `vector_sink_f` for in-memory FIR filtering. Filter taps designed with `firdes`.
+2. **No second-stage filtering before STT** -- Earlier versions band-pass filtered the audio again in the processing pipeline. `capture.wav` is already band-limited by the capture chain, and the STT model is trained on full-band 16 kHz speech, so the extra filtering hurt detection (keyer ablation at CNR 12 dB: 6/8 with it, 8/8 without). Removed in v7; the only DSP left in the processing pipeline is a plain linear resample (`pretty_resample.h`, no GNU Radio).
 
 3. **Sherpa-ONNX over Whisper** -- The int8-quantized zipformer-small model is ~27 MB vs Whisper tiny at ~75 MB. Sherpa-ONNX also supports `modified_beam_search` which improves WER by 17% relative over greedy search.
 
@@ -330,3 +344,9 @@ exp4023-pretty-DOOMed-v<VERSION>/
 11. **DOOM fireball constellation** -- The I/Q constellation BMP uses a radial color gradient inspired by DOOM fireballs: white-hot center fading through orange and blood red to dark maroon at the edges.
 
 12. **Two-stage background processing** -- In background mode, the pipeline is split into an STT stage (`process_wav_stt`) that chains sequentially (Transcriber is not thread-safe) and an exec stage (`process_wav_exec`) that fires async. This lets STT for capture N+1 start immediately after STT for capture N, while DOOM + Postcard for capture N runs concurrently. Exec stages can theoretically overlap if DOOM + Postcard outlasts the next STT, creating a potential race on `doom_demo_index.txt`. On the EM this is unlikely given ~40s STT vs ~13-41s exec.
+
+13. **Shared DSP chain (v7)** -- The capture flowgraph and the ground preview tool build their audio path from one module (`chain.cpp`): the same config-derived rates, the same `firdes` designs, the same block wiring. Ground validation therefore executes the flight DSP by construction rather than by reimplementation. Characterization tests pin the derived parameters; GNU Radio scheduling is not bit-deterministic, so equivalence is asserted on envelopes, not bytes.
+
+14. **Post-capture narrowing rewrite (v7)** -- The narrowing stage does not touch the streaming flowgraph. After the capture completes, the sc16 is scanned for the uplink (averaged-PSD peak search with a DC guard against the AD9361 spike), and the WAV is regenerated through the shared chain with the found peak shifted to DC, band-limited to +/-`sdr_narrow_bw`/2, and decimated to 25 kSPS before the discriminator (roughly 9 to 11 dB less noise into it). Running post-capture keeps the streaming path as flown, lets the whole capture inform the peak search, makes failure safe (any error keeps the wide audio), and is config-gated (`sdr_narrow_enable`, missing keys reproduce v6 behavior exactly).
+
+15. **SC16 replay input (v7)** -- `-r <capture.sc16>` runs the identical post-capture stages from a file, so EM validation feeds real flight signal through the exact shipped binary without SDR hardware or the IIO emulator. The `run` script switches to replay mode when `input/replay.cs16` exists, which keeps SMILE-driven EM runs script-identical to flight runs.

@@ -107,7 +107,9 @@ docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
     -o toGround/replay-test -d demos -e doom-build/local/opssat-doom
 ```
 
-Inputs can come from any capture that ran with `sdr_keep_sc16=true` (flight, EM, or the SDR emulator below), which makes this the simplest way to exercise the full pipeline on the EM against real flight signal: capture once anywhere, then replay the sc16 on the ARM32 binary.
+Inputs can come from any capture that ran with `sdr_keep_sc16=true` (flight, EM, or the SDR emulator below), which makes this the simplest way to exercise the full pipeline on the EM against real flight signal: capture once anywhere, then replay the sc16 on the ARM32 binary. A raw flight recording can also be converted directly with `tools/src/make_emu_replay.py --out-rate 200000` (the effective rate; the resampler band-limits to +/-100 kHz, standing in for the flight channel LPF).
+
+On the SEPP, the `run` script switches to `-r` automatically when an `input/replay.cs16` file exists, so a SMILE-driven EM run can replay real signal with no script edits. Delete the file to return to live capture; the flight package must not contain `input/replay.cs16`.
 
 ### Replaying flight captures through the emulator
 

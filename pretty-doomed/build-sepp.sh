@@ -67,7 +67,6 @@ docker-compose -f docker-compose.sepp.yml run --rm pretty-doomed-sepp make BUILD
 
 # Step 6: Copy model + demos + create tarball (outside container)
 echo "=== Finalizing package ==="
-make package-input
 make package-model
 make package-demos
 make package-tar

@@ -82,8 +82,19 @@ cp -f "$CONFIG" "$RUN_DIR/config.cfg"
 echo "Run $(printf '%05d' "$RUNID")"
 MON_PID=$(start_monitor "$RUN_DIR" 3600)
 
+# EM validation: input/replay.cs16 switches the input from live SDR capture
+# (-s) to an sc16 replay (-r) of that file. The flight package must not
+# contain input/replay.cs16.
+REPLAY="${SCRIPT_DIR}/input/replay.cs16"
+if [ -f "$REPLAY" ]; then
+    echo "replay.cs16 found: replaying instead of live capture"
+    set -- -r "$REPLAY"
+else
+    set -- -s
+fi
+
 ${PRETTY_DOOMED} \
-    -s \
+    "$@" \
     -c "$RUN_DIR/config.cfg" \
     -f "$VARIANTS" \
     -o "$RUN_DIR" \
