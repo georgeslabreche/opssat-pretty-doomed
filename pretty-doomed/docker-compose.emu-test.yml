@@ -17,7 +17,9 @@ services:
     volumes:
       - ../sandbox/gnuradio/sdr-capture/emu-samples:/samples:ro
     environment:
-      SAMPLE_FILE: "sdr_20210519_101920_1176450000_38400000_12.cs16"
+      # Override with SDR_EMU_SAMPLE to replay another file from emu-samples,
+      # e.g. the Run 5 flight-capture replay built by tools/src/make_emu_replay.py.
+      SAMPLE_FILE: "${SDR_EMU_SAMPLE:-sdr_20210519_101920_1176450000_38400000_12.cs16}"
       DATA_SOURCE_TYPE: "file"
 
   pretty-doomed:
