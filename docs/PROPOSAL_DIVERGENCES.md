@@ -24,7 +24,7 @@ Changes from the [original proposal](PROPOSAL.md) based on testing, hardware con
 
 **Proposal:** "PRETTY, Play DOOM."
 
-**Implemented:** "PRETTY, THIS IS [CALL_SIGN], PLAY DOOM." Added call signs for radio amateur identification. Call signs were selected based on BPE token count (single-token words like NIGHT, LIGHT transcribe more reliably than multi-token NATO alphabet words).
+**Implemented:** "[CALL_SIGN], PRETTY PRETTY, PLEASE PLAY DOOM DOOM DOOM." Call signs were added for radio amateur identification and selected based on BPE token count (single-token words like NIGHT, LIGHT transcribe more reliably than multi-token NATO alphabet words); the repetition survives a noisy link.
 
 ## SDR Integration
 
