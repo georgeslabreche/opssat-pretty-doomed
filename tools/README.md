@@ -22,6 +22,7 @@ tools/
     ├── summarize_carriers.py # Compare carrier detections across clips
     ├── demod_audio.py    # Demodulate raw I/Q to audio (FM / CW / SSB)
     ├── make_emu_replay.py # Build an SDR-emulator replay file from flight captures
+    ├── make_fm_iq.py     # Simulate the radio trip: voice WAV -> flight-form baseband sc16
     ├── plot_audio.py     # WAV audio visualization
     ├── plot_loopback.py  # Loopback TX/RX comparison
     ├── compare_psd.py    # Multi-capture PSD overlay
@@ -220,6 +221,31 @@ Options:
 - `--out-rate` — replay sample rate in Hz (default: 2400000; use 2x `sdr_rate` for iio-emu)
 - `--offset-hz` — where to place the uplink relative to DC (default: -8000)
 - `--peak` — peak int16 amplitude (default: 2000)
+
+### make_fm_iq.py — Simulated radio trip for keyer screening
+
+Simulates the radio link: FM-modulates a clean voice WAV onto complex baseband at the flight effective rate, places the carrier at a chosen offset with optional Doppler drift, and adds noise to a chosen carrier-to-noise ratio. The output is `capture.sc16`-form, so it runs through the actual flight binary with `pretty-doomed -r`, exercising the narrowing, peak search, and FM discriminator. CNR is defined within `--cnr-bw` (default 20 kHz, the narrowing bandwidth). Default carrier placement (-8 kHz) is the Run 5 offset measured at zenith; default deviation (5 kHz) is the flight demodulator's configured `sdr_fm_deviation`.
+
+```bash
+python3 src/make_fm_iq.py keyer_voice.wav --output voice_cnr12.sc16 --cnr-db 12
+```
+
+Measured vs assumed: the carrier placement, CNR anchor, and the flatness of the noise floor are taken from the [Run 5 flight captures](../pretty-doomed/docs/flight/debriefings/run-05-2026-07-03/); the deviation is the flight demodulator's configured value pending confirmation of the transmitter settings, and the noise itself is synthetic AWGN by default and omits the real receiver's narrowband features (spurs, DC spike), for which `--noise-file` substitutes real capture noise. Details and screening results (keyer voices, human recordings, CNR sweep): [`pretty-doomed/docs/KEYER_SCREENING.md`](../pretty-doomed/docs/KEYER_SCREENING.md).
+
+| Output | Description |
+|--------|-------------|
+| `<output>` | Flight-form baseband sc16 (200 kHz, interleaved little-endian int16) |
+
+Options:
+- `input` — clean voice WAV, any rate (required)
+- `--output` — output sc16 file (required)
+- `--out-rate` — output sample rate in Hz (default: 200000, the flight effective rate)
+- `--deviation` — peak FM deviation in Hz (default: 5000)
+- `--offset-hz` / `--drift-hz-s` — carrier offset from DC and linear drift (defaults: -8000, 0)
+- `--cnr-db` / `--cnr-bw` — target CNR in dB and its reference bandwidth (omit `--cnr-db` for no noise)
+- `--noise-file` — noise-only sc16 at the output rate to use instead of AWGN (e.g. a keying pause from a real capture)
+- `--pad-s` — noise-only padding before and after the voice (default: 0.25)
+- `--peak` / `--seed` — output amplitude and RNG seed for reproducible noise
 
 ### demod_audio.py — Demodulate raw I/Q to audio
 
