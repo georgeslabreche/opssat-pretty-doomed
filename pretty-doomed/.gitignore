@@ -30,5 +30,5 @@ TODO.md
 artifacts
 
 # Generated replay inputs (see docs/TESTING.md)
-input/*.cs16
-input/*.sc16
+input/**/*.cs16
+input/**/*.sc16

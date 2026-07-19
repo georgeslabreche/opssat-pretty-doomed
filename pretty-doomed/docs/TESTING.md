@@ -18,12 +18,12 @@ docker-compose run --rm pretty-doomed make test-chain
 
 # File input pipeline (single file)
 docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
-    -i input/georges_01.wav -c config.cfg -f variants.cfg \
+    -i input/samples/georges_01.wav -c config.cfg -f variants.cfg \
     -o toGround/test -d demos -e doom-build/local/opssat-doom
 
 # File input with sc16 (tests postcard I/Q scatter rendering)
 docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
-    -i input/georges_01.wav -q path/to/capture.sc16 -c config.cfg -f variants.cfg \
+    -i input/samples/georges_01.wav -q path/to/capture.sc16 -c config.cfg -f variants.cfg \
     -o toGround/test -d demos -e doom-build/local/opssat-doom
 
 # Standalone postcard scatter test (no STT/DOOM, just postcard rendering)
@@ -107,7 +107,7 @@ docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
     -o toGround/replay-test -d demos -e doom-build/local/opssat-doom
 ```
 
-Inputs can come from any capture that ran with `sdr_keep_sc16=true` (flight, EM, or the SDR emulator below), which makes this the simplest way to exercise the full pipeline on the EM against real flight signal: capture once anywhere, then replay the sc16 on the ARM32 binary. A raw flight recording can also be converted directly with `tools/src/make_emu_replay.py --out-rate 200000` (the effective rate; the resampler band-limits to +/-100 kHz, standing in for the flight channel LPF).
+Inputs can come from any capture that ran with `sdr_keep_sc16=true` (flight, EM, or the SDR emulator below), which makes this the simplest way to exercise the full pipeline on the EM against real flight signal: capture once anywhere, then replay the sc16 on the ARM32 binary. A raw flight recording can also be converted directly with `tools/src/make_emu_replay.py --out-rate 200000` (the effective rate; the resampler band-limits to +/-100 kHz, standing in for the flight channel LPF). Synthetic inputs at a chosen link quality can be generated from a clean voice WAV with `tools/src/make_fm_iq.py` (FM modulation, carrier offset, CNR), which is how keyer candidates are screened through the full flight pipeline at controlled badness (results in [KEYER_SCREENING.md](KEYER_SCREENING.md)).
 
 On the SEPP, the `run` script switches to `-r` automatically when an `input/replay.cs16` file exists, so a SMILE-driven EM run can replay real signal with no script edits. Delete the file to return to live capture; the flight package must not contain `input/replay.cs16`.
 

@@ -123,10 +123,12 @@ The BPE model decomposes words into subword tokens. Words with fewer tokens are 
 ## Voice Command Format
 
 ```
-<wake_word>, THIS IS <call_sign>, PLAY <command>.
+<call_sign>, <wake_word> <wake_word>, PLEASE PLAY <command> <command> <command>.
 ```
 
-Example: "PRETTY, THIS IS NIGHT, PLAY DOOM."
+Example: "LIMA ALFA FOUR OSCAR, PRETTY PRETTY, PLEASE PLAY DOOM DOOM DOOM."
+
+Transmissions open with the operator's call sign, as amateur radio identification rules require. The matcher counts matching words anywhere in the transcription (see Fuzzy Matching Strategy below), so word order is not enforced; the repetition of the wake word and command exists to survive a noisy link, where one clean occurrence is enough to trigger.
 
 ### Word Selection Rationale
 

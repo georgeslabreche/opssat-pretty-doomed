@@ -22,7 +22,7 @@ Builds an ARM32 package for OPS-SAT SEPP deployment. Uses pre-built GNU Radio AR
 
 - Docker and Docker Compose
 - `resources/exp_env.tar.gz` (one directory up from repo root)
-- Pre-built GNU Radio ARM32 libs at [`sandbox/gnuradio/build-libs-armv7/output/`](../sandbox/gnuradio/build-libs-armv7/) (includes GNU Radio, gr-iio, libad9361, libvolk). Build these first if they don't exist.
+- Pre-built GNU Radio ARM32 libs at [`sandbox/gnuradio/build-libs-armv7/output/`](../../sandbox/gnuradio/build-libs-armv7/) (includes GNU Radio, gr-iio, libad9361, libvolk). Build these first if they don't exist.
 - SDR emulator image `iio-emu:latest` (optional, for emulator testing only)
 
 ### One-shot Build
@@ -115,5 +115,5 @@ Download models before running. See [`models/README.md`](../models/README.md) fo
 Convert a recording to the expected input format (48 kHz, mono, 16-bit):
 
 ```bash
-./scripts/misc/convert-sample.sh recording.mp3 input/sample.wav
+./scripts/misc/convert-sample.sh recording.mp3 input/samples/sample.wav
 ```

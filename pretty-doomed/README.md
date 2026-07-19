@@ -29,7 +29,7 @@ docker-compose run --rm pretty-doomed ./run
 
 # Run single file
 docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
-    -i input/georges_01.wav -c config.cfg -f variants.cfg \
+    -i input/samples/georges_01.wav -c config.cfg -f variants.cfg \
     -o toGround/test -d demos -e doom-build/local/opssat-doom
 ```
 
@@ -64,10 +64,12 @@ See [docs/TESTING.md](docs/TESTING.md) for local, emulator, and EM testing instr
 ## Voice Command Format
 
 ```
-PRETTY, THIS IS <CALL_SIGN>, PLAY DOOM.
+<CALL_SIGN>, PRETTY PRETTY, PLEASE PLAY DOOM DOOM DOOM.
 ```
 
-Example: "PRETTY, THIS IS GEORGES, PLAY DOOM."
+Example: "LIMA ALFA FOUR OSCAR, PRETTY PRETTY, PLEASE PLAY DOOM DOOM DOOM."
+
+Transmissions open with the operator's call sign (amateur radio identification rules). Detection counts matching words anywhere in the transcription, so word order is not enforced, and repeating the command raises the detection probability on a noisy link: one surviving DOOM is enough.
 
 ## Documentation
 
