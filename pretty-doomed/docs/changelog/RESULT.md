@@ -4,9 +4,32 @@ Verification results from experiment runs on the OPS-SAT Engineering Model (EM),
 
 For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md). For the v7 changes (narrowing stage, second-stage filtering removal, sc16 replay input), see [V6_TO_V7.md](V6_TO_V7.md).
 
+## v7 Validation
+
+Data from SMILE artifact [`pack-4023_1784280414`](data/em-v7/pack-4023_1784280414/). The `exp4023-pretty-DOOMed-v6-to-v7.tar.gz` patch (8.7 MB: `pretty-doomed`, `run`, `VERSION`, `config.cfg`, `input/replay.cs16`) was extracted over the intact v6 installation, models and libraries picked up in place. Single run via SMILE with the EM configuration (`doom_force_trigger=true`, narrowing armed); the `run` script detected `input/replay.cs16` (the Run 5 pass 2 recording `sdr_20260703_205825` in flight `capture.sc16` form, archived byte-identical as [data/em-v7/replay.cs16](data/em-v7/replay.cs16)) and replayed it instead of live capture, so the SDR stayed off.
+
+The EM reproduced the ground reference (the QEMU dress rehearsal below, which ran the same package on the same input):
+
+| Stage | EM result | Ground reference (QEMU) |
+|---|---|---|
+| Narrowing | peak at -8.27637 kHz, 0.5 s scan+regeneration for the 2 s capture | -8.27637 kHz, identical to the last logged digit |
+| Normalization | rms=0.136517, scale=0.73251 | identical to the logged digit |
+| Transcription | `LIMA OLFAR FOR VIGILIUM`, call sign token match (`LIMA`), 3.2 s inference | word-identical (the x86 build differs only in the noise tail: `LIMA ALPHAGIUM`) |
+| Detection | no command (expected; the recording carries no command phrase) | identical |
+| DOOM | force-triggered, `gl-e1m2b` completed (19.3 s) | identical demo |
+| Postcard | 2520x1800, 9.2 s | identical |
+
+Total 50.6 s, of which STT model load 18.8 s. This is the first on-hardware measurement of the v7 narrowing phase and it is negligible against the STT stages, as designed. The systemd `status=127` at service exit is identical in all archived EM packs back to April 2026 (pre-existing wrapper behavior, not v7).
+
+![v7 EM run](data/em-v7/pack-4023_1784280414/run-00001-timeline-and-resource.png)
+
+![v7 EM postcard](data/em-v7/pack-4023_1784280414/run-00001-capture-001-postcard.png)
+
+**Verdict: v7 is validated for flight.** The flight patch is the same build with `doom_force_trigger=false` and no `input/replay.cs16` (see the packaging section of [V6_TO_V7.md](V6_TO_V7.md)).
+
 ## v7 Local Validation (pre-EM)
 
-Data in [data/local-v7/](data/local-v7/). EM validation of the v7 patch package is pending; this run is the ground dress rehearsal of exactly what the EM will execute: the `exp4023-pretty-DOOMed-v6-to-v7.tar.gz` patch extracted over a v6-style installation (models provided by the existing deployment), run as-shipped via `./run` on the ARM32 binaries with the bundled libraries, under QEMU user-mode emulation.
+Data in [data/local-v7/](data/local-v7/). This run was the ground dress rehearsal of exactly what the EM executed: the `exp4023-pretty-DOOMed-v6-to-v7.tar.gz` patch extracted over a v6-style installation (models and libraries provided by the existing deployment), run as-shipped via `./run` on the ARM32 binary, under QEMU user-mode emulation. The run was repeated against the archived v6 `libs/` exactly as deployed on the EM (the patch ships no libraries; see the packaging section of [V6_TO_V7.md](V6_TO_V7.md)) with identical results.
 
 The package's `input/replay.cs16` (Run 5 pass 2 recording `sdr_20260703_205825`, converted to flight `capture.sc16` form) switched the run to sc16 replay mode automatically. Full sequence in 23.9 s:
 
@@ -23,7 +46,7 @@ The narrowing peak is identical to the x86 reference run of the same input, and 
 
 ![v7 local run](data/local-v7/run-00001-timeline-and-resource.png)
 
-The timeline shows the first ARM32 measurement of the narrowing phase (teal, about 0.6 s for a 2 s capture including the sc16 scan and audio regeneration, on QEMU-emulated cores). STT model load 8.4 s, inference 4.2 s, DOOM 6.7 s, postcard 4.6 s.
+The timeline shows the first ARM32 measurement of the narrowing phase (teal, 0.35 s for a 2 s capture including the sc16 scan and audio regeneration, on QEMU-emulated cores; 0.5 s on the real EM). STT model load 8.4 s, inference 4.2 s, DOOM 6.7 s, postcard 4.6 s.
 
 ![v7 local postcard](data/local-v7/run-00001-capture-001-postcard.png)
 
