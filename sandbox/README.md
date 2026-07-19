@@ -9,7 +9,7 @@ Standalone experiments that informed the design of the integrated [`pretty-doome
 | [`gnuradio/sdr-loopback/`](gnuradio/sdr-loopback/) | Shelved (v8) | TX/RX loopback. Q channel dropout. See [RESULT.md](gnuradio/sdr-loopback/RESULT.md) |
 | [`speech-to-text/sherpa-onnx-sepp/`](speech-to-text/sherpa-onnx-sepp/) | Validated (EM, v2) | Sherpa-ONNX on ARM32. 26s model load, 288s inference for 22s audio |
 | [`speech-to-text/`](speech-to-text/) | Complete | STT engine evaluation (Sherpa-ONNX, Vosk, PocketSphinx) |
-| [`denoising/`](denoising/) | Dropped | DTLN, spectral subtraction, Wiener, ALE. None handled radio interference reliably |
+| [`denoising/`](denoising/) | Dropped | DTLN, spectral subtraction, Wiener, ALE, noisereduce. None were effective on the OPS-SAT radio samples, and a detection-level A/B through the flight pipeline showed the tested denoiser lowering command detection. See [audio-denoiser-noisereduce/](denoising/audio-denoiser-noisereduce/) |
 | [`integrations/gnuradio-whisper/`](integrations/gnuradio-whisper/) | Superseded | Early prototype. Replaced by pretty-doomed (Sherpa-ONNX over Whisper) |
 
 ### Shared infrastructure
