@@ -45,12 +45,14 @@ See [`pretty-doomed/README.md`](pretty-doomed/README.md) for full build, run, an
 ## Voice Command Format
 
 ```
-PRETTY, THIS IS <CALL_SIGN>, PLAY DOOM.
+<CALL_SIGN>, PRETTY PRETTY, PLEASE PLAY DOOM DOOM DOOM.
 ```
+
+Transmissions open with the operator's call sign (amateur radio identification rules); detection is order-insensitive and one surviving DOOM is enough. See [`pretty-doomed/README.md`](pretty-doomed/README.md#voice-command-format).
 
 ## Output
 
-Each run produces a numbered directory downlinked to ground with transcription, detection scores, filtered audio, and DOOM artifacts (if command detected). SDR capture runs also include I/Q data, spectrograms, and constellation plots per capture. See [`pretty-doomed/docs/DESIGN.md`](pretty-doomed/docs/DESIGN.md) for the full output structure.
+Each run produces a numbered directory downlinked to ground with transcription, detection scores, captured audio, and DOOM artifacts (if command detected). SDR capture runs also include I/Q data, spectrograms, and constellation plots per capture. See [`pretty-doomed/docs/DESIGN.md`](pretty-doomed/docs/DESIGN.md) for the full output structure.
 
 ## Sandbox
 

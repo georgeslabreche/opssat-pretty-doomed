@@ -2,7 +2,7 @@
 
 ## Goal
 
-Capture and recognize a short spoken command (e.g. `"PRETTY, THIS IS <CALL SIGN>, PLAY DOOM"`) transmitted from a ground station on the L-band uplink, using the onboard AD9361 SDR. Maximize probability of success under the following constraints:
+Capture and recognize a short spoken command (e.g. `"<CALL SIGN>, PRETTY PRETTY, PLEASE PLAY DOOM DOOM DOOM"`) transmitted from a ground station on the L-band uplink, using the onboard AD9361 SDR. Maximize probability of success under the following constraints:
 
 - L-band uplink (~1200 MHz)
 - Orbit ~520 km LEO
