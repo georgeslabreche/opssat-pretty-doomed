@@ -62,17 +62,20 @@ make package-demos
 make package-tar
 ```
 
-### Patch Package (skip the model)
+### Patch Package (only what changed)
 
-When the target already has the models deployed (they are unchanged since v1), build a patch package that reinstalls everything except `models/` and extracts over the existing installation:
+When the target already has a previous version installed, build a patch package with only the files that changed and extract it over the existing installation. Decide the file list by checksum comparison against the archived previous package (rebuilds produce byte-different but functionally identical binaries, e.g. `opssat-doom` and `libiio`, so compare and test rather than assume):
 
 ```bash
-make package-demos
+# compare, per directory and per file, e.g.
+diff <(cd package/archive/exp4023-pretty-DOOMed-v6 && find libs -type f | sort | xargs shasum -a 256) \
+     <(cd package/exp4023-pretty-DOOMed-v7        && find libs -type f | sort | xargs shasum -a 256)
+
 make package-patch PATCH_FROM=v6 PACKAGE_VERSION=v7 \
-    PATCH_FILES="pretty-doomed opssat-doom run VERSION config.cfg variants.cfg ascii.txt libs demos assets"
+    PATCH_FILES="pretty-doomed run VERSION config.cfg"
 ```
 
-This produces `package/exp4023-pretty-DOOMed-v6-to-v7.tar.gz`. `package-prepare` must have run first.
+This produces `package/exp4023-pretty-DOOMed-v6-to-v7.tar.gz`. `package-prepare` must have run first. If anything is excluded despite differing (a rebuilt-but-unchanged binary), validate the shipped binary against the deployed versions of the excluded files, per the v7 changelog.
 
 ## SEPP Deployment
 
