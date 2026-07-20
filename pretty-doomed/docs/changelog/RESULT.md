@@ -4,6 +4,20 @@ Verification results from experiment runs on the OPS-SAT Engineering Model (EM),
 
 For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md). For the v7 changes (narrowing stage, second-stage filtering removal, sc16 replay input), see [V6_TO_V7.md](V6_TO_V7.md).
 
+## v7 Flight Package Verification
+
+Data from SMILE artifact [`pack-4023_1784317832`](data/em-v7/pack-4023_1784317832/). The flight build of the v6-to-v7 patch (no replay file, `doom_force_trigger=false`, narrowing armed, hardware FIR) ran once via SMILE with the SDR on and nothing transmitted: the first live-SDR run of the v7 binary on the EM.
+
+All 6 captures completed at full sample counts (4,000,000/4,000,000 I/Q, 320,000/320,000 audio each, 20-22 s wall), matching the v6 cadence. Narrowing ran on every capture; total 280.1 s against 270.0 s for the v6 run of the same capture schedule, about 1.7 s per 20 s capture. No command detected on any capture, sc16 deleted after diagnostics, no DOOM execution, service exit `status=127` as in all archived packs.
+
+Observation, source not identified from the downlinked data: the received level was I/Q RMS -14.3 dBFS against -39.7 dBFS in the v6 run, and the PSD shows a stationary multi-lobed structure with deep nulls, identical across all six captures. The narrowing peak search reported -77 to -78 kHz on every capture, the strongest lobe. No false trigger resulted. Raised with EM operations.
+
+![v7 live run](data/em-v7/pack-4023_1784317832/run-00001-timeline-and-resource.png)
+
+![v7 live PSD comparison](data/em-v7/pack-4023_1784317832/run-00001-psd-comparison.png)
+
+**With the replay validation below and this live-SDR run, v7 is verified on the EM and cleared for flight.**
+
 ## v7 Validation
 
 Data from SMILE artifact [`pack-4023_1784280414`](data/em-v7/pack-4023_1784280414/). The `exp4023-pretty-DOOMed-v6-to-v7.tar.gz` patch (8.7 MB: `pretty-doomed`, `run`, `VERSION`, `config.cfg`, `input/replay.cs16`) was extracted over the intact v6 installation, models and libraries picked up in place. Single run via SMILE with the EM configuration (`doom_force_trigger=true`, narrowing armed); the `run` script detected `input/replay.cs16` (the Run 5 pass 2 recording `sdr_20260703_205825` in flight `capture.sc16` form, archived byte-identical as [data/em-v7/replay.cs16](data/em-v7/replay.cs16)) and replayed it instead of live capture, so the SDR stayed off.
