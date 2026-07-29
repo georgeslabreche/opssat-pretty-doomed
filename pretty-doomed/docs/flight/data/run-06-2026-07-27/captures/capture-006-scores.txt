@@ -1,0 +1,11 @@
+wake_word_exact=3
+wake_word_exact_matches=PRETTY,PRETTY,PRETTY
+wake_word_approx=0
+wake_word_approx_matches=
+call_sign_POWER=1
+call_sign_POWER_matches=POOR
+total_points=6
+total_points_exact=6
+total_points_approx=0
+audio_rms_raw=0.1000
+audio_peak_raw=0.5514

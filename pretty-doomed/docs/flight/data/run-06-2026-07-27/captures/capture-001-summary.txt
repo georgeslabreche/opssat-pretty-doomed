@@ -1,0 +1,19 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/toGround/run-00001/capture-001/capture.wav
+Transcription:  FOR PRETTY PRETTY PLEASE PLAY DOON DO MIMI EL THE FORASCAR PRETTY PRETTY PLEASE PLAY DOOMS DOONES DOONES WE MIGHT HAVE A FORE OFF FOR PRETTY PRETTY PLACE SIDE DOOMS DO SOON SWEEN OUT AFORE OSSICA PRETTY PRETTY PLEASE PLAY DO SO STEW
+
+Detection:
+  Wake word (PRETTY):
+    Exact: 8 [PRETTY, PRETTY, PRETTY, PRETTY, PRETTY, PRETTY, PRETTY, PRETTY]
+    Approximate: 0 []
+  Command [DOOM]:
+    Exact: 0 []
+    Approximate: 6 [DOON, DO, DOOMS, DOOMS, DO, DO]
+  Command [PLAY DOOM]:
+    Exact: 0 []
+    Approximate: 3 [PLAY DOON, PLAY DOOMS, PLAY DO]
+
+Total points: 25 (exact=16, approx=9)
+
+Result: COMMAND DETECTED - launching DOOM

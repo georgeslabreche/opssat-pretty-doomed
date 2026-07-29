@@ -1,0 +1,15 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/toGround/run-00001/capture-006/capture.wav
+Transcription:  FEMALE THE FORECTOR PRETTY PRIESTLY PLAY HE IS YOU MAY HAVE A FALL FROM BREEDY PRETTY PLACES ONLY I KNOW THE POOR OFFICER PRETTY CURIOUSLY SOCIETY
+
+Detection:
+  Wake word (PRETTY):
+    Exact: 3 [PRETTY, PRETTY, PRETTY]
+    Approximate: 0 []
+  Call sign [POWER]: 1
+    Matches: POOR
+
+Total points: 6 (exact=6, approx=0)
+
+Result: No command detected

@@ -1,0 +1,17 @@
+wake_word_exact=8
+wake_word_exact_matches=PRETTY,PRETTY,PRETTY,PRETTY,PRETTY,PRETTY,PRETTY,PRETTY
+wake_word_approx=0
+wake_word_approx_matches=
+command_DOOM_exact=0
+command_DOOM_exact_matches=
+command_DOOM_approx=6
+command_DOOM_approx_matches=DOON,DO,DOOMS,DOOMS,DO,DO
+command_PLAY_DOOM_exact=0
+command_PLAY_DOOM_exact_matches=
+command_PLAY_DOOM_approx=3
+command_PLAY_DOOM_approx_matches=PLAY DOON,PLAY DOOMS,PLAY DO
+total_points=25
+total_points_exact=16
+total_points_approx=9
+audio_rms_raw=0.1000
+audio_peak_raw=0.9655

@@ -1,0 +1,16 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/toGround/run-00001/capture-002/capture.wav
+Transcription:  AND FAR BRIEFLY PLAYING DOOM STEAM DOOM PRECIPATED
+
+Detection:
+  Wake word (PRETTY):
+    Exact: 0 []
+    Approximate: 0 []
+  Command [DOOM]:
+    Exact: 2 [DOOM, DOOM]
+    Approximate: 0 []
+
+Total points: 4 (exact=4, approx=0)
+
+Result: COMMAND DETECTED - launching DOOM
