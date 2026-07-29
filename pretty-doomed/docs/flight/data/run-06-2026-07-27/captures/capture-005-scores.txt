@@ -1,0 +1,17 @@
+wake_word_exact=5
+wake_word_exact_matches=PRETTY,PRETTY,PRETTY,PRETTY,PRETTY
+wake_word_approx=0
+wake_word_approx_matches=
+command_DOOM_exact=0
+command_DOOM_exact_matches=
+command_DOOM_approx=4
+command_DOOM_approx_matches=DO,DO,DO,DO
+call_sign_LIMA=1
+call_sign_LIMA_matches=LENA
+call_sign_PRINCE=1
+call_sign_PRINCE_matches=PRIS
+total_points=14
+total_points_exact=10
+total_points_approx=4
+audio_rms_raw=0.1000
+audio_peak_raw=0.7066

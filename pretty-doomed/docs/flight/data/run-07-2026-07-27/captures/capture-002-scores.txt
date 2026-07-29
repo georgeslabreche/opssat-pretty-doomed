@@ -1,0 +1,13 @@
+wake_word_exact=0
+wake_word_exact_matches=
+wake_word_approx=0
+wake_word_approx_matches=
+command_DOOM_exact=2
+command_DOOM_exact_matches=DOOM,DOOM
+command_DOOM_approx=0
+command_DOOM_approx_matches=
+total_points=4
+total_points_exact=4
+total_points_approx=0
+audio_rms_raw=0.1000
+audio_peak_raw=0.3880

@@ -7,8 +7,19 @@ First voice command sent to a spacecraft — playing DOOM from orbit via amateur
 A radio amateur transmits a voice command to ESA's OPS-SAT PRETTY spacecraft on 1296 MHz. The onboard SDR captures the RF signal, FM demodulates, filters, transcribes speech, detects the command, and launches a DOOM demo playback. Frame captures, level stats, I/Q diagnostics, and transcription are downlinked.
 
 ```
-RF (1296 MHz) --> SDR Capture --> FM Demod --> Filter --> Resample --> STT --> Match --> DOOM --> Downlink
+RF (1296 MHz) --> SDR Capture --> Narrow --> FM Demod --> Filter --> Resample --> STT --> Match --> DOOM --> Downlink
 ```
+
+## Flight results
+
+**This is the first time a satellite has been commanded by voice.** On 2026-07-27 a spoken command transmitted from the ground was received on board OPS-SAT PRETTY, recognized by the onboard speech-to-text, and acted on, launching DOOM. It is a significant operational first: not a pre-scripted trigger but a voice command sent over amateur radio, detected and executed as a flight operation autonomously in orbit.
+
+It happened on two passes with a radio-amateur team in Oslo transmitting:
+
+- **Run 6** (morning, TTS keyer): three of six captures detected the command and launched DOOM. [Debriefing](pretty-doomed/docs/flight/debriefings/run-06-2026-07-27/).
+- **Run 7** (evening, live human voice over a microphone, no keyer): the detection reproduced on an independent pass. [Debriefing](pretty-doomed/docs/flight/debriefings/run-07-2026-07-27/).
+
+These followed the [Run 5 RF-link test](pretty-doomed/docs/flight/debriefings/run-05-2026-07-03/), which recorded the uplink as raw I/Q and drove the v7 narrowing stage that recovers the voice from the noise floor. Full flight record and per-run analysis: [`pretty-doomed/docs/flight/`](pretty-doomed/docs/flight/).
 
 ## Repository
 

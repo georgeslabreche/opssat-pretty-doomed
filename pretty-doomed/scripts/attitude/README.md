@@ -88,10 +88,30 @@ python3 animate_pointing.py ... \
 | `--interp-dt` | 1.0 | Time step in seconds between interpolated frames. Smaller = smoother but more frames and a bigger file. |
 | `--interp-mode` | `cubic` | `cubic` uses scipy's `RotationSpline` for C¹-continuous angular velocity, the smoothest option. `slerp` uses piecewise-linear SLERP between samples, with constant velocity per segment and jumps at boundaries. |
 | `--rotate` | off | Slowly rotates the view azimuth across the animation. |
+| `--trim-to-captures` | off | Trim the animation to the capture span: from the first capture start minus `--trim-pad-s` to the last capture end plus `--trim-pad-s`, instead of the full telemetry span. The `--capture-audio` offsets follow the trimmed start. |
+| `--trim-pad-s` | 2.0 | Padding in seconds before the first capture and after the last when `--trim-to-captures` is set. |
+| `--realtime` | off | Play back at real wall-clock rate (1 telemetry second = 1 video second) by forcing `--interp-dt` to `1/fps`. Needed for `--capture-audio` to line up with the capture windows. |
+| `--capture-audio` | none | Comma-separated WAV paths, one per capture window, muxed into the MP4 as a soundtrack (requires ffmpeg), each placed at its capture-window start. Use with `--realtime` so each capture's audio plays while that capture is happening, silent in the gaps. |
 | `--dpi` | 100 | Render DPI. Lower = smaller file but blurrier. |
 | `--arrow-len` | 1500 km | Length of the body-axis arrows drawn at the spacecraft. |
 
 The capture windows (see Inputs) drive the recording banner.
+
+### Real-time animation with per-capture audio
+
+```bash
+python3 animate_pointing.py \
+  --ukf-csv ../../pretty-doomed/docs/flight/data/run-06-2026-07-27/ukf-attitude.csv \
+  --tle1 "..." --tle2 "..." \
+  --target-ecef "3149143.1,598008.8,5495694.5" --target-name Oslo \
+  --exp-time 2026-07-27T10:50:53Z \
+  --capture-windows "[[9,31],[35,56],[60,82],[86,114],[119,146],[151,173]]" \
+  --trim-to-captures --trim-pad-s 2 --realtime --fps 10 \
+  --capture-audio "cap1.wav,cap2.wav,cap3.wav,cap4.wav,cap5.wav,cap6.wav" \
+  --output pointing-animated.mp4
+```
+
+At `--realtime` the video plays at wall-clock rate, so each capture's recovered audio is heard at the moment that capture occurred. `--trim-to-captures` clips it to the capture span plus `--trim-pad-s` on each side (about 2.8 minutes for the Run 6 example) instead of the full telemetry span. Without `--capture-audio` the output is silent; without `--realtime` the audio placement will not line up.
 
 ## Output interpretation
 

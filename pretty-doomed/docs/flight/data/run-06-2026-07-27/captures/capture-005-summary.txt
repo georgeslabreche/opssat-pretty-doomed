@@ -1,0 +1,20 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/toGround/run-00001/capture-005/capture.wav
+Transcription:  DO NOT BE PRETTY PRETTY THINGS AND DO YOU THINK LENA HOWEVER DO NOW BEFORE AFTER WE COULD SEE HOW PRETTY PRIS I DO SLAY MYSELF BEFORE AUST A PRETTY PRETTY PLEASE SLAVE
+
+Detection:
+  Wake word (PRETTY):
+    Exact: 5 [PRETTY, PRETTY, PRETTY, PRETTY, PRETTY]
+    Approximate: 0 []
+  Command [DOOM]:
+    Exact: 0 []
+    Approximate: 4 [DO, DO, DO, DO]
+  Call sign [LIMA]: 1
+    Matches: LENA
+  Call sign [PRINCE]: 1
+    Matches: PRIS
+
+Total points: 14 (exact=10, approx=4)
+
+Result: COMMAND DETECTED - launching DOOM

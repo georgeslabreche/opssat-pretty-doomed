@@ -37,6 +37,7 @@ Dependencies: numpy, scipy, sgp4, matplotlib, pillow (GIF), ffmpeg (MP4).
 import argparse
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -112,6 +113,36 @@ def _err_color(err, r_max):
     return tuple(c)
 
 
+def mux_capture_audio(silent_mp4, out_mp4, audio_csv, capture_windows,
+                      video_start, exp_time, duration_s):
+    """Mux one WAV per capture window into the video as a soundtrack.
+
+    Each WAV is delayed to the wall-clock offset of its capture window from
+    the first telemetry sample (video start), so with real-time playback the
+    audio plays while that capture is happening. Gaps are silent. Requires
+    ffmpeg on PATH."""
+    audios = [a for a in audio_csv.split(",") if a]
+    base_off = (exp_time - video_start).total_seconds()
+    inputs, filters, labels = [], [], []
+    for i, wav in enumerate(audios):
+        if i >= len(capture_windows):
+            break
+        off_ms = int(round((base_off + capture_windows[i][0]) * 1000))
+        inputs += ["-i", wav]
+        # input 0 is the silent video, so audio input i is ffmpeg index i+1
+        filters.append(f"[{i + 1}]adelay={off_ms}|{off_ms}[a{i}]")
+        labels.append(f"[a{i}]")
+    if not labels:
+        raise SystemExit("--capture-audio: no usable audio paths.")
+    fc = ";".join(filters) + ";" + "".join(labels) + \
+        f"amix=inputs={len(labels)}:normalize=0[m];[m]apad,atrim=0:{duration_s:.3f}[out]"
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", silent_mp4, *inputs,
+           "-filter_complex", fc, "-map", "0:v", "-map", "[out]",
+           "-c:v", "copy", "-c:a", "aac", "-shortest", out_mp4]
+    print(f"Muxing {len(labels)} capture audio track(s) into {out_mp4}...")
+    subprocess.run(cmd, check=True)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -140,7 +171,27 @@ def main():
     p.add_argument("--capture-windows", default=None,
                    help="JSON list of [start_offset_s, end_offset_s] capture windows "
                         "relative to exp-time. Default: 6 contiguous 22s windows from -65s.")
+    p.add_argument("--trim-to-captures", action="store_true",
+                   help="Trim the animation to the capture span: from the first "
+                        "capture start minus --trim-pad-s to the last capture end "
+                        "plus --trim-pad-s, instead of the full telemetry span. The "
+                        "audio in --capture-audio follows the trimmed start.")
+    p.add_argument("--trim-pad-s", type=float, default=2.0,
+                   help="Seconds of padding before the first capture and after the "
+                        "last capture when --trim-to-captures is set (default 2.0).")
+    p.add_argument("--realtime", action="store_true",
+                   help="Play back at real wall-clock rate (1 telemetry second = 1 "
+                        "video second) by forcing --interp-dt to 1/fps. Needed for the "
+                        "audio in --capture-audio to line up with the capture windows.")
+    p.add_argument("--capture-audio", default=None,
+                   help="Comma-separated WAV paths, one per capture window, muxed into "
+                        "the output (.mp4 only) as a soundtrack, each placed at its "
+                        "capture-window start. Requires ffmpeg. Use with --realtime so "
+                        "the audio lines up with when each capture occurred.")
     args = p.parse_args()
+
+    if args.realtime:
+        args.interp_dt = 1.0 / args.fps
 
     exp_time = datetime.fromisoformat(args.exp_time.replace("Z", "+00:00"))
     if args.target_ecef:
@@ -161,6 +212,17 @@ def main():
     raw_samples = load_ukf_csv(args.ukf_csv)
     samples = interpolate_attitude(raw_samples, args.interp_dt, mode=args.interp_mode)
     print(f"Loaded {len(raw_samples)} UKF samples; interpolated to {len(samples)} frames.")
+
+    if args.trim_to_captures and capture_windows:
+        pad = args.trim_pad_s
+        t_start = exp_time + timedelta(seconds=min(w[0] for w in capture_windows) - pad)
+        t_end = exp_time + timedelta(seconds=max(w[1] for w in capture_windows) + pad)
+        trimmed = [s for s in samples if t_start <= s[0] <= t_end]
+        if not trimmed:
+            raise SystemExit("--trim-to-captures left no frames; check capture windows.")
+        samples = trimmed
+        print(f"Trimmed to captures +/-{pad:g}s: {samples[0][0].strftime('%H:%M:%S')} "
+              f"to {samples[-1][0].strftime('%H:%M:%S')} ({len(samples)} frames).")
 
     # Precompute per-frame data: SC position (km), the three body axes in ECEF,
     # and the +X antenna pointing error.
@@ -379,17 +441,33 @@ def main():
     )
 
     ext = os.path.splitext(args.output)[1].lower()
-    print(f"Writing {args.output} ({len(samples)} frames at {args.fps} fps)...")
+    # With --capture-audio, render the frames to a temporary silent file and
+    # mux the audio into args.output afterwards.
+    render_path = args.output
+    if args.capture_audio and ext == ".mp4":
+        render_path = args.output + ".silent.mp4"
+    print(f"Writing {render_path} ({len(samples)} frames at {args.fps} fps)...")
     if ext == ".gif":
-        anim.save(args.output, writer="pillow", fps=args.fps, dpi=args.dpi)
+        anim.save(render_path, writer="pillow", fps=args.fps, dpi=args.dpi)
     elif ext == ".mp4":
         writer = animation.FFMpegWriter(fps=args.fps, codec="libx264",
                                         bitrate=2400,
                                         extra_args=["-pix_fmt", "yuv420p"])
-        anim.save(args.output, writer=writer, dpi=args.dpi)
+        anim.save(render_path, writer=writer, dpi=args.dpi)
     else:
         raise SystemExit(f"Unsupported output extension: {ext}. Use .gif or .mp4.")
     plt.close()
+
+    if args.capture_audio:
+        if ext != ".mp4":
+            raise SystemExit("--capture-audio requires an .mp4 output.")
+        if not args.realtime:
+            print("Warning: --capture-audio without --realtime; audio placement "
+                  "assumes real-time playback and will not line up.")
+        mux_capture_audio(render_path, args.output, args.capture_audio,
+                          capture_windows, samples[0][0], exp_time,
+                          len(samples) / args.fps)
+        os.remove(render_path)
     print("Done.")
 
 
