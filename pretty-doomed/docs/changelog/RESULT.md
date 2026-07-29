@@ -10,7 +10,7 @@ Data from SMILE artifact [`pack-4023_1784317832`](data/em-v7/pack-4023_178431783
 
 All 6 captures completed at full sample counts (4,000,000/4,000,000 I/Q, 320,000/320,000 audio each, 20-22 s wall), matching the v6 cadence. Narrowing ran on every capture; total 280.1 s against 270.0 s for the v6 run of the same capture schedule, about 1.7 s per 20 s capture. No command detected on any capture, sc16 deleted after diagnostics, no DOOM execution, service exit `status=127` as in all archived packs.
 
-Observation, source not identified from the downlinked data: the received level was I/Q RMS -14.3 dBFS against -39.7 dBFS in the v6 run, and the PSD shows a stationary multi-lobed structure with deep nulls, identical across all six captures. The narrowing peak search reported -77 to -78 kHz on every capture, the strongest lobe. No false trigger resulted. Raised with EM operations.
+Observation: the received level was I/Q RMS -14.3 dBFS against -39.7 dBFS in the v6 run, and the PSD shows a stationary multi-lobed structure with deep nulls, identical across all six captures. The narrowing peak search reported -77 to -78 kHz on every capture, the strongest lobe. No false trigger resulted. Operations' likely explanation is a pseudorandom sequence generator left active from preceding Flatsat tests; its signal level and spectrum type match what was seen. This points to a ground test artifact rather than a property of the flight signal chain, and it did not affect the verification.
 
 ![v7 live run](data/em-v7/pack-4023_1784317832/run-00001-timeline-and-resource.png)
 
