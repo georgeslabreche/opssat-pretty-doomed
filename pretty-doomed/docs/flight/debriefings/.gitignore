@@ -1,3 +1,9 @@
 # Debriefing animations are reference-only, not committed.
 # Figures (PNG) and the README markdown are the committed record.
 *.mp4
+
+# Milestone exception: the first on-orbit DOOM launches (Run 6).
+# These clips are committed so the recovered audio and the pass animation
+# are preserved with the record, not only regenerable.
+!run-06-2026-07-27/pointing-animated.mp4
+!run-06-2026-07-27/captures-spectrogram.mp4

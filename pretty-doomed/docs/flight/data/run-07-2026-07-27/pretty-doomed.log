@@ -1,0 +1,333 @@
+[2026-07-27 21:36:59.527][c0/t67] === PRETTY DOOMed v7 ===
+[2026-07-27 21:36:59.530][c0/t67] Loading config: /home/exp/toGround/run-00001/config.cfg
+[2026-07-27 21:36:59.535][c0/t67] SDR Capture mode: 6 capture(s) of 20s, processing=background, decimation=hardware FIR, sdr_init=once
+[2026-07-27 21:36:59.598][c0/t67] AD9361 RX LO/gain written via libiio
+[2026-07-27 21:36:59.598][c0/t67] Configuring AD9361 hardware FIR: rate=600000 Fpass=200000 Fstop=250000
+[2026-07-27 21:37:05.358][c0/t67] AD9361 hardware FIR configured
+[2026-07-27 21:37:05.359][c0/t67] AD9361 hardware FIR readback: enabled
+[2026-07-27 21:37:05.359][c0/t67] AD9361 FIR config readback: FIR Rx: 128,4 Tx: 128,4
+[2026-07-27 21:37:05.360][c0/t67] AD9361 RX LO readback: 1296000000 Hz
+[2026-07-27 21:37:05.360][c0/t67] AD9361 sample rate readback: 599999 Hz
+[2026-07-27 21:37:05.361][c0/t67] AD9361 sample rate readback: 599999 Hz (within +/-10 Hz of requested 600000 Hz)
+[2026-07-27 21:37:05.361][c0/t67] AD9361 RX RF bandwidth readback: 350000 Hz
+[2026-07-27 21:37:05.361][c0/t67] AD9361 RX gain control mode: manual
+[2026-07-27 21:37:05.362][c0/t67] AD9361 RX hardware gain: 50.000000 dB
+[2026-07-27 21:37:05.362][c0/t67] AD9361 RX RSSI: 102.00 dB
+[2026-07-27 21:37:05.363][c0/t67] Loading STT model (concurrent with capture)...
+[2026-07-27 21:37:05.363][c1/t111] Loading STT model...
+[2026-07-27 21:37:05.363][c1/t111]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-07-27 21:37:05.367][c1/t111]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-07-27 21:37:05.368][c1/t111]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-07-27 21:37:05.368][c1/t111]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-07-27 21:37:05.369][c0/t67] === Capture 1/6 ===
+[2026-07-27 21:37:05.369][c0/t67] Configuring SDR...
+[2026-07-27 21:37:05.369][c0/t67] SDR Capture: 20s at 200000 Hz effective
+[2026-07-27 21:37:05.369][c0/t67]   Frequency:   1296 MHz
+[2026-07-27 21:37:05.369][c0/t67]   HW FIR:      2400000 Hz ADC -> 600000 Hz post-FIR
+[2026-07-27 21:37:05.369][c0/t67]   SDR rate:    600000 Hz (post-FIR), decimation 3x
+[2026-07-27 21:37:05.369][c0/t67]   I/Q samples: 4000000, audio samples: 320000
+[2026-07-27 21:37:05.369][c0/t67]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-07-27 21:37:05.369][c0/t67]   LPF taps: 97, bandpass taps: 193
+[2026-07-27 21:37:05.369][c0/t67] Building flowgraph...
+[2026-07-27 21:37:05.445][c0/t67] Starting capture...
+[2026-07-27 21:37:05.495][c0/t67] Timeout: 50s (2x duration + 10)
+[2026-07-27 21:37:10.518][c0/t67] Progress [5s]: I/Q 978897/4000000, audio 78278/320000
+[2026-07-27 21:37:15.541][c0/t67] Progress [10s]: I/Q 1901613/4000000, audio 152095/320000
+[2026-07-27 21:37:20.559][c0/t67] Progress [15s]: I/Q 2783859/4000000, audio 222675/320000
+[2026-07-27 21:37:25.580][c0/t67] Progress [20s]: I/Q 3674199/4000000, audio 293902/320000
+[2026-07-27 21:37:26.785][c0/t111] STT model loaded (21417 ms)
+[2026-07-27 21:37:27.688][c1/t67] Capture complete (I/Q: 4000000/4000000, audio: 320000/320000, 21s)
+[2026-07-27 21:37:27.688][c1/t67] Stopping flowgraph...
+[2026-07-27 21:37:27.789][c1/t67] Narrowing: scanning /home/exp/toGround/run-00001/capture-001/capture.sc16 (+/-100 kHz)...
+[2026-07-27 21:37:29.094][c1/t67] Narrowing: peak at 10.3027 kHz from center; regenerating audio (+/-10 kHz, 25000 Hz at the discriminator)
+[2026-07-27 21:37:30.949][c1/t67] Narrowing: audio regenerated: /home/exp/toGround/run-00001/capture-001/capture.wav
+[2026-07-27 21:37:30.950][c1/t67] Normalizing audio...
+[2026-07-27 21:37:30.967][c1/t67] RMS normalize: rms=0.22938, scale=0.435957, target=-20 dBFS
+[2026-07-27 21:37:31.013][c0/t67] SDR capture OK
+[2026-07-27 21:37:31.018][c0/t280] Background STT of capture 1 started
+[2026-07-27 21:37:31.018][c0/t280] --- Processing: /home/exp/toGround/run-00001/capture-001/capture.wav ---
+[2026-07-27 21:37:31.018][c0/t280] Reading audio: /home/exp/toGround/run-00001/capture-001/capture.wav
+[2026-07-27 21:37:31.036][c0/t280]   16000 Hz, 319967 samples (19.9979s)
+[2026-07-27 21:37:31.040][c0/t67] === Capture 2/6 ===
+[2026-07-27 21:37:31.040][c0/t67] Configuring SDR...
+[2026-07-27 21:37:31.040][c0/t67] SDR Capture: 20s at 200000 Hz effective
+[2026-07-27 21:37:31.041][c0/t67]   Frequency:   1296 MHz
+[2026-07-27 21:37:31.041][c0/t67]   HW FIR:      2400000 Hz ADC -> 600000 Hz post-FIR
+[2026-07-27 21:37:31.041][c0/t67]   SDR rate:    600000 Hz (post-FIR), decimation 3x
+[2026-07-27 21:37:31.041][c0/t67]   I/Q samples: 4000000, audio samples: 320000
+[2026-07-27 21:37:31.041][c0/t67]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-07-27 21:37:31.041][c0/t67]   LPF taps: 97, bandpass taps: 193
+[2026-07-27 21:37:31.041][c0/t67] Building flowgraph...
+[2026-07-27 21:37:31.044][c0/t280] Resampling to 16 kHz...
+[2026-07-27 21:37:31.051][c0/t280]   319967 samples, DSP time: 0.0s
+[2026-07-27 21:37:31.051][c0/t280] Transcribing (modified_beam_search)...
+[2026-07-27 21:37:31.103][c0/t67] Starting capture...
+[2026-07-27 21:37:31.134][c1/t279] IQ diag:  4000000 samples analyzed
+[2026-07-27 21:37:31.134][c1/t279] IQ RMS:   I=30.6446 (-48.5407 dBFS)  Q=30.67 (-48.5335 dBFS)
+[2026-07-27 21:37:31.134][c1/t279] IQ zeros: I=1.85085%  Q=1.86183%
+[2026-07-27 21:37:31.135][c1/t279] IQ metrics: /home/exp/toGround/run-00001/capture-001/capture-metrics.csv
+[2026-07-27 21:37:31.135][c1/t279] Spectrogram: /home/exp/toGround/run-00001/capture-001/spectrogram.bmp
+[2026-07-27 21:37:31.152][c0/t67] Timeout: 50s (2x duration + 10)
+[2026-07-27 21:37:31.455][c1/t279] Spectrogram: 1024x256 (768 KB), 20s, freq res 781.25 Hz
+[2026-07-27 21:37:31.460][c1/t279] Constellation: /home/exp/toGround/run-00001/capture-001/constellation.bmp
+[2026-07-27 21:37:31.599][c0/t279] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-07-27 21:37:31.599][c0/t279] PSD: /home/exp/toGround/run-00001/capture-001/capture-psd.csv
+[2026-07-27 21:37:34.563][c1/t279] PSD: 800x256, 1024 bins, freq res 195.312 Hz, 7811 segments
+[2026-07-27 21:37:36.163][c0/t67] Progress [5s]: I/Q 868025/4000000, audio 69192/320000
+[2026-07-27 21:37:41.169][c0/t67] Progress [10s]: I/Q 1864294/4000000, audio 149109/320000
+[2026-07-27 21:37:46.177][c0/t67] Progress [15s]: I/Q 2872661/4000000, audio 229779/320000
+[2026-07-27 21:37:51.204][c0/t67] Progress [20s]: I/Q 3807926/4000000, audio 304600/320000
+[2026-07-27 21:37:52.806][c0/t67] Capture complete (I/Q: 4000000/4000000, audio: 320000/320000, 21s)
+[2026-07-27 21:37:52.806][c0/t67] Stopping flowgraph...
+[2026-07-27 21:37:52.907][c0/t67] Narrowing: scanning /home/exp/toGround/run-00001/capture-002/capture.sc16 (+/-100 kHz)...
+[2026-07-27 21:37:54.380][c0/t67] Narrowing: peak at -2.00195 kHz from center; regenerating audio (+/-10 kHz, 25000 Hz at the discriminator)
+[2026-07-27 21:37:57.513][c0/t67] Narrowing: audio regenerated: /home/exp/toGround/run-00001/capture-002/capture.wav
+[2026-07-27 21:37:57.515][c0/t67] Normalizing audio...
+[2026-07-27 21:37:57.542][c0/t67] RMS normalize: rms=0.257721, scale=0.388016, target=-20 dBFS
+[2026-07-27 21:37:57.620][c0/t67] SDR capture OK
+[2026-07-27 21:37:57.648][c0/t67] === Capture 3/6 ===
+[2026-07-27 21:37:57.648][c0/t67] Configuring SDR...
+[2026-07-27 21:37:57.648][c0/t67] SDR Capture: 20s at 200000 Hz effective
+[2026-07-27 21:37:57.649][c0/t67]   Frequency:   1296 MHz
+[2026-07-27 21:37:57.649][c0/t67]   HW FIR:      2400000 Hz ADC -> 600000 Hz post-FIR
+[2026-07-27 21:37:57.649][c0/t67]   SDR rate:    600000 Hz (post-FIR), decimation 3x
+[2026-07-27 21:37:57.649][c0/t67]   I/Q samples: 4000000, audio samples: 320000
+[2026-07-27 21:37:57.649][c0/t67]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-07-27 21:37:57.649][c0/t67]   LPF taps: 97, bandpass taps: 193
+[2026-07-27 21:37:57.649][c0/t67] Building flowgraph...
+[2026-07-27 21:37:57.703][c0/t67] Starting capture...
+[2026-07-27 21:37:57.752][c0/t67] Timeout: 50s (2x duration + 10)
+[2026-07-27 21:37:57.796][c0/t442] IQ diag:  4000000 samples analyzed
+[2026-07-27 21:37:57.797][c0/t442] IQ RMS:   I=31.6158 (-48.2697 dBFS)  Q=31.6613 (-48.2572 dBFS)
+[2026-07-27 21:37:57.797][c0/t442] IQ zeros: I=1.7706%  Q=1.77792%
+[2026-07-27 21:37:57.797][c0/t442] IQ metrics: /home/exp/toGround/run-00001/capture-002/capture-metrics.csv
+[2026-07-27 21:37:57.798][c0/t442] Spectrogram: /home/exp/toGround/run-00001/capture-002/spectrogram.bmp
+[2026-07-27 21:37:58.213][c0/t442] Spectrogram: 1024x256 (768 KB), 20s, freq res 781.25 Hz
+[2026-07-27 21:37:58.220][c0/t442] Constellation: /home/exp/toGround/run-00001/capture-002/constellation.bmp
+[2026-07-27 21:37:58.409][c0/t442] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-07-27 21:37:58.409][c0/t442] PSD: /home/exp/toGround/run-00001/capture-002/capture-psd.csv
+[2026-07-27 21:38:01.043][c1/t442] PSD: 800x256, 1024 bins, freq res 195.312 Hz, 7811 segments
+[2026-07-27 21:38:02.763][c1/t67] Progress [5s]: I/Q 838144/4000000, audio 67017/320000
+[2026-07-27 21:38:07.775][c1/t67] Progress [10s]: I/Q 1849105/4000000, audio 147894/320000
+[2026-07-27 21:38:12.802][c1/t67] Progress [15s]: I/Q 2814989/4000000, audio 225165/320000
+[2026-07-27 21:38:17.818][c1/t67] Progress [20s]: I/Q 3770081/4000000, audio 301572/320000
+[2026-07-27 21:38:19.627][c1/t67] Capture complete (I/Q: 4000000/4000000, audio: 320000/320000, 21s)
+[2026-07-27 21:38:19.627][c1/t67] Stopping flowgraph...
+[2026-07-27 21:38:19.728][c1/t67] Narrowing: scanning /home/exp/toGround/run-00001/capture-003/capture.sc16 (+/-100 kHz)...
+[2026-07-27 21:38:19.903][c0/t280]   STT time: 48.8s
+[2026-07-27 21:38:19.903][c0/t280]   Transcription:  AND COME ON BEFORE HIM
+[2026-07-27 21:38:19.903][c0/t280] Detecting command...
+[2026-07-27 21:38:19.904][c0/t280]   Wake word: 0 (exact=0, approx=0)
+[2026-07-27 21:38:19.906][c0/t280] Background STT of capture 1 complete (48.8s)
+[2026-07-27 21:38:19.907][c0/t447] Background STT of capture 2 started
+[2026-07-27 21:38:19.907][c0/t447] --- Processing: /home/exp/toGround/run-00001/capture-002/capture.wav ---
+[2026-07-27 21:38:19.907][c0/t447] Reading audio: /home/exp/toGround/run-00001/capture-002/capture.wav
+[2026-07-27 21:38:19.918][c1/t585] No command detected.
+[2026-07-27 21:38:19.924][c0/t447]   16000 Hz, 319967 samples (19.9979s)
+[2026-07-27 21:38:19.931][c0/t447] Resampling to 16 kHz...
+[2026-07-27 21:38:19.938][c0/t447]   319967 samples, DSP time: 0.0s
+[2026-07-27 21:38:19.938][c0/t447] Transcribing (modified_beam_search)...
+[2026-07-27 21:38:19.943][c1/t585] SC16 deleted: /home/exp/toGround/run-00001/capture-001/capture.sc16
+[2026-07-27 21:38:21.105][c1/t67] Narrowing: peak at 13.1348 kHz from center; regenerating audio (+/-10 kHz, 25000 Hz at the discriminator)
+[2026-07-27 21:38:24.190][c1/t67] Narrowing: audio regenerated: /home/exp/toGround/run-00001/capture-003/capture.wav
+[2026-07-27 21:38:24.192][c1/t67] Normalizing audio...
+[2026-07-27 21:38:24.218][c1/t67] RMS normalize: rms=0.204852, scale=0.488158, target=-20 dBFS
+[2026-07-27 21:38:24.288][c1/t67] SDR capture OK
+[2026-07-27 21:38:24.322][c1/t67] === Capture 4/6 ===
+[2026-07-27 21:38:24.323][c1/t67] Configuring SDR...
+[2026-07-27 21:38:24.323][c1/t67] SDR Capture: 20s at 200000 Hz effective
+[2026-07-27 21:38:24.323][c1/t67]   Frequency:   1296 MHz
+[2026-07-27 21:38:24.323][c1/t67]   HW FIR:      2400000 Hz ADC -> 600000 Hz post-FIR
+[2026-07-27 21:38:24.323][c1/t67]   SDR rate:    600000 Hz (post-FIR), decimation 3x
+[2026-07-27 21:38:24.323][c1/t67]   I/Q samples: 4000000, audio samples: 320000
+[2026-07-27 21:38:24.323][c1/t67]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-07-27 21:38:24.323][c1/t67]   LPF taps: 97, bandpass taps: 193
+[2026-07-27 21:38:24.323][c1/t67] Building flowgraph...
+[2026-07-27 21:38:24.373][c1/t67] Starting capture...
+[2026-07-27 21:38:24.422][c1/t67] Timeout: 50s (2x duration + 10)
+[2026-07-27 21:38:24.463][c1/t612] IQ diag:  4000000 samples analyzed
+[2026-07-27 21:38:24.464][c1/t612] IQ RMS:   I=19.5712 (-52.4355 dBFS)  Q=19.9559 (-52.2664 dBFS)
+[2026-07-27 21:38:24.464][c1/t612] IQ zeros: I=2.33275%  Q=2.33312%
+[2026-07-27 21:38:24.464][c1/t612] IQ metrics: /home/exp/toGround/run-00001/capture-003/capture-metrics.csv
+[2026-07-27 21:38:24.464][c1/t612] Spectrogram: /home/exp/toGround/run-00001/capture-003/spectrogram.bmp
+[2026-07-27 21:38:24.811][c1/t612] Spectrogram: 1024x256 (768 KB), 20s, freq res 781.25 Hz
+[2026-07-27 21:38:24.816][c1/t612] Constellation: /home/exp/toGround/run-00001/capture-003/constellation.bmp
+[2026-07-27 21:38:24.986][c1/t612] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-07-27 21:38:24.986][c1/t612] PSD: /home/exp/toGround/run-00001/capture-003/capture-psd.csv
+[2026-07-27 21:38:27.827][c0/t612] PSD: 800x256, 1024 bins, freq res 195.312 Hz, 7811 segments
+[2026-07-27 21:38:29.434][c1/t67] Progress [5s]: I/Q 901054/4000000, audio 72050/320000
+[2026-07-27 21:38:34.442][c1/t67] Progress [10s]: I/Q 1899498/4000000, audio 151926/320000
+[2026-07-27 21:38:39.452][c1/t67] Progress [15s]: I/Q 2905429/4000000, audio 232400/320000
+[2026-07-27 21:38:44.459][c1/t67] Progress [20s]: I/Q 3894511/4000000, audio 311420/320000
+[2026-07-27 21:38:45.560][c1/t67] Capture complete (I/Q: 4000000/4000000, audio: 320000/320000, 20s)
+[2026-07-27 21:38:45.561][c1/t67] Stopping flowgraph...
+[2026-07-27 21:38:45.661][c1/t67] Narrowing: scanning /home/exp/toGround/run-00001/capture-004/capture.sc16 (+/-100 kHz)...
+[2026-07-27 21:38:47.064][c0/t67] Narrowing: peak at 12.6465 kHz from center; regenerating audio (+/-10 kHz, 25000 Hz at the discriminator)
+[2026-07-27 21:38:50.369][c0/t67] Narrowing: audio regenerated: /home/exp/toGround/run-00001/capture-004/capture.wav
+[2026-07-27 21:38:50.371][c0/t67] Normalizing audio...
+[2026-07-27 21:38:50.396][c0/t67] RMS normalize: rms=0.163922, scale=0.610047, target=-20 dBFS
+[2026-07-27 21:38:50.473][c0/t67] SDR capture OK
+[2026-07-27 21:38:50.501][c0/t67] === Capture 5/6 ===
+[2026-07-27 21:38:50.501][c0/t67] Configuring SDR...
+[2026-07-27 21:38:50.501][c0/t67] SDR Capture: 20s at 200000 Hz effective
+[2026-07-27 21:38:50.501][c0/t67]   Frequency:   1296 MHz
+[2026-07-27 21:38:50.501][c0/t67]   HW FIR:      2400000 Hz ADC -> 600000 Hz post-FIR
+[2026-07-27 21:38:50.501][c0/t67]   SDR rate:    600000 Hz (post-FIR), decimation 3x
+[2026-07-27 21:38:50.501][c0/t67]   I/Q samples: 4000000, audio samples: 320000
+[2026-07-27 21:38:50.501][c0/t67]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-07-27 21:38:50.501][c0/t67]   LPF taps: 97, bandpass taps: 193
+[2026-07-27 21:38:50.501][c0/t67] Building flowgraph...
+[2026-07-27 21:38:50.566][c0/t67] Starting capture...
+[2026-07-27 21:38:50.614][c0/t67] Timeout: 50s (2x duration + 10)
+[2026-07-27 21:38:50.655][c0/t781] IQ diag:  4000000 samples analyzed
+[2026-07-27 21:38:50.656][c0/t781] IQ RMS:   I=26.2504 (-49.8851 dBFS)  Q=25.8538 (-50.0173 dBFS)
+[2026-07-27 21:38:50.656][c0/t781] IQ zeros: I=1.81285%  Q=1.81195%
+[2026-07-27 21:38:50.656][c0/t781] IQ metrics: /home/exp/toGround/run-00001/capture-004/capture-metrics.csv
+[2026-07-27 21:38:50.656][c0/t781] Spectrogram: /home/exp/toGround/run-00001/capture-004/spectrogram.bmp
+[2026-07-27 21:38:51.003][c0/t781] Spectrogram: 1024x256 (768 KB), 20s, freq res 781.25 Hz
+[2026-07-27 21:38:51.015][c0/t781] Constellation: /home/exp/toGround/run-00001/capture-004/constellation.bmp
+[2026-07-27 21:38:51.239][c0/t781] Constellation: 256x256 (192 KB), 50000 points plotted
+[2026-07-27 21:38:51.240][c0/t781] PSD: /home/exp/toGround/run-00001/capture-004/capture-psd.csv
+[2026-07-27 21:38:54.060][c0/t781] PSD: 800x256, 1024 bins, freq res 195.312 Hz, 7811 segments
+[2026-07-27 21:38:55.623][c0/t67] Progress [5s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:00.629][c0/t67] Progress [10s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:04.357][c1/t447]   STT time: 44.4s
+[2026-07-27 21:39:04.357][c1/t447]   Transcription:  AND FAR BRIEFLY PLAYING DOOM STEAM DOOM PRECIPATED
+[2026-07-27 21:39:04.357][c1/t447] Detecting command...
+[2026-07-27 21:39:04.358][c1/t447]   Wake word: 0 (exact=0, approx=0)
+[2026-07-27 21:39:04.358][c1/t447]   Command [DOOM]: 2 (exact=2, approx=0)
+[2026-07-27 21:39:04.360][c1/t447] Background STT of capture 2 complete (44.4s)
+[2026-07-27 21:39:04.360][c0/t875] Command detected! Launching DOOM...
+[2026-07-27 21:39:04.360][c1/t616] Background STT of capture 3 started
+[2026-07-27 21:39:04.361][c1/t616] --- Processing: /home/exp/toGround/run-00001/capture-003/capture.wav ---
+[2026-07-27 21:39:04.361][c1/t616] Reading audio: /home/exp/toGround/run-00001/capture-003/capture.wav
+[2026-07-27 21:39:04.364][c0/t875] Running DOOM demo: gl-e1m2b (1/7)
+[2026-07-27 21:39:04.383][c1/t616]   16000 Hz, 319967 samples (19.9979s)
+[2026-07-27 21:39:04.389][c1/t616] Resampling to 16 kHz...
+[2026-07-27 21:39:04.396][c1/t616]   319967 samples, DSP time: 0.0s
+[2026-07-27 21:39:04.396][c1/t616] Transcribing (modified_beam_search)...
+[2026-07-27 21:39:05.634][c0/t67] Progress [15s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:10.641][c0/t67] Progress [20s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:15.648][c0/t67] Progress [25s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:20.655][c0/t67] Progress [30s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:25.583][c0/t875] Completed demo: gl-e1m2b
+[2026-07-27 21:39:25.584][c0/t875] Generating postcard (scale=2)...
+[2026-07-27 21:39:25.584][c0/t875]   Frame: /home/exp/toGround/run-00001/capture-002/gl-e1m2b/frames-000480-000540.gif
+[2026-07-27 21:39:25.584][c0/t875]   SC16:  /home/exp/toGround/run-00001/capture-002/capture.sc16
+[2026-07-27 21:39:25.668][c0/t67] Progress [35s]: I/Q 808277/4000000, audio 64628/320000
+  GIF: 61 frames, picked frame 54
+  I/Q scatter: 121213 points from 4000000 samples
+[2026-07-27 21:39:30.674][c0/t67] Progress [40s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:35.322][c0/t875] Postcard: /home/exp/toGround/run-00001/capture-002/postcard.png (2520x1800), 9.73874s
+[2026-07-27 21:39:35.347][c0/t875] SC16 deleted: /home/exp/toGround/run-00001/capture-002/capture.sc16
+[2026-07-27 21:39:35.680][c0/t67] Progress [45s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:40.686][c0/t67] Progress [50s]: I/Q 808277/4000000, audio 64628/320000
+[2026-07-27 21:39:40.687][c0/t67] Timeout after 50s
+[2026-07-27 21:39:40.687][c0/t67] Stopping flowgraph...
+[2026-07-27 21:39:40.787][c0/t67] Narrowing: scanning /home/exp/toGround/run-00001/capture-005/capture.sc16 (+/-100 kHz)...
+[2026-07-27 21:39:41.084][c0/t67] Narrowing: peak at 12.3535 kHz from center; regenerating audio (+/-10 kHz, 25000 Hz at the discriminator)
+[2026-07-27 21:39:41.672][c0/t67] Narrowing: audio regenerated: /home/exp/toGround/run-00001/capture-005/capture.wav
+[2026-07-27 21:39:41.674][c0/t67] Normalizing audio...
+[2026-07-27 21:39:41.678][c0/t67] RMS normalize: rms=0.0632053, scale=1.58215, target=-20 dBFS
+[2026-07-27 21:39:41.690][c0/t67] SDR capture partial
+[2026-07-27 21:39:41.727][c0/t1090] IQ diag:  808277 samples analyzed
+[2026-07-27 21:39:41.727][c0/t1090] IQ RMS:   I=19.5711 (-52.4355 dBFS)  Q=19.6377 (-52.406 dBFS)
+[2026-07-27 21:39:41.727][c0/t1090] IQ zeros: I=1.95898%  Q=1.96653%
+[2026-07-27 21:39:41.727][c0/t1090] IQ metrics: /home/exp/toGround/run-00001/capture-005/capture-metrics.csv
+[2026-07-27 21:39:41.730][c0/t67] === Capture 6/6 ===
+[2026-07-27 21:39:41.731][c0/t67] Configuring SDR...
+[2026-07-27 21:39:41.731][c0/t67] SDR Capture: 20s at 200000 Hz effective
+[2026-07-27 21:39:41.731][c0/t67]   Frequency:   1296 MHz
+[2026-07-27 21:39:41.731][c0/t67]   HW FIR:      2400000 Hz ADC -> 600000 Hz post-FIR
+[2026-07-27 21:39:41.731][c0/t67]   SDR rate:    600000 Hz (post-FIR), decimation 3x
+[2026-07-27 21:39:41.731][c0/t67]   I/Q samples: 4000000, audio samples: 320000
+[2026-07-27 21:39:41.731][c0/t67]   Resample:    200000 -> 16000 (interp=2, decim=25)
+[2026-07-27 21:39:41.731][c0/t67]   LPF taps: 97, bandpass taps: 193
+[2026-07-27 21:39:41.731][c0/t67] Building flowgraph...
+[2026-07-27 21:39:41.732][c0/t1090] Spectrogram: /home/exp/toGround/run-00001/capture-005/spectrogram.bmp
+[2026-07-27 21:39:41.808][c0/t67] Starting capture...
+[2026-07-27 21:39:41.843][c0/t67] Timeout: 50s (2x duration + 10)
+[2026-07-27 21:39:41.918][c0/t1090] Spectrogram: 1024x256 (768 KB), 4.04139s, freq res 781.25 Hz
+[2026-07-27 21:39:41.920][c0/t1090] Constellation: /home/exp/toGround/run-00001/capture-005/constellation.bmp
+[2026-07-27 21:39:41.962][c0/t1090] Constellation: 256x256 (192 KB), 50518 points plotted
+[2026-07-27 21:39:41.963][c0/t1090] PSD: /home/exp/toGround/run-00001/capture-005/capture-psd.csv
+[2026-07-27 21:39:42.343][c0/t1090] PSD: 800x256, 1024 bins, freq res 195.312 Hz, 1577 segments
+[2026-07-27 21:39:42.574][c1/t616]   STT time: 38.1s
+[2026-07-27 21:39:42.574][c1/t616]   Transcription:  AND SOUL
+[2026-07-27 21:39:42.575][c1/t616] Detecting command...
+[2026-07-27 21:39:42.575][c1/t616]   Wake word: 0 (exact=0, approx=0)
+[2026-07-27 21:39:42.576][c1/t616] Background STT of capture 3 complete (38.2s)
+[2026-07-27 21:39:42.577][c0/t1112] No command detected.
+[2026-07-27 21:39:42.577][c1/t782] Background STT of capture 4 started
+[2026-07-27 21:39:42.577][c1/t782] --- Processing: /home/exp/toGround/run-00001/capture-004/capture.wav ---
+[2026-07-27 21:39:42.577][c1/t782] Reading audio: /home/exp/toGround/run-00001/capture-004/capture.wav
+[2026-07-27 21:39:42.596][c0/t1112] SC16 deleted: /home/exp/toGround/run-00001/capture-003/capture.sc16
+[2026-07-27 21:39:42.604][c1/t782]   16000 Hz, 319967 samples (19.9979s)
+[2026-07-27 21:39:42.610][c1/t782] Resampling to 16 kHz...
+[2026-07-27 21:39:42.616][c1/t782]   319967 samples, DSP time: 0.0s
+[2026-07-27 21:39:42.616][c1/t782] Transcribing (modified_beam_search)...
+[2026-07-27 21:39:46.849][c0/t67] Progress [5s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:39:51.855][c0/t67] Progress [10s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:39:56.860][c0/t67] Progress [15s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:01.866][c0/t67] Progress [20s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:06.872][c0/t67] Progress [25s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:11.877][c0/t67] Progress [30s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:16.883][c0/t67] Progress [35s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:18.909][c1/t782]   STT time: 36.2s
+[2026-07-27 21:40:18.909][c1/t782]   Transcription:  AND
+[2026-07-27 21:40:18.909][c1/t782] Detecting command...
+[2026-07-27 21:40:18.910][c1/t782]   Wake word: 0 (exact=0, approx=0)
+[2026-07-27 21:40:18.911][c1/t782] Background STT of capture 4 complete (36.3s)
+[2026-07-27 21:40:18.911][c0/t1323] No command detected.
+[2026-07-27 21:40:18.912][c1/t1091] Background STT of capture 5 started
+[2026-07-27 21:40:18.912][c1/t1091] --- Processing: /home/exp/toGround/run-00001/capture-005/capture.wav ---
+[2026-07-27 21:40:18.912][c1/t1091] Reading audio: /home/exp/toGround/run-00001/capture-005/capture.wav
+[2026-07-27 21:40:18.915][c1/t1091]   16000 Hz, 64629 samples (4.03931s)
+[2026-07-27 21:40:18.916][c1/t1091] Resampling to 16 kHz...
+[2026-07-27 21:40:18.917][c1/t1091]   64629 samples, DSP time: 0.0s
+[2026-07-27 21:40:18.918][c1/t1091] Transcribing (modified_beam_search)...
+[2026-07-27 21:40:18.927][c0/t1323] SC16 deleted: /home/exp/toGround/run-00001/capture-004/capture.sc16
+[2026-07-27 21:40:21.889][c0/t67] Progress [40s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:25.755][c1/t1091]   STT time: 6.8s
+[2026-07-27 21:40:25.755][c1/t1091]   Transcription:  SO
+[2026-07-27 21:40:25.755][c1/t1091] Detecting command...
+[2026-07-27 21:40:25.755][c1/t1091]   Wake word: 0 (exact=0, approx=0)
+[2026-07-27 21:40:25.756][c1/t1091] Background STT of capture 5 complete (6.8s)
+[2026-07-27 21:40:25.756][c0/t1366] No command detected.
+[2026-07-27 21:40:25.760][c0/t1366] SC16 deleted: /home/exp/toGround/run-00001/capture-005/capture.sc16
+[2026-07-27 21:40:26.894][c0/t67] Progress [45s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:31.898][c0/t67] Progress [50s]: I/Q 0/4000000, audio 0/320000
+[2026-07-27 21:40:31.898][c0/t67] Timeout after 50s
+[2026-07-27 21:40:31.898][c0/t67] Stopping flowgraph...
+[2026-07-27 21:40:31.999][c0/t67] Narrowing: scanning /home/exp/toGround/run-00001/capture-006/capture.sc16 (+/-100 kHz)...
+[2026-07-27 21:40:31.999][c0/t67] Narrowing: peak at 0 kHz from center; regenerating audio (+/-10 kHz, 25000 Hz at the discriminator)
+[2026-07-27 21:40:32.000][c0/t67] WARNING: Narrowing failed (file is too small), keeping wide audio
+[2026-07-27 21:40:32.001][c0/t67] Normalizing audio...
+[2026-07-27 21:40:32.001][c0/t67] RMS normalize: No samples read from /home/exp/toGround/run-00001/capture-006/capture.wav
+[2026-07-27 21:40:32.001][c0/t67] WARNING: Audio normalization failed
+[2026-07-27 21:40:32.001][c0/t67] SDR capture partial
+[2026-07-27 21:40:32.005][c1/t1405] Background STT of capture 6 started
+[2026-07-27 21:40:32.005][c1/t1405] --- Processing: /home/exp/toGround/run-00001/capture-006/capture.wav ---
+[2026-07-27 21:40:32.005][c0/t1404] Spectrogram: /home/exp/toGround/run-00001/capture-006/spectrogram.bmp[2026-07-27 21:40:32.005][c1/t1405] 
+Reading audio: /home/exp/toGround/run-00001/capture-006/capture.wav
+[2026-07-27 21:40:32.005][c0/t1404] WARNING: Spectrogram: sc16 file too small (0 bytes)
+[2026-07-27 21:40:32.005][c0/t1404] WARNING: Spectrogram generation failed
+[2026-07-27 21:40:32.005][c1/t1405]   16000 Hz, 0[2026-07-27 21:40:32.005][c0/t1404]  samples (Constellation: /home/exp/toGround/run-00001/capture-006/constellation.bmp
+0s)
+[2026-07-27 21:40:32.005][c1/t1405] [2026-07-27 21:40:32.005][c0/t1404] Resampling to 16 kHz...
+WARNING: [2026-07-27 21:40:32.005][c1/t1405]   0 samples, DSP time: Constellation: sc16 file too small (0.0s
+0 bytes)
+[2026-07-27 21:40:32.005][c1/t1405] WARNING: Audio too short for STT (0 samples, need at least 8000). Skipping transcription.
+[2026-07-27 21:40:32.005][c0/t1404] WARNING: Constellation generation failed
+[2026-07-27 21:40:32.006][c0/t1404] PSD: /home/exp/toGround/run-00001/capture-006/capture-psd.csv
+[2026-07-27 21:40:32.006][c0/t1404] WARNING: PSD: sc16 file too small
+[2026-07-27 21:40:32.006][c0/t1404] WARNING: PSD generation failed
+[2026-07-27 21:40:32.006][c1/t1405] Background STT of capture 6 complete (0.0s)
+[2026-07-27 21:40:32.006][c0/t1406] SC16 deleted: /home/exp/toGround/run-00001/capture-006/capture.sc16
+[2026-07-27 21:40:32.061][c0/t67] AD9361 hardware FIR disabled (cleanup)
+[2026-07-27 21:40:32.062][c0/t67] Generating PSD comparison: /home/exp/toGround/run-00001/psd-comparison.bmp
+[2026-07-27 21:40:32.242][c0/t67] PSD comparison: 5 captures, 800x512
+[2026-07-27 21:40:32.243][c0/t67] Unloading STT model...
+[2026-07-27 21:40:32.403][c0/t67] STT model unloaded
+[2026-07-27 21:40:32.403][c0/t67] Total time: 212.8s
+[2026-07-27 21:40:32.403][c0/t67] === Done ===

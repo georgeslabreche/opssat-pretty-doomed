@@ -28,6 +28,7 @@ tools/
     ├── compare_psd.py    # Multi-capture PSD overlay
     ├── report.py         # Batch HTML report generator
     ├── animate_psd.py    # Realtime PSD evolution animation
+    ├── audio_spectrogram_video.py # WAV -> scrolling-spectrogram video with sound
     └── output_dir.py     # Shared output directory helper
 ```
 
@@ -246,6 +247,34 @@ Options:
 - `--noise-file` — noise-only sc16 at the output rate to use instead of AWGN (e.g. a keying pause from a real capture)
 - `--pad-s` — noise-only padding before and after the voice (default: 0.25)
 - `--peak` / `--seed` — output amplitude and RNG seed for reproducible noise
+
+### audio_spectrogram_video.py — WAV to spectrogram video with sound
+
+Renders audio to a scrolling-spectrogram video with the audio as the soundtrack, for the recovered capture audio in the flight debriefings. The spectrogram is limited to the voice band (default 0 to 4 kHz, by resampling to 2x that rate) so the frame is filled with the part of the spectrum that carries the voice rather than mostly-dark high frequencies. In `--capture-audio` mode it assembles several per-capture WAVs into one track: `--concat` joins them end to end (no gaps, for a video of just the voice content), or `--capture-windows` places them at their real offsets (keeping the silent inter-capture intervals). Either way `--trim-pad-s` pads the start and end. Requires ffmpeg.
+
+```bash
+# single WAV
+python3 src/audio_spectrogram_video.py capture.wav --output capture-spectrogram.mp4
+
+# whole run, all captures joined end to end, 2 s pad each side
+python3 src/audio_spectrogram_video.py --output captures-spectrogram.mp4 \
+  --capture-audio "c1.wav,c2.wav,c3.wav,c4.wav,c5.wav,c6.wav" --concat --trim-pad-s 2
+
+# whole run, captures at their real time offsets (keeps inter-capture gaps)
+python3 src/audio_spectrogram_video.py --output captures-spectrogram.mp4 \
+  --capture-audio "c1.wav,c2.wav,c3.wav,c4.wav,c5.wav,c6.wav" \
+  --capture-windows "[[9,31],[35,56],[60,82],[86,114],[119,146],[151,173]]" --trim-pad-s 2
+```
+
+Options:
+- `input` — input WAV (single-file mode)
+- `--output` — output `.mp4` (required)
+- `--max-freq` — top of the displayed frequency band in Hz (default 4000)
+- `--size` — video size WxH (default 900x360)
+- `--capture-audio` — comma-separated per-capture WAVs to assemble into one track
+- `--concat` — join the WAVs end to end (no inter-capture gaps); `--capture-windows` not needed
+- `--capture-windows` — JSON `[start_s, end_s]` per capture, to place them at real offsets
+- `--trim-pad-s` — seconds of silence before the first and after the last capture (default 2.0)
 
 ### demod_audio.py — Demodulate raw I/Q to audio
 

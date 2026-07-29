@@ -1,0 +1,19 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/toGround/run-00001/capture-004/capture.wav
+Transcription:  PRETTY DO IT HOWEVER PRETTY FEET HOWEVER FOR US PRETTY BRIEKLY IF PLAY DOON AND DO NOT FOR ME
+
+Detection:
+  Wake word (PRETTY):
+    Exact: 3 [PRETTY, PRETTY, PRETTY]
+    Approximate: 0 []
+  Command [DOOM]:
+    Exact: 0 []
+    Approximate: 3 [DO, DOON, DO]
+  Command [PLAY DOOM]:
+    Exact: 0 []
+    Approximate: 1 [PLAY DOON]
+
+Total points: 10 (exact=6, approx=4)
+
+Result: COMMAND DETECTED - launching DOOM
