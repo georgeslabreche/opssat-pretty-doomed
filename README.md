@@ -88,3 +88,27 @@ Start at the [documentation map](docs/README.md), which indexes everything and e
 - [GNU Radio](https://wiki.gnuradio.org/)
 - [Project Proposal](docs/PROPOSAL.md)
 - [SEPP Reference](docs/SEPP.md)
+
+## Acknowledgements
+
+This experiment depends on the amateur radio community, who make up its ground segment. Any licensed radio amateur with a capable station can transmit a recognized command and elicit a downlinked artifact.
+
+### Oslo Group of the Norwegian Radio Relay League (NRRL)
+
+Call sign **[LA4O](https://www.qrz.com/db/LA4O)**, founded 1923 (Oslogruppen av NRRL), a radio amateur club in Oslo, Norway. The group ran the July 2026 campaign and sent the voice commands that launched DOOM on orbit, the first voice commanding of a satellite: [Run 6](pretty-doomed/docs/flight/debriefings/run-06-2026-07-27/) (TTS keyer) and [Run 7](pretty-doomed/docs/flight/debriefings/run-07-2026-07-27/) (live human voice). The club board approved the group's participation and made the station, the premises, and the roof available.
+
+- **LB6AJ, Eskil Hadland** ([QRZ](https://www.qrz.com/db/LB6AJ)) — antenna and power amplifier procurement, amplifier integration and bias-control concept; the 3 July rooftop transmissions; I/Q and DSP analysis and the channel-narrowing proposal; speech-model and voice screening; keyer preparation and operating instructions; remote support from Steigen during both 27 July passes. Principal author of the campaign report.
+- **LB9BJ, Jon Bergli Heier** ([QRZ](https://www.qrz.com/db/LB9BJ)) — pass predictions and Look4Sat tracking; recorded the 3 July operator voice keyer and operated the station; took over the technical lead in July; final-pass operation and the ground report to collaborators; transmitting operator for the live-microphone evening pass of 27 July; author of the photographic and operational record of both 27 July passes.
+- **LB5SK, Magne Helander** ([QRZ](https://www.qrz.com/db/LB5SK)) — provided the IC-9700; planning; ground-station setup and operation on both the 3 July and 27 July passes; established SD-card voice-keyer playback and operated the keyer during the final campaign.
+- **LA7WRA, Peter Petrov** ([QRZ](https://www.qrz.com/db/LA7WRA)) — early spacecraft research, antenna and link planning, and the azimuth and elevation plan; ground-station setup and operation; supplied the antenna tripod; 3 July field operation.
+- **LA7IJ, Truls Johansen** ([QRZ](https://www.qrz.com/db/LA7IJ)) — ground-station preparation and operation on both the 3 July and 27 July passes; RF power-meter procurement; audio, video, and photographic documentation of the transmissions.
+- **LB0PI, Jan Olav Aasterud** ([QRZ](https://www.qrz.com/db/LB0PI)) — discussions and planning; ground-station setup; the 3 July rooftop campaign and the 27 July evening pass.
+- **LA4CIA, Lewi** ([QRZ](https://www.qrz.com/db/LA4CIA)) — project group and technical coordination from 17 June.
+- **LB2KK, Per Thomas Jahr** ([QRZ](https://www.qrz.com/db/LB2KK)) — project group and technical coordination from 4 June.
+
+### Legnica, Poland
+
+The radio amateur operators who conducted the first four campaign runs from Legnica, Poland (Runs 1 to 4, April to June 2026), transmitting on 23 cm. The June runs used upgraded 100 W directional equipment.
+
+- **SQ6RDP, Wojciech Siłko** ([QRZ](https://www.qrz.com/db/SQ6RDP))
+- **SQ6QV, Tomasz Salwach** ([QRZ](https://www.qrz.com/db/SQ6QV))
