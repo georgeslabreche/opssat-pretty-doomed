@@ -77,6 +77,10 @@ Earlier experiments that informed the final pipeline design:
 
 **Finding:** Classical and neural denoising methods all struggle with the non-stationary radio interference in OPS-SAT samples. The pipeline instead relies on bandpass filtering + a robust STT model with fuzzy matching.
 
+## Documentation
+
+Start at the [documentation map](docs/README.md), which indexes everything and explains the monorepo layout. Direct links to the most-visited docs: [flight results](pretty-doomed/docs/flight/), [building](pretty-doomed/docs/BUILDING.md), [design](pretty-doomed/docs/DESIGN.md), [testing](pretty-doomed/docs/TESTING.md), [config](pretty-doomed/docs/CONFIG.md).
+
 ## References
 
 - [OPS-SAT](https://opssat.esa.int/)
