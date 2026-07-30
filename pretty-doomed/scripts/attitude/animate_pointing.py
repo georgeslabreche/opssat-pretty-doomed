@@ -168,6 +168,9 @@ def main():
     p.add_argument("--rotate", action="store_true",
                    help="Slowly rotate the view azimuth across the animation")
     p.add_argument("--dpi", type=int, default=100, help="DPI of output frames (default 100)")
+    p.add_argument("--bg-color", default=None,
+                   help="Background color for the figure and both panels, e.g. "
+                        "'#e8d5b7' to match a web page. Default: matplotlib default (white).")
     p.add_argument("--capture-windows", default=None,
                    help="JSON list of [start_offset_s, end_offset_s] capture windows "
                         "relative to exp-time. Default: 6 contiguous 22s windows from -65s.")
@@ -280,6 +283,14 @@ def main():
     ax = fig.add_subplot(1, 2, 1, projection="3d")
     ax2 = fig.add_subplot(1, 2, 2)
 
+    if args.bg_color:
+        fig.patch.set_facecolor(args.bg_color)
+        ax2.set_facecolor(args.bg_color)
+        ax.set_facecolor(args.bg_color)
+        # Blend the 3D panes into the background too.
+        for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+            axis.set_pane_color(matplotlib.colors.to_rgba(args.bg_color))
+
     # Regional meridians and parallels around the target only, kept light to
     # avoid drawing a full sphere wireframe.
     t_lat = np.rad2deg(np.arcsin(target_ecef[2] / np.linalg.norm(target_ecef)))
@@ -342,7 +353,12 @@ def main():
                            weight="bold", color="#c00000")
     sun_text = fig.text(0.5, 0.812, "", ha="center", fontsize=11, weight="bold")
 
-    ax.legend(loc="upper right", fontsize=8)
+    leg = ax.legend(loc="upper right", fontsize=8)
+    if args.bg_color and leg is not None:
+        fr = leg.get_frame()
+        fr.set_facecolor(args.bg_color)
+        fr.set_edgecolor("none")
+        fr.set_alpha(1.0)  # opaque, else the default framealpha shows through lighter
 
     # --- Boresight scope (right panel) ---------------------------------------
     # Polar view around the +X boresight: the target sits at a radius equal to
