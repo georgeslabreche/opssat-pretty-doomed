@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Google Analytics (shared tanagraspace property) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D3Z8PVELJD"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-D3Z8PVELJD');
+  </script>
+  <title>PRETTY DOOMed — the first voice command of a satellite</title>
+  <meta name="description" content="On Jul 27, 2026, a radio amateur spoke a command to a satellite in orbit and it played DOOM. The first time a satellite has been commanded by voice.">
+  <meta property="og:title" content="PRETTY DOOMed — the first voice command of a satellite">
+  <meta property="og:description" content="A radio amateur spoke a command to a satellite in orbit and it played DOOM.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://tanagraspace.com/opssat-pretty-doomed/">
+  <meta property="og:image" content="https://tanagraspace.com/opssat-pretty-doomed/opssat-pretty-doomed-social-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A DOOM Cacodemon over the title PRETTY DOOMed — the first voice command of a satellite.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PRETTY DOOMed — the first voice command of a satellite">
+  <meta name="twitter:description" content="A radio amateur spoke a command to a satellite in orbit and it played DOOM.">
+  <meta name="twitter:image" content="https://tanagraspace.com/opssat-pretty-doomed/opssat-pretty-doomed-social-card.png">
+  <link rel="preload" href="command.mp3" as="audio" type="audio/mpeg">
+  <style>
+    :root {
+      --bg: #e8d5b7;
+      --bg-alt: #ddd0ba;
+      --card: #f2e6d2;
+      --accent: #fc3a52;
+      --accent-dark: #e3344a;
+      --ink: #2b2b2b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    a { color: var(--accent-dark); }
+    code { background: rgba(0,0,0,0.06); padding: 0.12em 0.4em; border-radius: 4px;
+      font-size: 0.92em; font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+    .hero {
+      background: linear-gradient(rgba(20,10,10,0.62), rgba(20,10,10,0.62)),
+                  radial-gradient(circle at 30% 20%, #3a2a2a, #140a0a);
+      color: #fff;
+      text-align: center;
+      padding: 4.5rem 1.5rem 4rem;
+    }
+    .hero .sprite { width: 96px; height: auto; display: inline-block; vertical-align: middle;
+      cursor: pointer; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.45));
+      animation: float-sat 4s ease-in-out infinite; }
+    .hero .sprite.no-float { animation: none; }
+    .punching { cursor: none !important; }
+    .caco-guy { position: fixed; top: 0; left: 0; height: 132px; width: auto;
+      pointer-events: none; z-index: 9998; transform: translate(-50%, -56%);
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); }
+    .hero .voice { position: relative; display: flex; flex-direction: column; align-items: center;
+      gap: 0.55rem; margin: 0.9rem auto 0.2rem; cursor: pointer; }
+    .fist-punch, .fist-follow { position: fixed; top: 0; left: 0; width: 140px; height: auto;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-80%, -60%); filter: drop-shadow(0 3px 6px rgba(0,0,0,0.5)); }
+    .fist-follow { display: none; }
+    .hero .tip { position: absolute; top: calc(100% + 11px); left: 50%;
+      transform: translateX(-50%) translateY(4px); background: var(--bg); color: var(--ink);
+      padding: 0.5rem 0.85rem; border-radius: 8px; font-size: 0.85rem; line-height: 1.35;
+      font-weight: 700; max-width: 270px; text-align: center; white-space: normal;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.55); opacity: 0; pointer-events: none;
+      transition: opacity 0.08s ease, transform 0.08s ease; z-index: 5; }
+    .hero .tip::before { content: ""; position: absolute; bottom: 100%; left: 50%;
+      transform: translateX(-50%); border: 7px solid transparent; border-bottom-color: var(--bg); }
+    .hero .voice:hover .tip, .hero .voice:focus-within .tip {
+      opacity: 1; transform: translateX(-50%) translateY(0); }
+    .hero .voice.played .tip { display: none; }
+    .hero .waveform { display: flex; align-items: center; justify-content: center;
+      gap: 2px; height: 48px; }
+    .hero .waveform i { width: 3px; height: 100%; background: var(--accent);
+      border-radius: 2px; transform: scaleY(0.06); transform-origin: center;
+      opacity: 0.45; transition: opacity 0.08s linear; }
+    .hero .waveform i.on { opacity: 1; }
+    .hero h1 { font-size: 2.6rem; margin: 0.6rem 0 0.3rem; text-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+    .hero .tagline { font-size: 1.35rem; color: var(--accent); font-weight: 700; margin: 0.2rem auto 1rem; }
+    .hero p { max-width: 620px; margin: 0 auto; font-size: 1.08rem; opacity: 0.95; }
+    .hero .punch { margin: 0.35rem auto 0; }
+    @keyframes float-sat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    .content { max-width: 820px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    section { margin-bottom: 2.8rem; }
+    h2 { font-size: 1.6rem; border-bottom: 3px solid var(--accent); display: inline-block; padding-bottom: 0.15rem; }
+    .content section > p, .content section > ul li { font-size: 1.12rem; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+    .step { background: var(--card); border-radius: 10px; padding: 1.1rem 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
+    .step .n { color: var(--accent-dark); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .step h3 { margin: 0.2rem 0 0.4rem; font-size: 1.1rem; }
+    .step p { margin: 0; font-size: 0.97rem; }
+    .runs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+    .run { background: var(--bg-alt); border-radius: 10px; padding: 1.2rem 1.3rem; border-left: 5px solid var(--accent); }
+    .run h3 { margin: 0 0 0.3rem; }
+    .run .when { color: var(--accent-dark); font-weight: 600; font-size: 0.92rem; }
+    .run .deb { margin: 0.7rem 0 0; font-size: 0.92rem; font-weight: 600; }
+    .quote { background: var(--card); border-radius: 10px; padding: 1rem 1.3rem; font-style: italic; margin-top: 1rem; }
+    .postcard { margin: 1.4rem 0 0; text-align: center; }
+    .postcard img, .postcard video { max-width: 100%; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+    .postcard figcaption { font-size: 0.9rem; opacity: 0.8; margin-top: 0.5rem; }
+    .links { list-style: none; padding: 0; }
+    .links li { margin: 0.4rem 0; }
+    footer { background: var(--bg-alt); text-align: center; padding: 2rem 1.5rem; font-size: 0.92rem; }
+    footer a { font-weight: 600; }
+    .credit { max-width: 820px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <img class="sprite" src="caco.gif" width="96" height="96"
+         alt="A floating Cacodemon from DOOM, charging a plasma bolt in its mouth">
+    <h1>PRETTY <span class="doom">DOOM</span>ed</h1>
+    <div class="voice" id="voice">
+      <div class="waveform" id="waveform" aria-hidden="true"></div>
+      <span class="tip" role="tooltip">Click to hear the first human voice command captured by a satellite.</span>
+    </div>
+    <p class="tagline">The first voice command of a satellite</p>
+    <p>On Jul 27, 2026, a radio amateur spoke a command over the airwaves to a satellite orbiting Earth. The satellite heard it, and understood its assignment:</p>
+    <p class="punch">to play <span class="doom">DOOM</span>.</p>
+  </header>
+
+  <main class="content">
+    <section>
+      <h2>What happened</h2>
+      <p>A radio amateur group based in Oslo transmitted a spoken command on the amateur radio band to <strong>OPS-SAT PRETTY</strong>, an experimental European Space Agency (ESA) satellite. On board, with no human in the loop, the satellite recorded the radio signal, recovered the voice from the noise, used voice recognition AI to transcribe it to text, recognized the command, launched the 1993 game <span class="doom">DOOM</span>, then downlinked a "postcard" image of the moment.</p>
+      <p>It had never been done before. Satellites are normally commanded with structured, pre-formatted instruction files uplinked on scheduled passes. This is the first time a satellite has been commanded by voice, in plain spoken language, and acted on it autonomously in orbit.</p>
+      <figure class="postcard">
+        <img src="postcard.png" alt="A DOOM-themed postcard composed on board the satellite: a gameplay frame with logos and signal diagnostics.">
+        <figcaption>The postcard the satellite composed on board after launching <span class="doom">DOOM</span>, and downlinked to the ground. The command actually transmitted was "LIMA ALFA FOUR OSCAR, PRETTY PRETTY, PLEASE PLAY DOOM DOOM DOOM" (the Oslo club call sign, then the command, repeated). The transcription printed on the postcard is imperfect because the onboard speech-to-text uses a small, lightweight model sized to fit the satellite's limited computer, but the repeated <span class="doom">DOOM</span> command still gets through.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <h2>How it works</h2>
+      <p>The command travels from a microphone on the ground to a game launching in space in a handful of steps, all running on the satellite's small onboard computer:</p>
+      <div class="steps">
+        <div class="step"><div class="n">1 · Listen</div><h3>Capture</h3><p>The satellite's software radio records the faint radio signal as it flies over the ground station.</p></div>
+        <div class="step"><div class="n">2 · Focus</div><h3>Narrow in</h3><p>It finds the voice buried in the noise and tunes into just that sliver of the spectrum.</p></div>
+        <div class="step"><div class="n">3 · Understand</div><h3>Transcribe</h3><p>An onboard speech-to-text AI model turns the recovered audio into words.</p></div>
+        <div class="step"><div class="n">4 · Decide</div><h3>Recognize</h3><p>A matcher checks the words for the command, tolerant of the mangling a noisy radio link causes.</p></div>
+        <div class="step"><div class="n">5 · Play</div><h3>Launch <span class="doom">DOOM</span></h3><p>On a match, the satellite plays <span class="doom">DOOM</span> and renders a postcard from the gameplay and the signal, then downlinks it.</p></div>
+        <div class="step"><div class="n">6 · Celebrate</div><h3>A first</h3><p><span class="doom">DOOM</span>, played in orbit, launched by a human voice from the ground. The first time a satellite has been commanded by voice.</p></div>
+      </div>
+    </section>
+
+    <figure class="postcard">
+      <img src="gameplay.gif" alt="Animated gameplay of DOOM captured on board the satellite.">
+      <figcaption>A segment of the <span class="doom">DOOM</span> gameplay the satellite ran and captured on board, frame by frame, on the morning pass.</figcaption>
+    </figure>
+
+    <section>
+      <h2>The milestone passes</h2>
+      <p>The command was detected and <span class="doom">DOOM</span> launched on two satellite passes over Oslo on the same day, with the Oslo radio amateur team transmitting:</p>
+      <div class="runs">
+        <div class="run">
+          <div class="when">Jul 27, 2026 · morning</div>
+          <h3>Run 6</h3>
+          <p>A synthesised voice message was transmitted on a loop. Three of the six recordings detected the command and launched <span class="doom">DOOM</span>.</p>
+          <p class="deb"><a href="https://github.com/georgeslabreche/opssat-pretty-doomed/tree/main/pretty-doomed/docs/flight/debriefings/run-06-2026-07-27">Debrief here →</a></p>
+        </div>
+        <div class="run">
+          <div class="when">Jul 27, 2026 · evening</div>
+          <h3>Run 7</h3>
+          <p>This time an operator spoke the command live into a microphone, no recording. The satellite detected it again, the first detection of a live human voice from orbit.</p>
+          <p class="deb"><a href="https://github.com/georgeslabreche/opssat-pretty-doomed/tree/main/pretty-doomed/docs/flight/debriefings/run-07-2026-07-27">Debrief here →</a></p>
+        </div>
+      </div>
+      <p>Here is exactly what the satellite's onboard transcription produced from one recording, mangled by the noisy link but unmistakable:</p>
+      <p class="quote">"FOR PRETTY PRETTY PLEASE PLAY DOON DO ... THE FORASCAR PRETTY PRETTY PLEASE PLAY DOOMS ... AFORE OSSICA PRETTY PRETTY PLEASE PLAY ..."</p>
+      <p>The command was repeated on a loop precisely so that, even when the noise turned "DOOM" into "DOON" or "DOOMS", at least one clean copy would get through.</p>
+      <p>Other passes came through a little cleaner. Across the successful passes (<a href="https://github.com/georgeslabreche/opssat-pretty-doomed/tree/main/pretty-doomed/docs/flight/debriefings/run-06-2026-07-27">Run 6</a> and <a href="https://github.com/georgeslabreche/opssat-pretty-doomed/tree/main/pretty-doomed/docs/flight/debriefings/run-07-2026-07-27">Run 7</a>) some recordings transcribed the command more clearly, for example Run 7's live-voice pass, transcribed on board as <code>AND FAR BRIEFLY PLAYING DOOM STEAM DOOM PRECIPATED</code>, with <span class="doom">DOOM</span> itself spelled out.</p>
+      <figure class="postcard">
+        <video src="pass-analysis.mp4" controls preload="metadata"></video>
+        <figcaption>The morning pass in real time, reconstructed from the satellite's attitude telemetry: its orientation and line of sight to the Oslo ground station (left), and how far its antenna was off target (right). Each capture's recovered audio plays at the moment it happened.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <h2>Who made it happen</h2>
+      <p>The experiment depends on the amateur radio community, who form its ground segment. The transmissions were made by two volunteer radio amateur teams:</p>
+      <ul>
+        <li><strong>Oslo Group of the Norwegian Radio Relay League (NRRL)</strong>, call sign LA4O, who ran the successful July 2026 campaign from a rooftop in Oslo.</li>
+        <li><strong>Radio amateurs in Legnica, Poland</strong> (SQ6RDP and SQ6QV), who ran the earlier link tests from April to June 2026.</li>
+      </ul>
+      <p>Full radio amateur credits are in the <a href="https://github.com/georgeslabreche/opssat-pretty-doomed#acknowledgements">project acknowledgements</a>.</p>
+      <p>The experiment flies on the European Space Agency's OPS-SAT PRETTY spacecraft, with passes scheduled and operated through the OPS-SAT mission operations. Thanks also to Maximilian Henkel, Ólafur, and Vladimir for their collaboration and support throughout the campaign.</p>
+      <p>The experiment is led by <a href="https://georges.fyi">Georges Labrèche</a>, principal investigator and researcher.</p>
+    </section>
+
+    <section>
+      <h2>Learn more</h2>
+      <ul class="links">
+        <li>📦 <a href="https://github.com/georgeslabreche/opssat-pretty-doomed">Source code and full flight record on GitHub</a></li>
+        <li>🛰️ <a href="https://github.com/georgeslabreche/opssat-pretty-doomed/tree/main/pretty-doomed/docs/flight">Flight runs and per-pass analysis</a></li>
+        <li>📡 <a href="https://opssat.esa.int/missions/pretty">About the PRETTY mission</a></li>
+        <li>🎮 <a href="https://opssat.esa.int/">About OPS-SAT</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div class="credit">
+      An OPS-SAT PRETTY experiment. Built on open-source and amateur radio. Playing <span class="doom">DOOM</span>, from orbit, by voice command.
+    </div>
+  </footer>
+
+  <script>
+    // The hero signal is the actual amplitude envelope of the voice command
+    // recovered on Run 7 (evening pass, live human voice) — WAVE below is the
+    // peak envelope of command.mp3 (the voice segment of capture-002-audio.wav),
+    // 64 buckets normalized 0..1. The bars draw that waveform. Hovering plays the
+    // clip and a playhead sweeps across the bars in sync. Browsers block audio
+    // until the first user gesture, so the clip is unlocked on first interaction.
+    (function () {
+      var voice = document.getElementById('voice');
+      var wf = document.getElementById('waveform');
+      if (!voice || !wf) return;
+
+      var WAVE = [0.491,0.565,0.579,0.218,0.24,0.608,0.704,0.815,0.824,0.999,0.881,0.882,0.45,0.902,0.875,0.94,0.847,0.98,0.545,0.3,0.98,0.968,0.979,0.879,0.945,0.983,0.373,0.965,0.988,0.67,0.378,0.642,0.909,0.987,0.879,0.81,0.368,0.854,1.0,0.904,0.479,0.845,0.994,0.82,0.961,0.911,0.953,0.934,0.64,0.95,0.974,0.474,0.291,0.26,0.98,0.962,0.888,0.431,0.236,0.604,0.919,0.532,0.307,0.06];
+      var bars = WAVE.map(function (v) {
+        var b = document.createElement('i');
+        b.style.transform = 'scaleY(' + Math.max(0.06, v) + ')';
+        wf.appendChild(b);
+        return b;
+      });
+
+      var audio = new Audio('command.mp3');
+      audio.preload = 'auto';
+      audio.load();   // start buffering immediately so hover has no lag
+
+      var raf = 0, playing = false, hovering = false, armed = false;
+      function sweep() {
+        var frac = audio.duration ? audio.currentTime / audio.duration : 0;
+        var lead = Math.floor(frac * bars.length);
+        for (var i = 0; i < bars.length; i++) {
+          if ((i <= lead) !== bars[i].classList.contains('on')) {
+            bars[i].classList.toggle('on', i <= lead);
+          }
+        }
+        if (playing) raf = requestAnimationFrame(sweep);
+      }
+      function play() {
+        audio.muted = false;
+        audio.currentTime = 0;
+        var p = audio.play();
+        // Browsers block audio until the page has a user gesture. If this hover
+        // is the very first interaction, play() rejects; arm it to fire on the
+        // next real gesture (a click/tap/key anywhere) while still hovering.
+        if (p && p.catch) p.catch(function () { armed = true; });
+      }
+      function start() {
+        if (playing) return;
+        hovering = true; playing = true;
+        sweep();
+        play();
+      }
+      function stop() {
+        hovering = false; playing = false; armed = false;
+        audio.pause();
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        bars.forEach(function (b) { b.classList.remove('on'); });
+      }
+      function onGesture() {
+        // After any user gesture, hovering the signal autoplays, so the
+        // "Click to hear" tooltip is no longer needed.
+        voice.classList.add('played');
+        if (armed && hovering) { armed = false; audio.play().catch(function () {}); }
+      }
+      window.addEventListener('pointerdown', onGesture);
+      window.addEventListener('keydown', onGesture);
+      window.addEventListener('touchstart', onGesture);
+
+      voice.addEventListener('mouseenter', start);
+      voice.addEventListener('mouseleave', stop);
+      audio.addEventListener('ended', stop);
+
+      // Each <img> that shares a URL for a loop-once animation shares one
+      // animation timeline, so a second instance is stuck on the last (ended)
+      // frame. A unique query per play forces a fresh timeline, so every punch
+      // and every resurrection animates from the start.
+      var seq = 0;
+      function bust(u) { return u + '?p=' + (++seq); }
+
+      // Throw a one-shot DOOM fist punch at (x, y). CSS cursors can't animate,
+      // so drop a real animated image, run it once, then remove it; hide the
+      // system cursor over `el` while it plays so the fist reads as the cursor.
+      var PUNCH_MS = 600;   // fist-anim.webp: 6 frames x 100ms (original speed)
+      function punch(x, y, el) {
+        var img = document.createElement('img');
+        img.className = 'fist-punch';
+        img.alt = ''; img.setAttribute('aria-hidden', 'true');
+        img.src = bust('fist-anim.webp');
+        img.style.left = x + 'px'; img.style.top = y + 'px';
+        document.body.appendChild(img);
+        if (el) el.classList.add('punching');
+        setTimeout(function () { img.remove(); if (el) el.classList.remove('punching'); }, PUNCH_MS);
+      }
+
+      // Signal: click plays the clip, retires the tooltip, throws a punch.
+      voice.addEventListener('pointerdown', function (e) {
+        voice.classList.add('played');
+        start();
+        punch(e.clientX, e.clientY, voice);
+      });
+
+      // Cacodemon easter egg. Click to punch it (the fist swings at the cursor).
+      // After the first punch, the resting right hand stays up while you hover,
+      // just like holding fists in the game, and swings on each click. Five
+      // punches kill it (death sprite held, floating stops); when the cursor
+      // finally leaves the corpse, a golden figure appears for one loop and
+      // resurrects it (death in reverse), then it floats again on its idle loop.
+      var caco = document.querySelector('.hero .sprite');
+      if (caco) {
+        var RESURRECT_MS = 750, GUY_MS = 3420;
+        var hits = 0, state = 'alive', guyEl = null, overCaco = false, punched = false;
+
+        var punching = false, mode = null;
+        var fist = document.createElement('img');
+        fist.className = 'fist-follow';
+        fist.alt = ''; fist.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(fist);
+        function place(e) { fist.style.left = e.clientX + 'px'; fist.style.top = e.clientY + 'px'; }
+        function show(m, src) {              // swing always resets src (fresh timeline); rest only on change
+          if (m === 'swing' || mode !== m) fist.src = src;
+          mode = m;
+          fist.style.display = 'block'; caco.style.cursor = 'none';
+        }
+        function hide() { fist.style.display = 'none'; caco.style.cursor = ''; mode = null; }
+        function rest() { if (punched && !punching && overCaco && state !== 'reviving') show('rest', 'fist-idle.webp'); }
+
+        // Drive the resting hand from mousemove too, so it is reliable regardless
+        // of mouseenter (and it keeps the fist tracking the pointer while swinging).
+        caco.addEventListener('mousemove', function (e) { rest(); if (fist.style.display === 'block') place(e); });
+        caco.addEventListener('mouseenter', function (e) { overCaco = true; rest(); place(e); });
+        caco.addEventListener('mouseleave', function () { overCaco = false; hide(); revive(); });
+        caco.addEventListener('pointerdown', function (e) {
+          if (state !== 'alive') return;
+          punched = true;                      // the hand is now up (post first punch)
+          punching = true;
+          show('swing', bust('fist-anim.webp'));   // swing at the cursor
+          place(e);
+          setTimeout(function () { punching = false; rest(); }, PUNCH_MS);
+          if (++hits >= 5) {
+            state = 'dead';
+            caco.classList.add('no-float');    // a corpse does not float
+            caco.src = bust('caco-death.webp');
+          }
+        });
+
+        function revive() {
+          if (state !== 'dead') return;
+          state = 'reviving';
+          guyEl = document.createElement('img');
+          guyEl.className = 'caco-guy'; guyEl.alt = ''; guyEl.setAttribute('aria-hidden', 'true');
+          guyEl.src = bust('caco-guy.webp');
+          var r = caco.getBoundingClientRect();
+          guyEl.style.left = (r.left + r.width / 2) + 'px';
+          guyEl.style.top = (r.top + r.height / 2) + 'px';
+          document.body.appendChild(guyEl);
+          setTimeout(function () {
+            if (guyEl) { guyEl.remove(); guyEl = null; }
+            caco.src = bust('caco-resurrect.webp');     // reverse death: corpse -> alive
+            setTimeout(function () {
+              caco.src = 'caco.gif';                     // back to the idle loop
+              caco.classList.remove('no-float');         // alive again, so float again
+              hits = 0; state = 'alive';
+              rest();                                    // if still hovering, show the hand
+            }, RESURRECT_MS);
+          }, GUY_MS);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
