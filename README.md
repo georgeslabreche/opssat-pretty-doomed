@@ -91,6 +91,8 @@ Start at the [documentation map](docs/README.md), which indexes everything and e
 
 ## Acknowledgements
 
+[Georges Labrèche](https://github.com/georgeslabreche) is the experiment's principal investigator and project lead. Ólafur Waage co-designed and co-developed the experiment. Vladimir Zelenevskiy, Maximilian Henkel, and the entire OPS-SAT mission operation teams at ESA/ESOC and TU Graz planned and executed spacecraft operations that made the experiment a success.
+
 This experiment depends on the amateur radio community, who make up its ground segment. Any licensed radio amateur with a capable station can transmit a recognized command and elicit a downlinked artifact.
 
 ### Oslo Group of the Norwegian Radio Relay League (NRRL)
