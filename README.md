@@ -91,7 +91,7 @@ Start at the [documentation map](docs/README.md), which indexes everything and e
 
 ## Acknowledgements
 
-The experiment is designed and developed by [Georges Labrèche](https://github.com/georgeslabreche) together with Ólafur Waage and Vladimir Zelenevskiy. Maximilian Henkel and the entire OPS-SAT mission operation teams at ESA/ESOC and TU Graz operate the spacecraft and made the flight campaign possible.
+The experiment is designed and developed by [Georges Labrèche](https://github.com/georgeslabreche) together with Ólafur Waage. Vladimir Zelenevskiy, Maximilian Henkel, and the entire OPS-SAT mission operation teams at ESA/ESOC and TU Graz operate the spacecraft and made the flight campaign possible.
 
 This experiment depends on the amateur radio community, who make up its ground segment. Any licensed radio amateur with a capable station can transmit a recognized command and elicit a downlinked artifact.
 
