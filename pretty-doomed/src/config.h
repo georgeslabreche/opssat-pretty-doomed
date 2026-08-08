@@ -9,6 +9,18 @@
 // Variant lookup: TARGET -> [VARIANT1, VARIANT2, ...]
 using VariantsMap = std::unordered_map<std::string, std::vector<std::string>>;
 
+// Retention policy for raw I/Q capture.sc16 files (#140).
+// Config values: false/other -> Never, true/1 -> Always, detected -> Detected.
+enum class Sc16Keep { Never, Always, Detected };
+
+// Retention decision for one capture's sc16. Keyed on command_detected, not
+// the trigger: force-triggered captures (doom_force_trigger) without a
+// genuine detection do not retain in Detected mode.
+inline bool should_keep_sc16(Sc16Keep mode, bool command_detected) {
+    return mode == Sc16Keep::Always ||
+           (mode == Sc16Keep::Detected && command_detected);
+}
+
 struct PipelineConfig {
     // Operation: what the voice command triggers (feature flag)
     std::string operation = "doom";     // "doom" (only implementation for now)
@@ -60,7 +72,7 @@ struct PipelineConfig {
     bool sdr_enable_spectrogram = true;
     bool sdr_enable_constellation = true;
     bool sdr_enable_psd = true;
-    bool sdr_keep_sc16 = false;
+    Sc16Keep sdr_keep_sc16 = Sc16Keep::Never;
     int sdr_captures = 3;
     std::string process_mode = "sequential";
 
