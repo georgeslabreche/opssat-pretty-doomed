@@ -412,7 +412,7 @@ bool run_capture_from_file(const PipelineConfig& cfg,
 
     // Copy the input into place as capture.sc16 so downstream semantics are
     // identical to a live capture (artifacts derive from it, and
-    // sdr_keep_sc16=false may delete it after processing).
+    // the sdr_keep_sc16 retention policy may delete it after processing).
     std::string wav_file = output_dir + "/capture.wav";
     std::string iq_file = output_dir + "/capture.sc16";
     {

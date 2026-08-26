@@ -214,7 +214,7 @@ toGround/
     ├── psd-comparison.bmp       # Cross-capture PSD overlay (if multiple captures)
     └── capture-NNN/
         ├── capture.wav          # FM-demodulated audio
-        ├── capture.sc16         # Raw I/Q (deleted unless sdr_keep_sc16=true)
+        ├── capture.sc16         # Raw I/Q (deleted unless kept by sdr_keep_sc16)
         ├── capture-metrics.csv  # I/Q diagnostics: RMS, peak, PAPR, DC offset, imbalance
         ├── capture-psd.csv      # PSD frequency bins + power (dB/Hz)
         ├── capture-psd.bmp      # PSD line plot

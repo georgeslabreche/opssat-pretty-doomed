@@ -180,10 +180,18 @@ void process_wav_exec(const PipelineStageResult& stage1,
                       const std::string& demos_dir,
                       const std::string& sc16_path,
                       std::shared_future<void> artifact_future) {
-    // SC16 cleanup: wait for artifact future then delete (unless configured to keep).
-    // Runs regardless of trigger -- even captures with no detection should clean up.
+    // SC16 cleanup: wait for artifact future then delete (unless the retention
+    // policy keeps this capture). Runs regardless of trigger -- even captures
+    // with no detection should clean up. The decision itself is the pure
+    // should_keep_sc16() (config.h), unit-tested in tests/test_config.cpp.
     auto cleanup_sc16 = [&]() {
-        if (cfg.sdr_keep_sc16 || sc16_path.empty()) return;
+        if (sc16_path.empty()) return;
+        if (should_keep_sc16(cfg.sdr_keep_sc16, stage1.command_detected)) {
+            if (cfg.sdr_keep_sc16 == Sc16Keep::Detected) {
+                log_info() << "SC16 kept (command detected): " << sc16_path << "\n";
+            }
+            return;
+        }
         if (artifact_future.valid()) artifact_future.get();
         if (std::remove(sc16_path.c_str()) == 0) {
             log_info() << "SC16 deleted: " << sc16_path << "\n";

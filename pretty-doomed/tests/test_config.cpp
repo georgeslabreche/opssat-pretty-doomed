@@ -163,7 +163,7 @@ TEST_CASE("load_config parses sdr_enable_psd and sdr_keep_sc16") {
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
     CHECK(cfg.sdr_enable_psd == false);
-    CHECK(cfg.sdr_keep_sc16 == true);
+    CHECK(cfg.sdr_keep_sc16 == Sc16Keep::Always);
 }
 
 TEST_CASE("load_config preserves sdr_enable_psd and sdr_keep_sc16 defaults") {
@@ -172,7 +172,35 @@ TEST_CASE("load_config preserves sdr_enable_psd and sdr_keep_sc16 defaults") {
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
     CHECK(cfg.sdr_enable_psd == true);
-    CHECK(cfg.sdr_keep_sc16 == false);
+    CHECK(cfg.sdr_keep_sc16 == Sc16Keep::Never);
+}
+
+TEST_CASE("load_config parses the sdr_keep_sc16 tri-state") {
+    struct Case { const char* value; Sc16Keep expected; };
+    const Case cases[] = {
+        {"true", Sc16Keep::Always},
+        {"1", Sc16Keep::Always},
+        {"detected", Sc16Keep::Detected},
+        {"false", Sc16Keep::Never},
+        {"0", Sc16Keep::Never},
+        {"bogus", Sc16Keep::Never},
+    };
+    for (const auto& c : cases) {
+        CAPTURE(c.value);
+        std::istringstream input(std::string("sdr_keep_sc16=") + c.value + "\n");
+        PipelineConfig cfg;
+        REQUIRE(load_config(input, cfg));
+        CHECK(cfg.sdr_keep_sc16 == c.expected);
+    }
+}
+
+TEST_CASE("should_keep_sc16 keeps only Always and detected Detected captures") {
+    CHECK(should_keep_sc16(Sc16Keep::Never, false) == false);
+    CHECK(should_keep_sc16(Sc16Keep::Never, true) == false);
+    CHECK(should_keep_sc16(Sc16Keep::Always, false) == true);
+    CHECK(should_keep_sc16(Sc16Keep::Always, true) == true);
+    CHECK(should_keep_sc16(Sc16Keep::Detected, false) == false);
+    CHECK(should_keep_sc16(Sc16Keep::Detected, true) == true);
 }
 
 TEST_CASE("load_variants handles empty input") {

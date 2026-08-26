@@ -222,7 +222,7 @@ toGround/run-00002/
 ├── capture-001/            # Per-capture directory
 │   ├── run.log             # Detailed capture + processing log
 │   ├── capture.wav         # FM-demodulated audio
-│   ├── capture.sc16        # Raw I/Q (deleted after processing unless sdr_keep_sc16=true)
+│   ├── capture.sc16        # Raw I/Q (deleted after processing unless kept by sdr_keep_sc16)
 │   ├── capture-metrics.csv # I/Q diagnostics: RMS, peak, PAPR, DC offset, imbalance
 │   ├── capture-psd.csv     # PSD frequency bins + power (dB/Hz)
 │   ├── capture-psd.bmp     # PSD line plot
@@ -250,7 +250,7 @@ toGround/run-00003/
 ├── psd-comparison.bmp      # Cross-capture PSD overlay
 ├── capture-001/
 │   ├── capture.wav
-│   ├── capture.sc16        # Deleted after processing unless sdr_keep_sc16=true
+│   ├── capture.sc16        # Deleted after processing unless kept by sdr_keep_sc16
 │   ├── capture-metrics.csv
 │   ├── capture-psd.csv
 │   ├── capture-psd.bmp
