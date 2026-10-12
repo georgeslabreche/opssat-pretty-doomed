@@ -32,6 +32,9 @@ Example (MP4 at 30 fps with 0.5 s interpolation, rotating view):
   python3 animate_pointing.py ... --output animated-pointing.mp4 \
       --fps 30 --interp-dt 0.5 --rotate
 
+Example (dark theme to match the tanagraspace.com project page):
+  python3 animate_pointing.py ... --output animated-pointing.mp4 --theme dark
+
 Dependencies: numpy, scipy, sgp4, matplotlib, pillow (GIF), ffmpeg (MP4).
 """
 import argparse
@@ -113,6 +116,32 @@ def _err_color(err, r_max):
     return tuple(c)
 
 
+# Colour themes. "light" is the original look. "dark" matches the
+# tanagraspace.com project page: charcoal ground, light text, brand yellow for
+# the sunlit orbit, and DOOM red for the antenna axis and the recording badge.
+# The scope's green -> amber -> red error cue is the same in both themes.
+THEMES = {
+    "light": {
+        "bg": None, "fg": None, "muted": "#888888", "scope_label": "#555555",
+        "grid": None, "meridian": "#4a6c8c", "traj_sunlit": "#e8a200",
+        "traj_shadow": "#3a3a3a", "target": "green", "target_label": "darkgreen",
+        "los": "green", "marker_edge": "black", "sc": "red",
+        "axis_x": "#cc0000", "axis_y": "#7030a0", "axis_z": "#1f6fd0",
+        "alert": "#c00000", "sunlit": "#d08000", "shadow": "#1f3f7f",
+        "ring": "#c9c9c9",
+    },
+    "dark": {
+        "bg": "#161616", "fg": "#e8e4dc", "muted": "#a19c93", "scope_label": "#a19c93",
+        "grid": "#333333", "meridian": "#4a6c8c", "traj_sunlit": "#ffcb24",
+        "traj_shadow": "#77736c", "target": "#3ad07a", "target_label": "#3ad07a",
+        "los": "#3ad07a", "marker_edge": "#161616", "sc": "#fc3a52",
+        "axis_x": "#fc3a52", "axis_y": "#b98ce6", "axis_z": "#5aa0f0",
+        "alert": "#fc3a52", "sunlit": "#ffcb24", "shadow": "#7fa6d9",
+        "ring": "#3a3a3a",
+    },
+}
+
+
 def mux_capture_audio(silent_mp4, out_mp4, audio_csv, capture_windows,
                       video_start, exp_time, duration_s):
     """Mux one WAV per capture window into the video as a soundtrack.
@@ -168,6 +197,9 @@ def main():
     p.add_argument("--rotate", action="store_true",
                    help="Slowly rotate the view azimuth across the animation")
     p.add_argument("--dpi", type=int, default=100, help="DPI of output frames (default 100)")
+    p.add_argument("--theme", choices=sorted(THEMES), default="light",
+                   help="Colour theme (default light). 'dark' matches the "
+                        "tanagraspace.com project page. --bg-color overrides its background.")
     p.add_argument("--bg-color", default=None,
                    help="Background color for the figure and both panels, e.g. "
                         "'#e8d5b7' to match a web page. Default: matplotlib default (white).")
@@ -232,11 +264,21 @@ def main():
     times = [t for t, _ in samples]
     traj = np.array([sc_ecef(t, args.tle1, args.tle2) for t in times]) / 1000
 
+    theme = THEMES[args.theme]
+    bg = args.bg_color or theme["bg"]
+    if theme["fg"]:
+        # Text, tick labels, and spines follow the theme instead of black.
+        matplotlib.rcParams.update({
+            "text.color": theme["fg"], "axes.labelcolor": theme["fg"],
+            "xtick.color": theme["muted"], "ytick.color": theme["muted"],
+            "axes.edgecolor": theme["grid"], "grid.color": theme["grid"],
+        })
+
     # Body axes to draw: (label, body-frame unit vector, colour, linewidth).
     AXIS_DEFS = [
-        ("+X (antenna)", np.array([1.0, 0.0, 0.0]), "#cc0000", 3.2),
-        ("+Y",           np.array([0.0, 1.0, 0.0]), "#7030a0", 1.8),
-        ("+Z",           np.array([0.0, 0.0, 1.0]), "#1f6fd0", 1.8),
+        ("+X (antenna)", np.array([1.0, 0.0, 0.0]), theme["axis_x"], 3.2),
+        ("+Y",           np.array([0.0, 1.0, 0.0]), theme["axis_y"], 1.8),
+        ("+Z",           np.array([0.0, 0.0, 1.0]), theme["axis_z"], 1.8),
     ]
     axes_ecef = {name: [] for name, _, _, _ in AXIS_DEFS}
     angles_deg = []  # +X antenna pointing error to target
@@ -283,13 +325,15 @@ def main():
     ax = fig.add_subplot(1, 2, 1, projection="3d")
     ax2 = fig.add_subplot(1, 2, 2)
 
-    if args.bg_color:
-        fig.patch.set_facecolor(args.bg_color)
-        ax2.set_facecolor(args.bg_color)
-        ax.set_facecolor(args.bg_color)
+    if bg:
+        fig.patch.set_facecolor(bg)
+        ax2.set_facecolor(bg)
+        ax.set_facecolor(bg)
         # Blend the 3D panes into the background too.
         for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
-            axis.set_pane_color(matplotlib.colors.to_rgba(args.bg_color))
+            axis.set_pane_color(matplotlib.colors.to_rgba(bg))
+            if theme["grid"]:
+                axis.pane.set_edgecolor(theme["grid"])
 
     # Regional meridians and parallels around the target only, kept light to
     # avoid drawing a full sphere wireframe.
@@ -299,12 +343,12 @@ def main():
         lats = np.linspace(t_lat - 18, t_lat + 25, 60)
         pts = np.array([lla_to_ecef(la, lon, 0) / 1000 for la in lats])
         ax.plot(pts[:, 0], pts[:, 1], pts[:, 2],
-                color="#4a6c8c", linewidth=0.4, alpha=0.7)
+                color=theme["meridian"], linewidth=0.4, alpha=0.7)
     for lat in np.arange(t_lat - 18, t_lat + 26, 5):
         lons = np.linspace(t_lon - 35, t_lon + 40, 60)
         pts = np.array([lla_to_ecef(lat, lo, 0) / 1000 for lo in lons])
         ax.plot(pts[:, 0], pts[:, 1], pts[:, 2],
-                color="#4a6c8c", linewidth=0.4, alpha=0.7)
+                color=theme["meridian"], linewidth=0.4, alpha=0.7)
 
     # Full trajectory (static), split by sunlit vs Earth-shadow so the eclipse
     # exit shows as a colour change on the orbit (the sun-sensor behaviour Max
@@ -312,16 +356,16 @@ def main():
     traj_lit = np.where(sunlit[:, None], traj, np.nan)
     traj_dark = np.where(~sunlit[:, None], traj, np.nan)
     ax.plot(traj_lit[:, 0], traj_lit[:, 1], traj_lit[:, 2],
-            color="#e8a200", linewidth=2.2, alpha=0.9, label="trajectory (sunlit)")
+            color=theme["traj_sunlit"], linewidth=2.2, alpha=0.9, label="trajectory (sunlit)")
     ax.plot(traj_dark[:, 0], traj_dark[:, 1], traj_dark[:, 2],
-            color="#3a3a3a", linewidth=2.2, alpha=0.9,
+            color=theme["traj_shadow"], linewidth=2.2, alpha=0.9,
             label="trajectory (in Earth's shadow)")
 
     # Target (static)
-    ax.scatter(*target_km, color="green", s=120, marker="^",
-               zorder=10, edgecolor="black", linewidth=1, label=args.target_name)
+    ax.scatter(*target_km, color=theme["target"], s=120, marker="^",
+               zorder=10, edgecolor=theme["marker_edge"], linewidth=1, label=args.target_name)
     ax.text(target_km[0] + 200, target_km[1] - 200, target_km[2] + 200,
-            args.target_name, fontsize=10, color="darkgreen", weight="bold")
+            args.target_name, fontsize=10, color=theme["target_label"], weight="bold")
 
     # Set view limits
     pad = 3000
@@ -335,13 +379,13 @@ def main():
     ax.set_zlabel("Z (km, ECEF)")
 
     # Dynamic artists - placeholders updated each frame
-    sc_marker = ax.scatter([0], [0], [0], color="red", s=80, marker="o",
-                           zorder=10, edgecolor="black", linewidth=1)
+    sc_marker = ax.scatter([0], [0], [0], color=theme["sc"], s=80, marker="o",
+                           zorder=10, edgecolor=theme["marker_edge"], linewidth=1)
     axis_lines = {}
     for name, axv, col, lw in AXIS_DEFS:
         line, = ax.plot([0, 0], [0, 0], [0, 0], color=col, linewidth=lw, label=name)
         axis_lines[name] = line
-    los_line, = ax.plot([0, 0], [0, 0], [0, 0], color="green",
+    los_line, = ax.plot([0, 0], [0, 0], [0, 0], color=theme["los"],
                         linewidth=1.5, linestyle="--",
                         label=f"Line of sight to {args.target_name}")
     fig.suptitle(f"OPS-SAT PRETTY attitude vs {args.target_name}",
@@ -350,13 +394,13 @@ def main():
     clock_text = fig.text(0.5, 0.935, "", ha="center", fontsize=11)
     status_text = fig.text(0.5, 0.892, "", ha="center", fontsize=15, weight="bold")
     target_text = fig.text(0.5, 0.852, "", ha="center", fontsize=12,
-                           weight="bold", color="#c00000")
+                           weight="bold", color=theme["alert"])
     sun_text = fig.text(0.5, 0.812, "", ha="center", fontsize=11, weight="bold")
 
     leg = ax.legend(loc="upper right", fontsize=8)
-    if args.bg_color and leg is not None:
+    if bg and leg is not None:
         fr = leg.get_frame()
-        fr.set_facecolor(args.bg_color)
+        fr.set_facecolor(bg)
         fr.set_edgecolor("none")
         fr.set_alpha(1.0)  # opaque, else the default framealpha shows through lighter
 
@@ -373,24 +417,24 @@ def main():
     _ring_theta = np.linspace(0, 2 * np.pi, 200)
     for rr in np.arange(ring_step, r_max + 0.1, ring_step):
         ax2.plot(rr * np.cos(_ring_theta), rr * np.sin(_ring_theta),
-                 color="#c9c9c9", linewidth=0.8, zorder=1)
-        ax2.text(0, rr, f"{int(round(rr))}°", color="#888888", fontsize=7,
+                 color=theme["ring"], linewidth=0.8, zorder=1)
+        ax2.text(0, rr, f"{int(round(rr))}°", color=theme["muted"], fontsize=7,
                  ha="center", va="bottom", zorder=2)
-    ax2.plot([-r_max, r_max], [0, 0], color="#c9c9c9", linewidth=0.6, zorder=1)
-    ax2.plot([0, 0], [-r_max, r_max], color="#c9c9c9", linewidth=0.6, zorder=1)
+    ax2.plot([-r_max, r_max], [0, 0], color=theme["ring"], linewidth=0.6, zorder=1)
+    ax2.plot([0, 0], [-r_max, r_max], color=theme["ring"], linewidth=0.6, zorder=1)
     for lx, ly, lab, ha, va in [
         (scope_lim, 0, "+Y", "right", "center"),
         (-scope_lim, 0, "-Y", "left", "center"),
         (0, scope_lim, "+Z", "center", "top"),
         (0, -scope_lim, "-Z", "center", "bottom"),
     ]:
-        ax2.text(lx * 0.99, ly * 0.99, lab, ha=ha, va=va, fontsize=9, color="#555555")
+        ax2.text(lx * 0.99, ly * 0.99, lab, ha=ha, va=va, fontsize=9, color=theme["scope_label"])
     ax2.set_title("boresight scope · +X (antenna)\n"
                   "target at radius = pointing error", fontsize=10)
 
     # Dynamic scope artists.
     scope_blip = ax2.scatter([0], [0], s=110, zorder=6,
-                             edgecolor="black", linewidth=0.7)
+                             edgecolor=theme["marker_edge"], linewidth=0.7)
     scope_radial, = ax2.plot([0, 0], [0, 0], linewidth=1.8, zorder=5)
     scope_err_text = ax2.text(0, -scope_lim * 0.9, "", ha="center",
                               fontsize=12, weight="bold")
@@ -417,20 +461,20 @@ def main():
         if ci > 0:
             status_text.set_text(f"● RECORDING  ·  CAPTURE {ci} OF {n_caps}")
             status_text.set_color("white")
-            status_text.set_bbox(dict(facecolor="#c00000", edgecolor="none",
+            status_text.set_bbox(dict(facecolor=theme["alert"], edgecolor="none",
                                       boxstyle="round,pad=0.4"))
         else:
             status_text.set_text("no capture running")
-            status_text.set_color("#888888")
+            status_text.set_color(theme["muted"])
             status_text.set_bbox(None)
         target_text.set_text("TARGET MOMENT" if is_exp else "")
 
         if sunlit[i]:
             sun_text.set_text("Spacecraft SUNLIT")
-            sun_text.set_color("#d08000")
+            sun_text.set_color(theme["sunlit"])
         else:
             sun_text.set_text("Spacecraft IN EARTH'S SHADOW")
-            sun_text.set_color("#1f3f7f")
+            sun_text.set_color(theme["shadow"])
 
         if args.rotate:
             ax.view_init(elev=18, azim=-50 + i * (60.0 / len(samples)))
