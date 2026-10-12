@@ -94,6 +94,8 @@ python3 animate_pointing.py ... \
 | `--capture-audio` | none | Comma-separated WAV paths, one per capture window, muxed into the MP4 as a soundtrack (requires ffmpeg), each placed at its capture-window start. Use with `--realtime` so each capture's audio plays while that capture is happening, silent in the gaps. |
 | `--dpi` | 100 | Render DPI. Lower = smaller file but blurrier. |
 | `--arrow-len` | 1500 km | Length of the body-axis arrows drawn at the spacecraft. |
+| `--theme` | `light` | Colour theme. `light` is the original look. `dark` matches the tanagraspace.com project page: charcoal background, light text, yellow sunlit orbit, and red antenna axis and recording badge. The scope keeps its green, amber, and red error colours in both themes. |
+| `--bg-color` | none | Background colour for the figure and both panels, for example `'#161616'`. Overrides the theme background. |
 
 The capture windows (see Inputs) drive the recording banner.
 
@@ -112,6 +114,10 @@ python3 animate_pointing.py \
 ```
 
 At `--realtime` the video plays at wall-clock rate, so each capture's recovered audio is heard at the moment that capture occurred. `--trim-to-captures` clips it to the capture span plus `--trim-pad-s` on each side (about 2.8 minutes for the Run 6 example) instead of the full telemetry span. Without `--capture-audio` the output is silent; without `--realtime` the audio placement will not line up.
+
+### Website version
+
+The PRETTY DOOMed page on tanagraspace.com embeds the Run 6 animation with `--theme dark`, so the video matches the page. Use the command above and add `--theme dark`. The light-theme debriefing video in `docs/flight/debriefings/run-06-2026-07-27/` stays as the flight record.
 
 ## Output interpretation
 
