@@ -2,7 +2,31 @@
 
 Verification results from experiment runs on the OPS-SAT Engineering Model (EM), ARM32 dual-core SEPP. See [TESTING.md](../TESTING.md) for the test environment. On-orbit flight results live separately in [`flight/`](../flight/).
 
-For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md). For the v7 changes (narrowing stage, second-stage filtering removal, sc16 replay input), see [V6_TO_V7.md](V6_TO_V7.md).
+For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md). For the v7 changes (narrowing stage, second-stage filtering removal, sc16 replay input), see [V6_TO_V7.md](V6_TO_V7.md). For the v8 changes (detection-conditional sc16 retention), see [V7_TO_V8.md](V7_TO_V8.md).
+
+## v8 Verification
+
+Two live-SDR sessions on the EM via SMILE, both on the `exp4023-pretty-DOOMed-v7-to-v8.tar.gz` patch (`pretty-doomed`, `VERSION`, `config.cfg`) extracted over the v7 installation, with the SDR on and nothing transmitted, on the as-shipped flight configuration (`sdr_keep_sc16=detected`, `doom_force_trigger=false`, narrowing armed, hardware FIR, 6 captures).
+
+### Session 1 (aborted)
+
+Data from SMILE artifact [`pack-flatsat-4023_1786988477`](data/em-v8/pack-flatsat-4023_1786988477/). The v8 banner confirms the patched binary and config ran. Capture 1 completed at full sample counts (4,000,000/4,000,000 I/Q, 320,000/320,000 audio, 20.6 s wall), narrowing ran (peak at +19.29 kHz, EM background), the transcription produced noise fragments (`AND YET`), no command was detected, and the retention policy deleted the raw I/Q: `SC16 deleted` logged after all artifact consumers finished, with the spectrogram, constellation, PSD, and metrics all present in the pack and no `capture.sc16`. The first on-hardware verification of the detected-mode delete path.
+
+The session then ended during capture 2: I/Q delivery stalled at 3,283,171 of 4,000,000 samples (~16.4 s of data) and stayed frozen for 30 s, the 50 s timeout fired, `tb->wait()` hung for 10 s, and the app force-exited, so captures 3 to 6 never ran. Capture 2's directory holds a partial 16.3 s `capture.sc16` and a truncated `capture.wav`, left behind by the abort rather than by the retention policy. The pack also carried zero-byte `transcription.txt`, `scores.txt`, and `summary.txt` for capture 1 although the log shows their content.
+
+![v8 EM session 1](data/em-v8/pack-flatsat-4023_1786988477/run-00001-timeline-and-resource.png)
+
+### Session 2 (clean pass)
+
+Data from SMILE artifact [`pack-flatsat-4023_1787033754`](data/em-v8/pack-flatsat-4023_1787033754/). All 6 captures completed at full sample counts (20-21 s wall each), total 273.0 s against 280.1 s for the v7 run of the same schedule. Every capture transcribed noise fragments, detected nothing, and deleted its sc16 after its artifacts were generated: six `SC16 deleted` lines, six complete artifact sets, no `capture.sc16` anywhere in the pack, populated text files in all six captures, PSD comparison generated, clean `=== Done ===` exit, and no warnings or errors in the log. Received level at the quiet noise floor (I/Q RMS -53.4 dBFS; the v7 session's PRBS pollution was absent).
+
+Neither session 1 anomaly reproduced. The capture 2 stall is a one-off of the IIO delivery path (untouched since v7), and the zero-byte text files point to the SMILE pack racing the force-exited session rather than failed writes.
+
+![v8 EM session 2](data/em-v8/pack-flatsat-4023_1787033754/run-00001-timeline-and-resource.png)
+
+### Verdict
+
+**v8 is verified on the EM and cleared for flight.** The detected-mode delete path executed seven times on hardware across the two sessions (config parse, the `should_keep_sc16` decision on a real capture, artifact-ordered deletion, audit logging). The keep path is accepted on ground validation: it is the same decision function short-circuiting before the delete, differing only in the early return and the `SC16 kept (command detected)` log line, and it is covered by the unit truth table and exercised end to end on the ground against flight-form FM voice input (see [V7_TO_V8.md](V7_TO_V8.md)).
 
 ## v7 Flight Package Verification
 

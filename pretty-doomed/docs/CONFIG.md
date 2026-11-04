@@ -69,7 +69,7 @@ Used with the `-s` flag. AD9361 configuration (`ad9361_configure()` in `sdr.cpp`
 | `sdr_enable_spectrogram` | true | Generate spectrogram BMP |
 | `sdr_enable_constellation` | true | Generate I/Q constellation BMP |
 | `sdr_enable_psd` | true | Generate PSD (Power Spectral Density) BMP + CSV per capture, and cross-capture PSD comparison BMP |
-| `sdr_keep_sc16` | false | Raw I/Q `capture.sc16` retention: `false` deletes each sc16 after all artifacts (spectrogram, constellation, PSD, postcard) are generated, saving ~15 MB per 20s capture; `true` keeps every sc16; `detected` keeps only the captures where the command was detected (force-triggered captures without a detection are deleted). |
+| `sdr_keep_sc16` | false | Raw I/Q `capture.sc16` retention: `false` deletes each sc16 after all artifacts (spectrogram, constellation, PSD, postcard) are generated, saving ~15 MB per 20s capture; `true` keeps every sc16; `detected` keeps only the captures where the command was detected (force-triggered captures without a detection are deleted). The flight `config.cfg` ships `detected` since v8. |
 | `sdr_captures` | 3 | Number of sequential SDR captures |
 | `process_mode` | sequential | Processing mode: `sequential` (all captures then all processing) or `background` (overlap capture N+1 with processing of capture N). Background mode writes all output to the main log with `[cN/tM]` thread tags instead of per-capture `run.log` files. |
 
