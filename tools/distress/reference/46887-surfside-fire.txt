@@ -1,0 +1,12 @@
+# id: 46887
+# name: surfside-fire
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+Mayday, Mayday, Mayday, Mayday.
+Vessel in distress.
+This is Coast Guard Sector Houston Galvis.
+And what is your position in nature of distress over?
+Yes, sir.
+We're about five or about six nautical miles off the Freeport Seniors and we're on fire.

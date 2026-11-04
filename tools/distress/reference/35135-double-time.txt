@@ -1,0 +1,22 @@
+# id: 35135
+# name: double-time
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+Mayday, mayday, mayday.
+This is a double time.
+We're just coming into the channels.
+We're taking on quite a bit of water.
+If there's anybody out there that can help, pull us in for a little bit.
+We're coming on about 16 gallons a minute.
+Coming into the narrows and Valdez, just the double time.
+In double time, this is Core Coast Anchorage.
+Roger, understanding you in the Narrows and Valdez, you're taking on water.
+I didn't get how much water you're taking on.
+Do you have a GPS position over?
+She is coming up.
+We're about a mile south of the narrows.
+I'll get you a definite recording here pretty quick.
+This is Crossroad Sector Ingrid.
+How many persons on board your vessel over here?

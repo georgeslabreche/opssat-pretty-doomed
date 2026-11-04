@@ -1,0 +1,14 @@
+# id: 44865
+# name: galveston-capsize
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+Mayday, Mayday, Mayday.
+All nearby Brasswood.
+I'm the 17th century later than 50 years on outside race found by the East Sixth Center.
+I'm Scott Scott of the Air Bath Ram.
+Happy Dallas today.
+I'm sorry, I got senior guards.
+I'm continuing.
+Yeah.

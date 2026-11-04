@@ -1,0 +1,15 @@
+# id: 48097
+# name: oahu-sailboat
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+We're swamped right now and uh we're actually gonna go down here Charlie.
+We're about eight miles off Diamond Head.
+Vessel calling in this is the Coast Guard.
+Roger copy you're swamped right now and you're gonna be going down shortly over?
+Roger that's affirmative.
+We gotta kayak with oxygen.
+We got some uh we're not sure if we're gonna go all the way down but it's potential.
+We're about we're going down shortly.
+Roger we got Five persons on board, I can't give you my GPS brand at this point.

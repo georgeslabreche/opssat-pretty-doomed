@@ -1,0 +1,37 @@
+# id: 34749
+# name: imagination
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+U.S.
+Coast Guard, U.S.
+Coast Guard.
+Boarding district.
+U.S.
+Coast Guard, U.S.
+Coast Guard.
+Southwind is stressed.
+This is Coast Guard Sector Miami over.
+What is your position?
+Many third remotely.
+That's on the shop.
+Southwest, this is Coast Guard Sector Miami.
+What is your position?
+I make sure it's shot over.
+75 degrees 52, 779, 079 degrees 56 Please guide the nature of the Eggasha.
+We take in order.
+The agency already boots.
+Vessel and distress, this is Coast Guard Sector Miming.
+Say again your nature of distress over.
+Vessel and distress, Sector Mime.
+You ready, Captain?
+What is the name of your vessel and how many people on board over?
+Vessel and distress, this is Coast Guard Sector Miming.
+What is the nature of your distress, Over?
+We try to see you, we take you here.
+Ready, Captain, how many people on board are there?
+Ready, Captain.
+Has everybody put on their life jackets for them?
+Yes, ma'am.
+Okay, thank you.

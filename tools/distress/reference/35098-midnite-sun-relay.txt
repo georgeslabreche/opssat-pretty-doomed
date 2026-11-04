@@ -1,0 +1,16 @@
+# id: 35098
+# name: midnite-sun-relay
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+Mayday, Mayday, Mayday.
+Mayday, Mayday, Mayday.
+This is a Sea Warrior position 5821731530037.
+We have a boat on the beach.
+The midnight sun is on the beach at Tanak Cape.
+Vessel in distress, this is the United States Coast Guard Sector Anchorage.
+How many persons on board the vessel, Oliver?
+There are five people.
+People aboard that vessel.
+They are grounded, and our unseen weather right now is forty-five knots northwest wind, combined sea and swell approximately eighteen feet.

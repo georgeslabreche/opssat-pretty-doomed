@@ -1,0 +1,10 @@
+# id: 35628
+# name: miss-yalanda
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+Mayday, Mayday, Mayday.
+This is the fishing vessel Miss Yolana.
+We are breaching a hull.
+We're going down.

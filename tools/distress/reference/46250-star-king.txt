@@ -1,0 +1,75 @@
+# id: 46250
+# name: star-king
+# status: draft
+# source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
+# contains_mayday: unchecked
+
+Mayday, me vessel distress.
+This is the Coast Guard Channel 16.
+What is your position and nature of distress?
+Over we are 4616.751.407.90.
+We're in immediate distress.
+Need help right away.
+A boat's in the area.
+Saw it later and agents went by us.
+Please come back.
+Roger, Captain, how many persons are on board your vessel and what is the distress?
+What's going on?
+Vessel calling in distress.
+This is a Coast Guard.
+How many persons are on board your vessel?
+Over.
+We have five POB.
+Five POB.
+Roger, Captain.
+Five persons on board.
+And what is the nature of distress?
+And what is the description of your vessel?
+Vessel in distress, this is the Coast Guard.
+Captain, what is the nature of your distress?
+And please describe your vessel.
+Over.
+We're a 57.
+Foot steel vessel.
+We're got a hard Captain All I copied you here a 56 foot steel vessel.
+What is the description of your distress over?
+Yeah, we got a hard starboard lift.
+We just started lifting hard, went all the way over.
+Engines, no power.
+I see some lights here.
+I need some help.
+Right away, Roger.
+Captain, are you taking on water over Roger Roger taking on water?
+Possession again.
+4616.
+This lady, Renee, we just turn around.
+We're coming back at you there.
+I think I see you right a little ways away.
+Yeah, okay, we're 46167.88 1.408.31 going here.
+Vessel taking on water, have you put on all your life jackets or survival jackets over?
+Vessel taking on water, this is the Coast Guard captain.
+Have you donned your life jackets or survival suits over?
+To the vessel that is turning around to hop the vessel that is taking on water.
+This is the Coast Guard at 16.
+Yeah, this is a way right now.
+Yeah, 461773, and we're headed that way.
+Not sure which boat it is.
+There's quite a few lights here.
+Roger, fishing vessel Lady Renee.
+I got your position on it.
+You're in route.
+How long will it take you to get there?
+I've got some 10 minutes.
+Fishing vessel lady Renee, says the Coast Guard Rogers.
+Captain, keep us updated.
+I'm going to keep making call outs to this vessel.
+Break vessel is taking on water.
+Vessel is taking on water through the Coast Guard at 16.
+Can you repeat the reading for the boat that was thinking or is taking on water?
+Can you repeat that reading?
+Pawn Pawn, Pawn Pond, Pawn Pawn, all stations, all stations.
+This is Coast Guard Sector Columbia River.
+Coast Guard Sector Columbia River.
+At time 0451 local 1251 meantime, the Coast Guard received a report of the 56 foot.
+Steel vessel listing hard to starboard, possibly taken on water with five persons on board.
+And last possible position: 4616-decimal 275 north by 12407-decimal 90 west.

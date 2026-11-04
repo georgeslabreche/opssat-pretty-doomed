@@ -16,6 +16,7 @@ tools/
 ├── docker-compose.yml
 ├── requirements.txt
 ├── README.md
+├── distress/         # Distress call clip manifest and reference transcripts (see distress/README.md)
 └── src/
     ├── plot_iq.py        # I/Q file visualization
     ├── detect_carrier.py # Carrier detection in a wideband I/Q file
