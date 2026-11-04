@@ -107,7 +107,7 @@ docker-compose run --rm pretty-doomed ./build/local/pretty-doomed \
     -o toGround/replay-test -d demos -e doom-build/local/opssat-doom
 ```
 
-Inputs can come from any capture that ran with `sdr_keep_sc16=true` (flight, EM, or the SDR emulator below), which makes this the simplest way to exercise the full pipeline on the EM against real flight signal: capture once anywhere, then replay the sc16 on the ARM32 binary. A raw flight recording can also be converted directly with `tools/src/make_emu_replay.py --out-rate 200000` (the effective rate; the resampler band-limits to +/-100 kHz, standing in for the flight channel LPF). Synthetic inputs at a chosen link quality can be generated from a clean voice WAV with `tools/src/make_fm_iq.py` (FM modulation, carrier offset, CNR), which is how keyer candidates are screened through the full flight pipeline at controlled badness (results in [KEYER_SCREENING.md](KEYER_SCREENING.md)).
+Inputs can come from any capture that retained its sc16 (`sdr_keep_sc16=true`, or `detected` on a capture that detected the command; flight, EM, or the SDR emulator below), which makes this the simplest way to exercise the full pipeline on the EM against real flight signal: capture once anywhere, then replay the sc16 on the ARM32 binary. A raw flight recording can also be converted directly with `tools/src/make_emu_replay.py --out-rate 200000` (the effective rate; the resampler band-limits to +/-100 kHz, standing in for the flight channel LPF). Synthetic inputs at a chosen link quality can be generated from a clean voice WAV with `tools/src/make_fm_iq.py` (FM modulation, carrier offset, CNR), which is how keyer candidates are screened through the full flight pipeline at controlled badness (results in [KEYER_SCREENING.md](KEYER_SCREENING.md)).
 
 On the SEPP, the `run` script switches to `-r` automatically when an `input/replay.cs16` file exists, so a SMILE-driven EM run can replay real signal with no script edits. Delete the file to return to live capture; the flight package must not contain `input/replay.cs16`.
 
@@ -247,6 +247,7 @@ The `sdr_timeout_multiplier` config parameter (default 2) accounts for this: `ti
 - **constellation.bmp**: visual I/Q health check. Should show a diffuse cloud, not a horizontal line (Q dropout).
 - **postcard.png** (triggered captures only): I/Q scatter should show a smooth blood splatter pattern, not vertical stripes (see [V5_TO_V6.md](changelog/V5_TO_V6.md)).
 - **transcription.txt**: STT output from captured RF. Will be noise unless someone is transmitting voice on 1296 MHz during the capture.
+- **SC16 retention**: with `sdr_keep_sc16=detected`, every capture should log either `SC16 kept (command detected):` or `SC16 deleted:`, and the kept sc16 files should match the detections one to one. A deleted capture must still have its full artifact set (spectrogram, constellation, PSD, metrics).
 
 ## Troubleshooting
 
@@ -258,4 +259,5 @@ The `sdr_timeout_multiplier` config parameter (default 2) accounts for this: `ti
 | `Audio too short for STT` | Capture timed out with too few samples | Increase `sdr_timeout_multiplier` or reduce `sdr_duration` |
 | `Transcription produced no output` | STT model failed silently | Check model paths in config, verify model files exist |
 | `SIGFPE` / `Arithmetic exception` | Deliberate `tkill(SIGFPE)` triggered by IIO read timeouts under QEMU ARM32 | Only affects ARM32 under QEMU. Use x86_64 emulator test or native ARM (EM). Run with `QEMU_STRACE=1` to capture the crash context. |
+| I/Q progress counter frozen mid-capture, then `Timeout after Ns` and `tb->wait() hung for 10s, force-exiting` | AD9361/IIO sample delivery stalled; the watchdog escapes the wedged flowgraph with `_Exit(2)` (observed once on the EM, v8 session 1, and not reproduced on rerun) | Rerun. Partial `capture.sc16`/`capture.wav` left in the capture directory are abort debris, not retention behavior. `sdr_init_per_capture=true` is the robust-mode fallback if it recurs. |
 | Background processing slower than sequential | STT is CPU-bound on single core | Expected if only one core available. Background mode helps on dual-core (SEPP). |
