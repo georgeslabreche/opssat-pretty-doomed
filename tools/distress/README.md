@@ -9,6 +9,7 @@ Ground truth for the distress call evaluation (issue #142). This folder holds th
 | `clips.tsv` | Input list: DVIDS ID, short name, and page URL. |
 | `build_manifest.py` | Reads each DVIDS page and writes `manifest.tsv`. Python standard library only. |
 | `manifest.tsv` | Media URL, SHA-256, length, date taken, location, credit, and license marking per clip. |
+| `labels.tsv` | Ground-truth labels per clip: `label` (distress for all 13) and `says_mayday` (whether the word is spoken, set by ear on 2026-11-04). |
 | `clips/` | The original MP3 of each clip, as downloaded from DVIDS. |
 | `prepare_clips.sh` | Checks each clip in `clips/` against its SHA-256, and converts it to 16 kHz mono WAV. Downloads a clip that is not in `clips/`. |
 | `reference/` | One reference transcript per clip, `<id>-<name>.txt`. |
@@ -20,7 +21,7 @@ The 13 clips are real distress calls that the US Coast Guard released on DVIDS. 
 
 ## Labels
 
-Every clip is a confirmed distress call, so the clip-level label is distress for all 13. The label comes from the source and needs no listening. A clip is a detection when the detector finds a distress phrase anywhere in it, whether or not the word "mayday" is spoken: "swamped, going down" in the Oahu clip is a distress call. The false-positive rate comes from non-distress sets that are also labeled by their source (MARTTS routine traffic, ATCO2).
+Every clip is a confirmed distress call, so the clip-level label is distress for all 13. The label comes from the source and needs no listening. A clip is a detection when the detector finds a distress phrase anywhere in it, whether or not the word "mayday" is spoken: "swamped, going down" in the Oahu clip is a distress call. `labels.tsv` also records whether the word "mayday" is spoken, set by ear. It is spoken in 11 clips. The Captain Billy Haver and Oahu callers state the emergency without it. This gives a second, word-level metric, and it shows that a mayday-only detector misses real distress calls. The false-positive rate comes from non-distress sets that are also labeled by their source (MARTTS routine traffic, ATCO2).
 
 The distress phrase list must come from standard distress vocabulary (IMO SMCP, and phrases such as "taking on water", "sinking", "going down", "fire", and "capsized"). Do not tune it to the words in these 13 clips, because the recall would then fit the test set.
 
