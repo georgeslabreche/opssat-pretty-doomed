@@ -9,24 +9,25 @@ Ground truth for the distress call evaluation (issue #142). This folder holds th
 | `clips.tsv` | Input list: DVIDS ID, short name, and page URL. |
 | `build_manifest.py` | Reads each DVIDS page and writes `manifest.tsv`. Python standard library only. |
 | `manifest.tsv` | Media URL, SHA-256, length, date taken, location, credit, and license marking per clip. |
-| `fetch_clips.sh` | Downloads each clip, checks the SHA-256, and converts it to 16 kHz mono WAV. |
+| `clips/` | The original MP3 of each clip, as downloaded from DVIDS. |
+| `prepare_clips.sh` | Checks each clip in `clips/` against its SHA-256, and converts it to 16 kHz mono WAV. Downloads a clip that is not in `clips/`. |
 | `reference/` | One reference transcript per clip, `<id>-<name>.txt`. |
-| `audio/` | Fetch output. Gitignored. |
+| `audio/` | WAV output of `prepare_clips.sh`. Gitignored. |
 
 ## Clips
 
-The 13 clips are real distress calls that the US Coast Guard released on DVIDS. Each clip page carries the DVIDS public-domain marking (`public_domain` column). The audio is not committed. `fetch_clips.sh` gets the exact files from the DVIDS media server, and the SHA-256 check makes sure that they are the same files.
+The 13 clips are real distress calls that the US Coast Guard released on DVIDS. Each clip page carries the DVIDS public-domain marking (`public_domain` column), so the original MP3s are committed in `clips/`. The repo copy keeps the evaluation reproducible if DVIDS removes a clip. The `media_url` column gives the source of each file, and the SHA-256 check makes sure that the committed files are the same files. The WAVs are not committed, because `prepare_clips.sh` makes them again from the MP3s.
 
 The F/V Scandies Rose recording is not in this manifest. It is the last transmission of a crew that was lost. It is for evaluation only, and its audio and transcript must stay out of all public material.
 
 ## Usage
 
 ```bash
-./fetch_clips.sh                # downloads to tools/distress/audio/
+./prepare_clips.sh              # checks clips/ and writes WAVs to tools/distress/audio/
 ./build_manifest.py             # rebuilds manifest.tsv from clips.tsv
 ```
 
-`fetch_clips.sh` requires `curl`, `shasum`, and `ffmpeg`. Run `build_manifest.py` only to add clips or to check the pages again. A changed SHA-256 means that DVIDS replaced a file, and the reference transcript for that clip must be checked again.
+`prepare_clips.sh` requires `shasum` and `ffmpeg`, and `curl` for a clip that is not in `clips/`. To add a clip, add a row to `clips.tsv` and run `build_manifest.py`, then `prepare_clips.sh`, and commit the new MP3. A SHA-256 that changes on a page check means that DVIDS replaced a file. Keep the committed file, and record the change in the manifest.
 
 ## Reference transcripts
 
