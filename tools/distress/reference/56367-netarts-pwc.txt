@@ -2,7 +2,6 @@
 # name: netarts-pwc
 # status: draft
 # source: Parakeet TDT 0.6B v2 int8 (sherpa-onnx), greedy search, 30 s windows. Not checked by ear.
-# contains_mayday: unchecked
 
 Mayday, meday, melee.
 Shuts gear down.
