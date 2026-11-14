@@ -54,6 +54,7 @@ This is the ...
 |---|---|
 | `status` | `draft`: machine output, not checked. `checked`: corrected by ear against the audio. |
 | `source` | How the text was made. Set it to the person or method that checked it when `status` is `checked`. |
+| `wer` | Optional. `exclude`: the clip is not used for the WER because most of its speech is unintelligible. The clip is still used for recall. |
 
 The drafts are Parakeet TDT 0.6B v2 output. It was the most accurate model in the ground test of 2026-10-01. The drafts are only a starting point: the WER must use only files with `status: checked`. A transcript that is checked only in part must say so in `source`, for example: "caller turns checked by ear, USCG turns draft".
 
@@ -62,3 +63,13 @@ To check a transcript:
 1. Listen to the clip, and correct the text. Write what is said, not what is meant. Write "[unintelligible]" for speech that cannot be understood.
 2. Optionally, start a line with `VESSEL:`, `USCG:`, or `OTHER:` to show the speaker. A line without a label counts as speech from any speaker.
 3. Set `status: checked`.
+
+Before it calculates the WER, the scorer normalizes the reference and the model output in the same way:
+
+- It ignores case, punctuation, and line breaks.
+- It removes the `[unintelligible]` tags and the speaker labels.
+- It removes filler words such as "uh" and "um".
+- It changes digits to words, for example "16" to "sixteen" and "40" to "forty".
+- It changes the words "oh" and "o" to "zero", because speakers often say "oh" for the digit 0.
+
+Thus you can write numbers as digits or as words. When a speaker says a number digit by digit, write the digits as words, for example "channel one six" or "zero six nine". The scorer cannot know that "16" was said as "one six".
