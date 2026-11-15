@@ -419,7 +419,7 @@ bool render_report_card(const ReportCardData& data,
         y += 22;
     }
 
-    std::string footer = "OPS-SAT PRETTY ONBOARD DISTRESS DETECTION  " + data.generated_utc;
+    std::string footer = "OPS-SAT PRETTY ON-BOARD DISTRESS DETECTION  " + data.generated_utc;
     cv.text(M, H - 24, footer, GRID, 2);
     return cv.write_png(png_path);
 }
