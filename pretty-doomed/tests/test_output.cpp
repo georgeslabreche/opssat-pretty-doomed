@@ -151,6 +151,23 @@ TEST_CASE("format_summary command detected") {
     CHECK(summary.find("Result: COMMAND DETECTED - launching DOOM") != std::string::npos);
 }
 
+TEST_CASE("format_summary command detected with operation=detect does not claim a DOOM launch") {
+    PipelineConfig cfg;
+    cfg.operation = "detect";
+    cfg.detect_wake_word = "MAYDAY";
+
+    DetectionResult d;
+    d.command_exact_counts["SINKING"] = 1;
+    d.command_exact_matches["SINKING"] = {"SINKING"};
+
+    DetectionTotals t = compute_totals(d);
+    std::string summary = format_summary(d, t, cfg, "clips/a.wav", "WE ARE SINKING", "ART");
+
+    CHECK(summary.find("Result: COMMAND DETECTED - no action (operation=detect)") != std::string::npos);
+    CHECK(summary.find("launching DOOM") == std::string::npos);
+    CHECK(summary.find("ART") == std::string::npos);
+}
+
 TEST_CASE("format_summary no command") {
     PipelineConfig cfg;
     cfg.detect_wake_word = "PRETTY";
