@@ -210,6 +210,14 @@ EOF
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run --rm --no-deps \
     pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh first'
 
+# The same first test as the non-root user exp, as on the SEPP. The home
+# folder is collected for downlink, so after the run the only new path must be
+# toGround/distress-NNNNN/.
+SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run --rm --no-deps pretty-doomed-sepp sh -c '
+adduser -D -h /home/exp exp
+su exp -c "cd \$HOME && tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-v1.tar.gz && find . | sort > /tmp/before.txt && ./run; find . | sort > /tmp/after.txt"
+diff /tmp/before.txt /tmp/after.txt | grep "^>" | grep -v "^> ./toGround/distress-"'
+
 # All five configs on all the clips, no memory limit
 docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-full \
     pretty-doomed-sepp sh -c 'DISTRESS_CLIP_NAMES= sh toGround/emu-distress/emu-run.sh full > toGround/emu-distress/full.out 2>&1'

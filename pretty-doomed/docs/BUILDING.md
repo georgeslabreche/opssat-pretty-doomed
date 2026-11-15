@@ -127,7 +127,7 @@ docker-compose -f docker-compose.sepp.yml run --rm -v $PWD/distress:/app/distres
 make package-distress
 ```
 
-This creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz` (for example `v8-distress-v1`), about 605 MB. Almost all of it is the Parakeet 0.6B v2 model.
+This creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz` (for example `v8-distress-v1`), about 605 MB. The package follows the rules of [`docs/OPSSAT_PRETTY_DEV_GUIDE.md`](../../docs/OPSSAT_PRETTY_DEV_GUIDE.md) and [`docs/SEPP.md`](../../docs/SEPP.md): relative paths, owner `exp:exp`, an executable `./run` at the root that sets `LD_LIBRARY_PATH` to `libs/`, and no output outside `toGround/` (the home folder is collected for downlink). Almost all of it is the Parakeet 0.6B v2 model.
 
 The distress binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherpa-onnx 1.12.21 (the v8 version) to 1.13.4 gives an empty text for some windows: the first two 30 s windows of the Star King clip, for example. The Zipformer small model is not affected. A new `BUILDDIR` makes sure that no object file is older than `config.h`.
 
