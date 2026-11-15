@@ -25,6 +25,7 @@ Ground truth and model comparison for the distress call evaluation (issue #142).
 | `window_sweep.sh` | Scores Parakeet 0.6B v2 with 5, 10, 15, and 30 s windows. Writes `results/window-sweep/`. |
 | `run_binary.sh` | Runs the pretty-doomed binary with the EM configs on the ground, in Docker. Writes `results/binary-<model>/`. |
 | `import_em.py` | Imports an EM run (`toGround/distress-NNNNN/`) into `results/em-<model>/`. `--label` and `--machine` name an emulator run. |
+| `report.py` | Report of one EM or emulator run: resource use (the same `resource.csv` as the DOOM runs), peak memory, speed, and accuracy, with figures. Writes `reports/<label>/`. |
 | `mem_headroom.py` | Free memory of the SEPP in past EM and flight runs, and the margin of each distress config. Writes the tables of `results/MEMORY.md`. |
 | `results/` | Model outputs and scores. |
 | `tests/` | Unit tests for `scoring.py`. |
@@ -131,3 +132,11 @@ The binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherp
 `results/emu-<model>` and `results/emu1g-<model>` are runs of the EM package on the SEPP emulator (ARM32 under QEMU, see `pretty-doomed/docs/TESTING.md`). `emu1g` has a 1 GB memory limit, the memory of the EM. All configs complete all 13 clips. The peak memory of Parakeet 0.6B v2 is 869 MB with 10 s windows and 821 MB with 5 s windows, with the memory of QEMU included, against 1401 MB and 1307 MB on arm64. Thus the 10 s config fits the EM. The WER and the recall on ARM32 are approximately the same as on arm64. The run times of the emulator are not the EM run times.
 
 The free memory of the SEPP (MemAvailable at the start of a run) is 939 MiB to 970 MiB in 18 EM runs and 964 MiB to 968 MiB in 7 flight runs (`results/MEMORY.md`, from `mem_headroom.py`). MemTotal is 1003 MiB on both. The margin of Parakeet 0.6B v2 with 10 s windows is 70 MiB to 100 MiB, and with 5 s windows 118 MiB to 149 MiB. A trivial process under QEMU uses 7 MiB, so the emulator peaks are close to the peaks on the SEPP.
+
+`reports/emu/` and `reports/emu1g/` are the reports of the two emulator runs:
+
+```sh
+.venv/bin/python report.py <toGround/distress-NNNNN> --label emu --free-mib 965 --free-label "EM free memory, median of 18 runs"
+```
+
+For an EM run, omit `--free-mib`: the report then uses MemAvailable at the start of the run, from `resource.csv`.

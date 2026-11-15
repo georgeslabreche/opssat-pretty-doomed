@@ -1,0 +1,425 @@
+#!/usr/bin/env python3
+"""Report of one distress run on the EM or on the SEPP emulator (issue #142).
+
+Reads a run directory (toGround/distress-NNNNN/ of run-distress) and the scores
+of score.py, and writes reports/<label>/:
+
+  REPORT.md               run data, resource use, speed, and accuracy tables
+  resource_timeline.png   per-core CPU and free memory for the full run, one band per config
+  peak_memory.png         peak memory (VmHWM) of each config, and the free memory at the start
+  rtf.png                 real-time factor of each clip, per config
+  accuracy.png            ship-side WER and recall, this run and the ground binary
+
+The resource data is the same as for the DOOM runs: resource.csv has per-core
+CPU and memory every second, with the columns of the run script.
+
+Usage (from tools/distress), after import_em.py and score.py:
+  python3 import_em.py <run_dir> --label emu --machine "..."
+  python3 score.py
+  python3 report.py <run_dir> --label emu [--title "..."]
+"""
+
+import argparse
+import csv
+import datetime
+import os
+import re
+import statistics
+import sys
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.ticker  # noqa: E402
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Reference palette of the dataviz method: categorical slots 1-4, fixed order.
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
+SURFACE = "#fcfcfb"
+INK = "#0b0b0b"
+INK_2 = "#52514e"
+GRID = "#e4e3df"
+BAND = "#f0efec"
+
+LOG_TS = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
+TS_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def read_tsv(path):
+    with open(path, encoding="utf-8") as f:
+        return list(csv.DictReader(f, delimiter="\t"))
+
+
+def read_manifest(path):
+    """Return the key: value lines of manifest.txt."""
+    data = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                key, sep, value = line.partition(":")
+                if sep and key and " " not in key.strip() and key.strip() not in data:
+                    data[key.strip()] = value.strip()
+    return data
+
+
+def log_span(path):
+    """Return the first and the last timestamp of a pretty-doomed.log, or None."""
+    stamps = []
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = LOG_TS.match(line)
+            if m:
+                stamps.append(datetime.datetime.strptime(m.group(1), TS_FORMAT))
+    return (stamps[0], stamps[-1]) if stamps else None
+
+
+def read_resource(path):
+    """Return samples of time, CPU % per core, and MemAvailable (MiB)."""
+    with open(path, encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f) if (r.get("mem_available_kb") or "").strip().isdigit()]
+    out = {"t": [], "cpu0": [], "cpu1": [], "avail": []}
+    prev = None
+    for r in rows:
+        t = datetime.datetime.strptime(r["timestamp"], TS_FORMAT)
+        cores = []
+        for c in ("cpu0", "cpu1"):
+            busy = sum(int(r[f"{c}_{k}"]) for k in ("user", "nice", "system"))
+            idle = sum(int(r[f"{c}_{k}"]) for k in ("idle", "iowait"))
+            cores.append((busy, idle))
+        if prev is not None:
+            out["t"].append(t)
+            for name, (busy, idle), (pbusy, pidle) in zip(("cpu0", "cpu1"), cores, prev):
+                total = (busy - pbusy) + (idle - pidle)
+                out[name].append(100.0 * (busy - pbusy) / total if total > 0 else 0.0)
+            out["avail"].append(int(r["mem_available_kb"]) / 1024)
+        prev = cores
+    out["idle_avail"] = int(rows[0]["mem_available_kb"]) / 1024 if rows else None
+    out["total"] = int(rows[0]["mem_total_kb"]) / 1024 if rows else None
+    return out
+
+
+def rolling_mean(values, n):
+    """Mean of the last n samples at each point (n=60 is one minute at 1 Hz)."""
+    out, acc = [], 0.0
+    for i, v in enumerate(values):
+        acc += v
+        if i >= n:
+            acc -= values[i - n]
+        out.append(acc / min(i + 1, n))
+    return out
+
+
+def style(ax):
+    ax.set_facecolor(SURFACE)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(GRID)
+    ax.tick_params(colors=INK_2, labelsize=8)
+    ax.grid(color=GRID, linewidth=0.6)
+    ax.set_axisbelow(True)
+
+
+def new_figure(rows, height):
+    fig, axes = plt.subplots(rows, 1, figsize=(9, height), facecolor=SURFACE, squeeze=False)
+    for ax in axes[:, 0]:
+        style(ax)
+    return fig, axes[:, 0]
+
+
+def save(fig, path):
+    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=SURFACE)
+    plt.close(fig)
+
+
+def plot_timeline(res, spans, free_ref, path):
+    """Per-core CPU (one-minute mean) and free memory over the full run, with one band per config."""
+    start = res["t"][0]
+    hours = [(t - start).total_seconds() / 3600 for t in res["t"]]
+    fig, (ax_cpu, ax_mem) = new_figure(2, 5.2)
+    for ax in (ax_cpu, ax_mem):
+        for i, (name, (a, b)) in enumerate(spans.items()):
+            x0, x1 = ((a - start).total_seconds() / 3600, (b - start).total_seconds() / 3600)
+            if i % 2 == 0:
+                ax.axvspan(x0, x1, color=BAND, zorder=0)
+    for i, (name, (a, b)) in enumerate(spans.items()):
+        mid = ((a - start).total_seconds() + (b - start).total_seconds()) / 7200
+        ax_cpu.text(mid, 103 + 9 * (i % 2), name, ha="center", va="bottom", fontsize=7, color=INK_2)
+    ax_cpu.plot(hours, rolling_mean(res["cpu0"], 60), color=SERIES[0], linewidth=1.2, label="CPU 0")
+    ax_cpu.plot(hours, rolling_mean(res["cpu1"], 60), color=SERIES[1], linewidth=1.2, label="CPU 1")
+    ax_cpu.set_ylim(0, 100)
+    ax_cpu.set_ylabel("CPU busy, 1 min mean (%)", color=INK_2, fontsize=8)
+    ax_cpu.legend(loc="lower left", ncol=2, fontsize=7, frameon=True, facecolor=SURFACE, edgecolor=GRID)
+    ax_mem.plot(hours, res["avail"], color=SERIES[0], linewidth=1.5)
+    ax_mem.set_ylim(0, res["total"])
+    ax_mem.axhline(free_ref[0], color=INK_2, linewidth=0.8, linestyle=(0, (4, 3)))
+    ax_mem.text(0, free_ref[0] + res["total"] * 0.02, f"{free_ref[1]}: {free_ref[0]:.0f} MiB",
+                va="bottom", ha="left", fontsize=7, color=INK_2)
+    ax_mem.set_ylabel("Free memory, MemAvailable (MiB)", color=INK_2, fontsize=8)
+    ax_mem.set_xlabel("Time from start of run (h)", color=INK_2, fontsize=8)
+    ax_cpu.set_title("CPU and free memory during the run", loc="left", fontsize=10, color=INK, pad=26)
+    save(fig, path)
+
+
+def plot_peak_memory(configs, free_ref, path):
+    names = list(configs)
+    peaks = [configs[n]["peak_mib"] or 0 for n in names]
+    fig, (ax,) = new_figure(1, 0.5 + 0.45 * len(names))
+    y = list(range(len(names)))[::-1]
+    ax.barh(y, peaks, color=SERIES[0], height=0.55, edgecolor=SURFACE, linewidth=2)
+    for yi, p in zip(y, peaks):
+        ax.text(p + 8, yi, f"{p:.0f} MiB", va="center", fontsize=8, color=INK)
+    idle_avail = free_ref[0]
+    ax.axvline(idle_avail, color=INK_2, linewidth=1, linestyle=(0, (4, 3)))
+    ax.text(idle_avail, len(names) - 0.45, f"{free_ref[1]}\n{idle_avail:.0f} MiB", ha="center",
+            va="bottom", fontsize=7, color=INK_2)
+    ax.set_yticks(y)
+    ax.set_yticklabels(names, fontsize=8, color=INK)
+    ax.set_xlim(0, max(peaks + [idle_avail]) * 1.15)
+    ax.set_xlabel("Peak memory of the process, VmHWM (MiB)", color=INK_2, fontsize=8)
+    ax.grid(axis="y", visible=False)
+    ax.set_title("Peak memory per config", loc="left", fontsize=10, color=INK, pad=22)
+    save(fig, path)
+
+
+def plot_rtf(configs, path):
+    names = list(configs)
+    fig, (ax,) = new_figure(1, 0.6 + 0.5 * len(names))
+    for i, name in enumerate(names):
+        yi = len(names) - 1 - i
+        rtfs = [c["rtf"] for c in configs[name]["clips"]]
+        ax.scatter(rtfs, [yi] * len(rtfs), s=36, color=SERIES[i % len(SERIES)], edgecolor=SURFACE,
+                   linewidth=1.5, zorder=3)
+        med = statistics.median(rtfs)
+        ax.plot([med, med], [yi - 0.3, yi + 0.3], color=INK, linewidth=2, zorder=4)
+        ax.text(med, yi + 0.33, f"median {med:.2f}", ha="center", va="bottom", fontsize=7, color=INK)
+    ax.axvline(1, color=INK_2, linewidth=0.8, linestyle=(0, (4, 3)))
+    ax.set_yticks(range(len(names)))
+    ax.set_yticklabels(names[::-1], fontsize=8, color=INK)
+    ax.set_ylim(-0.6, len(names) - 0.2)
+    ax.set_xscale("log")
+    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.set_xlabel("Real-time factor per clip (STT time / audio time, log scale; 1 = real time)",
+                  color=INK_2, fontsize=8)
+    ax.grid(axis="y", visible=False)
+    ax.set_title("Speed per clip", loc="left", fontsize=10, color=INK)
+    save(fig, path)
+
+
+def plot_accuracy(rows, label, ground_label, path):
+    """Ship-side WER and recall per config: this run against the ground binary."""
+    names = [r["config"] for r in rows]
+    fig, (ax_wer, ax_rec) = new_figure(2, 1.2 + 0.9 * len(names))
+    y = list(range(len(names)))[::-1]
+    for ax, key, xlabel, xmax in ((ax_wer, "wer", "Ship-side WER (lower is better)", 1.0),
+                                  (ax_rec, "recall", "Ship-side recall (clips with a distress phrase)", 13.9)):
+        for j, (who, color, offset) in enumerate(((label, SERIES[0], 0.14), (ground_label, SERIES[1], -0.14))):
+            vals = [r[key][j] for r in rows]
+            pts = [(v, yi + offset) for v, yi in zip(vals, y) if v is not None]
+            ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=40, color=color, edgecolor=SURFACE,
+                       linewidth=1.5, zorder=3, label=who)
+            for v, yy in pts:
+                ax.text(v, yy + 0.08, f" {v:.3f}" if key == "wer" else f" {v:.0f}", fontsize=7, color=INK,
+                        va="bottom")
+        ax.set_yticks(y)
+        ax.set_yticklabels(names, fontsize=8, color=INK)
+        ax.set_xlim(0, xmax)
+        ax.set_xlabel(xlabel, color=INK_2, fontsize=8)
+        ax.grid(axis="y", visible=False)
+    handles, labels = ax_wer.get_legend_handles_labels()
+    ax_wer.legend(handles, labels, loc="lower right", bbox_to_anchor=(1.0, 1.0), ncol=2, fontsize=7, frameon=False)
+    ax_wer.set_title("Accuracy: this run and the ground binary", loc="left", fontsize=10, color=INK)
+    fig.tight_layout()
+    save(fig, path)
+
+
+def to_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def recall_count(value):
+    return float(value.split("/")[0]) if value else None
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("run_dir", help="toGround/distress-NNNNN directory")
+    parser.add_argument("--label", required=True, help="label of the run in results/ (as in import_em.py)")
+    parser.add_argument("--ground-label", default="binary", help="label of the ground baseline (default: binary)")
+    parser.add_argument("--title", help="report title")
+    parser.add_argument("--out", help="output directory (default: reports/<label>)")
+    parser.add_argument("--free-mib", type=float,
+                        help="reference free memory in MiB (default: MemAvailable at the start of the run). "
+                             "Use it for an emulator run, where resource.csv shows the Docker VM and not the EM")
+    parser.add_argument("--free-label", default="EM free memory",
+                        help="name of --free-mib in the plots and tables (default: EM free memory)")
+    args = parser.parse_args()
+
+    out = args.out or os.path.join(HERE, "reports", args.label)
+    os.makedirs(out, exist_ok=True)
+    manifest = read_manifest(os.path.join(args.run_dir, "manifest.txt"))
+    exits = {r["model"]: r for r in read_tsv(os.path.join(args.run_dir, "exit.txt"))}
+    summary = {r["model"]: r for r in read_tsv(os.path.join(HERE, "results", "summary.tsv"))}
+    res = read_resource(os.path.join(args.run_dir, "resource.csv"))
+    if not res["t"]:
+        sys.exit("resource.csv has no samples.")
+
+    configs, spans = {}, {}
+    for name in manifest.get("models", "").split() or list(exits):
+        model_dir = os.path.join(args.run_dir, name)
+        log = os.path.join(model_dir, "pretty-doomed.log")
+        if not os.path.exists(log):
+            continue
+        stt = read_tsv(os.path.join(model_dir, "stt.tsv"))[0] if os.path.exists(os.path.join(model_dir, "stt.tsv")) else {}
+        timing = read_tsv(os.path.join(model_dir, "timing.tsv")) if os.path.exists(os.path.join(model_dir, "timing.tsv")) else []
+        span = log_span(log)
+        if span:
+            spans[name] = span
+        peak_kb = to_float(stt.get("peak_rss_kb"))
+        mem_in_span = [a for t, a in zip(res["t"], res["avail"]) if span and span[0] <= t <= span[1]]
+        configs[name] = {
+            "exit": exits.get(name, {}).get("exit", ""),
+            "seconds": to_float(exits.get(name, {}).get("seconds")),
+            "load_s": (to_float(stt.get("load_ms")) or 0) / 1000,
+            "peak_mib": peak_kb / 1024 if peak_kb else None,
+            "min_avail": min(mem_in_span) if mem_in_span else None,
+            "window_s": stt.get("window_s", ""),
+            "decoding": stt.get("decoding", ""),
+            "clips": [{"clip": r["clip"], "audio_s": float(r["audio_s"]), "stt_s": float(r["stt_s"]),
+                       "rtf": float(r["rtf"]), "detected": r["detected"]} for r in timing],
+        }
+    if not configs:
+        sys.exit("No config output in the run directory.")
+
+    free_ref = (args.free_mib, args.free_label) if args.free_mib else (res["idle_avail"], "free at start")
+    plot_timeline(res, spans, free_ref, os.path.join(out, "resource_timeline.png"))
+    plot_peak_memory(configs, free_ref, os.path.join(out, "peak_memory.png"))
+    plot_rtf(configs, os.path.join(out, "rtf.png"))
+    acc_rows = []
+    for name in configs:
+        run_row = summary.get(f"{args.label}-{name}", {})
+        ground_row = summary.get(f"{args.ground_label}-{name}", {})
+        acc_rows.append({
+            "config": name,
+            "wer": (to_float(run_row.get("wer_ship")), to_float(ground_row.get("wer_ship"))),
+            "recall": (recall_count(run_row.get("recall_ship")), recall_count(ground_row.get("recall_ship"))),
+            "run_row": run_row, "ground_row": ground_row,
+        })
+    plot_accuracy(acc_rows, args.label, args.ground_label, os.path.join(out, "accuracy.png"))
+
+    total_audio = sum(c["audio_s"] for c in next(iter(configs.values()))["clips"])
+    run_hours = (res["t"][-1] - res["t"][0]).total_seconds() / 3600
+    lines = [
+        f"# {args.title or 'Distress call run ' + manifest.get('run', '')}",
+        "",
+        f"Generated by `report.py` from `{manifest.get('run', os.path.basename(args.run_dir))}`. "
+        f"Accuracy from `score.py` (`results/{args.label}-<config>` against `results/{args.ground_label}-<config>`).",
+        "",
+        "## Run",
+        "",
+        "| Item | Value |",
+        "|---|---|",
+        f"| Package version | {manifest.get('version', '')} |",
+        f"| Start (UTC) | {manifest.get('start_utc', '')} |",
+        f"| End (UTC) | {manifest.get('end_utc', '')} |",
+        f"| Run time | {run_hours:.2f} h |",
+        f"| System | `{manifest.get('uname', '')}` |",
+        f"| MemTotal | {res['total']:.0f} MiB |",
+        f"| Free memory at start (MemAvailable) | {res['idle_avail']:.0f} MiB |",
+        f"| Lowest free memory during the run | {min(res['avail']):.0f} MiB |",
+        f"| Clips | {len(next(iter(configs.values()))['clips'])}, {total_audio:.0f} s of audio |",
+        "",
+        "## Resource use",
+        "",
+        "The resource data is the same as for the DOOM runs: `resource.csv` has per-core CPU and memory every second. "
+        "The peak memory is the VmHWM of the pretty-doomed process, from `stt.tsv`.",
+        "",
+    ]
+    if args.free_mib:
+        lines += [
+            f"The reference free memory is {free_ref[1]}, {free_ref[0]:.0f} MiB (`--free-mib`). On the SEPP emulator, "
+            "`resource.csv` shows the CPU and the memory of the Docker VM, with all of its containers, and not of the EM. "
+            "Thus the CPU and free memory plot, MemTotal, and the free memory in the run table are not EM data. "
+            "The peak memory (VmHWM) is the memory of the process, and includes the memory of QEMU.",
+            "",
+        ]
+    lines += [
+        "![CPU and free memory during the run](resource_timeline.png)",
+        "",
+        "![Peak memory per config](peak_memory.png)",
+        "",
+        f"| Config | Exit | Run time | Model load | Peak memory (VmHWM) | Margin to {free_ref[1]} ({free_ref[0]:.0f} MiB) | Lowest free memory |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for name, c in configs.items():
+        peak = f"{c['peak_mib']:.0f} MiB" if c["peak_mib"] else ""
+        margin = f"{free_ref[0] - c['peak_mib']:.0f} MiB" if c["peak_mib"] else ""
+        low = f"{c['min_avail']:.0f} MiB" if c["min_avail"] is not None else ""
+        run_t = f"{c['seconds'] / 60:.0f} min" if c["seconds"] is not None else ""
+        lines.append(f"| `{name}` | {c['exit']} | {run_t} | {c['load_s']:.1f} s | {peak} | {margin} | {low} |")
+    lines += [
+        "",
+        "## Speed",
+        "",
+        "![Speed per clip](rtf.png)",
+        "",
+        "| Config | Window | Decoding | Clips | Audio | STT time | Median RTF | Highest RTF |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for name, c in configs.items():
+        rtfs = [x["rtf"] for x in c["clips"]]
+        lines.append(
+            f"| `{name}` | {c['window_s']} s | {c['decoding']} | {len(c['clips'])} | "
+            f"{sum(x['audio_s'] for x in c['clips']):.0f} s | {sum(x['stt_s'] for x in c['clips']) / 60:.0f} min | "
+            f"{statistics.median(rtfs):.2f} | {max(rtfs):.2f} |")
+    lines += [
+        "",
+        "## Accuracy",
+        "",
+        "Ship-side WER uses the VESSEL and OTHER turns. Recall is the number of clips with a distress phrase in the "
+        "ship-side speech. The scoring rules are in `tools/distress/README.md`.",
+        "",
+        "![Accuracy](accuracy.png)",
+        "",
+        f"| Config | WER, ship-side ({args.label}) | WER, ship-side ({args.ground_label}) | Recall ({args.label}) | "
+        f"Recall ({args.ground_label}) | Mayday ({args.label}) | WER, all turns ({args.label}) |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for r in acc_rows:
+        a, g = r["run_row"], r["ground_row"]
+        lines.append(f"| `{r['config']}` | {a.get('wer_ship', '')} | {g.get('wer_ship', '')} | {a.get('recall_ship', '')} | "
+                     f"{g.get('recall_ship', '')} | {a.get('mayday_ship', '')} | {a.get('wer_all', '')} |")
+    lines += [
+        "",
+        "## Per clip",
+        "",
+        "Real-time factor and on-board detection (`detected` in `timing.tsv`). The on-board detection accepts one "
+        "approximate match, so it is for information only. The ground scorer gives the recall.",
+        "",
+        "| Clip | Audio | " + " | ".join(f"`{n}`" for n in configs) + " |",
+        "|---|---|" + "---|" * len(configs),
+    ]
+    clips = [x["clip"] for x in next(iter(configs.values()))["clips"]]
+    for clip in clips:
+        cells = []
+        audio = ""
+        for c in configs.values():
+            row = next((x for x in c["clips"] if x["clip"] == clip), None)
+            if row:
+                audio = f"{row['audio_s']:.0f} s"
+                cells.append(f"{row['rtf']:.2f}, {row['detected']}")
+            else:
+                cells.append("not done")
+        lines.append(f"| {clip} | {audio} | " + " | ".join(cells) + " |")
+    with open(os.path.join(out, "REPORT.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"Report: {os.path.join(out, 'REPORT.md')}")
+
+
+if __name__ == "__main__":
+    main()
