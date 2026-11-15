@@ -3,64 +3,64 @@
  "archive": "sherpa-onnx-zipformer-large-en-2023-06-26",
  "decoding": "modified_beam_search",
  "threads": 1,
- "window_s": 30,
+ "window_s": 10.0,
  "sherpa_onnx": "1.13.8",
  "machine": "Darwin arm64",
  "model_mb": 147.5,
- "load_s": 1.0,
- "peak_rss_mb": 877.0,
+ "load_s": 0.64,
+ "peak_rss_mb": 553.5,
  "clips": {
   "34749-imagination": {
    "audio_s": 131.37,
-   "rtf": 0.0499
+   "rtf": 0.0363
   },
   "35098-midnite-sun-relay": {
    "audio_s": 54.73,
-   "rtf": 0.0452
+   "rtf": 0.0374
   },
   "35135-double-time": {
    "audio_s": 50.99,
-   "rtf": 0.0453
+   "rtf": 0.0422
   },
   "35628-miss-yalanda": {
    "audio_s": 5.43,
-   "rtf": 0.0418
+   "rtf": 0.0394
   },
   "37977-bainbridge-skiff": {
    "audio_s": 4.44,
-   "rtf": 0.041
+   "rtf": 0.0395
   },
   "41096-kupreanof": {
    "audio_s": 10.58,
-   "rtf": 0.0409
+   "rtf": 0.0458
   },
   "44865-galveston-capsize": {
    "audio_s": 31.35,
-   "rtf": 0.0444
+   "rtf": 0.0429
   },
   "46250-star-king": {
    "audio_s": 227.23,
-   "rtf": 0.0472
+   "rtf": 0.0418
   },
   "46887-surfside-fire": {
    "audio_s": 14.68,
-   "rtf": 0.0396
+   "rtf": 0.0403
   },
   "48097-oahu-sailboat": {
    "audio_s": 35.79,
-   "rtf": 0.0448
+   "rtf": 0.0414
   },
   "53901-captain-billy-haver": {
    "audio_s": 240.08,
-   "rtf": 0.0437
+   "rtf": 0.0378
   },
   "56367-netarts-pwc": {
    "audio_s": 4.31,
-   "rtf": 0.0407
+   "rtf": 0.0385
   },
   "87205-molokai": {
    "audio_s": 18.94,
-   "rtf": 0.0395
+   "rtf": 0.0355
   }
  }
 }
