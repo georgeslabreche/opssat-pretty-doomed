@@ -3,10 +3,10 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-Mayday, Mayday, Mayday.
-Mayday, Mayday, Mayday.
-This is a Sea Warrior position five eight two one seven three one five three zero zero three seven.
-We have a boat on the beach.
-The Midnite Sun is on the beach at Tanaak Cape.
-Vessel in distress, this is the United States Coast Guard Sector Anchorage. How many persons on board the vessel, over?
-There are five people aboard that vessel. They are grounded, and our on scene weather right now is forty-five knots northwest wind, combined sea and swell approximately eighteen feet.
+OTHER: Mayday, Mayday, Mayday.
+OTHER: Mayday, Mayday, Mayday.
+OTHER: This is a Sea Warrior position five eight two one seven three one five three zero zero three seven.
+OTHER: We have a boat on the beach.
+OTHER: The Midnite Sun is on the beach at Tanaak Cape.
+USCG: Vessel in distress, this is the United States Coast Guard Sector Anchorage. How many persons on board the vessel, over.
+OTHER: There are five people aboard that vessel. They are grounded, and our on scene weather right now is forty five knots northwest wind, combined sea and swell approximately eighteen feet.

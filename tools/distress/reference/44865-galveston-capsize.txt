@@ -4,5 +4,5 @@
 # source: Checked by ear against the audio. Only the opening mayday is intelligible.
 # wer: exclude
 
-Mayday, mayday, mayday.
-[unintelligible]
+VESSEL: Mayday, mayday, mayday.
+VESSEL: [unintelligible]

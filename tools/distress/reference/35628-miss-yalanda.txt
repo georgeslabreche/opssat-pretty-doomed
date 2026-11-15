@@ -3,7 +3,4 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-Mayday, Mayday, Mayday.
-This is the fishing vessel Miss Yalanda.
-We are breached in the hull.
-We're going down.
+VESSEL: Mayday, Mayday, Mayday. This is the fishing vessel Miss Yalanda. We are breached in the hull. We're going down.

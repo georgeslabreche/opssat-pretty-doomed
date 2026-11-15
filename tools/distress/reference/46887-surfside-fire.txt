@@ -3,9 +3,6 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-Mayday, Mayday, Mayday, Mayday.
-Vessel in distress.
-This is Coast Guard Sector Houston Galveston.
-What is your position and nature of distress over?
-Yes, sir.
-We're about five or about six nautical miles off the Freeport jetties and we're on fire.
+VESSEL: Mayday, Mayday, Mayday, Mayday.
+USCG: Vessel in distress. This is Coast Guard Sector Houston Galveston. What is your position and nature of distress? Over.
+VESSEL: Yes, sir. We're about five or about six nautical miles off the Freeport jetties and we're on fire.

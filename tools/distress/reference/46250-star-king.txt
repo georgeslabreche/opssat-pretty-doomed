@@ -3,28 +3,28 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-Mayday, may
-Vessel distress this is the Coast Guard Channel 16. What is your position and nature of distress, over.
-We are 46 16.75, one twenty four zero seven point nine zero. We're in immediate distress. Need help right away. Any boats in the area. Saw [unintelligible] went by us. Please come back.
-Roger, Captain, how many persons are on board your vessel and what is the distress? What's going on?
-Vessel calling in distress. This is a Coast Guard. How many persons are on board your vessel? Over.
-We have five POB. Five POB.
-Roger, Captain. Five persons on board. And what is the nature of distress? And what is the description of your vessel?
-Vessel in distress, this is the Coast Guard. Captain, what is the nature of your distress? And please describe your vessel. Over.
-We're a 56 foot steel vessel. We're a got a hard
-Captain, all I copied you're a 56 foot steel vessel. What is the description of your distress over?
-Yeah, we got a hard starboard list. We just started listing hard, went all the way over. Engines, no power. I see some lights here. I need some help right away.
-Roger, Captain, are you taking on water over.
-Roger Roger taking on water?
-[unintelligible] again.
-Uh 46 16. This is Lady Renee, we just turned around. We're coming back at you there. I think I see you right a little ways away.
-Yeah, okay, we're 46 16 7.88, one twenty four oh eight point three one going down here.
-Vessel taking on water, have you put on all your life jackets or survival jackets over?
-Vessel taking on water, this is the Coast Guard captain. Have you donned your life jackets or survival suits over?
-To the vessel that is turning around to go help the vessel that is taking on water this is the Coast Guard at 16.
-Yeah, this is fishing vessel Lady Renee. Yeah, we're 46 17 73, and we're headed that way. Not sure which boat it is. There's quite a few lights here.
-Roger, fishing vessel Lady Renee. I got your position [unintelligible] in route. Do you know how long it will take you to get there?
-I'm guessing 10 minutes.
-Fishing vessel lady Renee, this is the Coast Guard Roger, Captain, keep us updated I'm going to keep making call outs to this vessel. Break, Break vessel that is taking on water, vessel is taking on water this is the Coast Guard at 16.
-Can you repeat the reading for the boat that was sinking or is taking on water? Can you repeat them reading?
-Pan-pan, Pan-pan, Pan-pan, all stations, all stations. This is Coast Guard Sector Columbia River. Coast Guard Sector Columbia River. At time zero four fifty one local twelve fifty one Greenwich meantime, the Coast Guard received a report of the 56 foot steel vessel listing hard to starboard, possibly taken on water with five persons on board and last possible position: four six one six decimal two seven five north by one two four zero seven decimal nine zero west.
+VESSEL: Mayday, may
+USCG: Vessel in distress this is the Coast Guard Channel sixteen. What is your position and nature of distress, over.
+VESSEL: We are forty six sixteen point seven five, one twenty four zero seven point nine zero. We're in immediate distress. Need help right away. Any boats in the area. Saw [unintelligible] went by us. Please come back.
+USCG: Roger, Captain, how many persons are on board your vessel and what is the distress? What's going on?
+USCG: Vessel calling in distress. This is a Coast Guard. How many persons are on board your vessel? Over.
+VESSEL: We have five POB. Five POB.
+USCG: Roger, Captain. Five persons on board. And what is the nature of distress? And what is the description of your vessel?
+USCG: Vessel in distress, this is the Coast Guard. Captain, what is the nature of your distress? And please describe your vessel. Over.
+VESSEL: We're a fifty six foot steel vessel. We're a got a hard
+USCG: Captain, all I copied you're a fifty six foot steel vessel. What is the description of your distress over?
+VESSEL: Yeah, we got a hard starboard list. We just started listing hard, went all the way over. Engines, no power. I see some lights here. I need some help right away.
+USCG: Roger, Captain, are you taking on water? Over.
+VESSEL: Roger Roger taking on water?
+OTHER: [unintelligible] again.
+OTHER: Uh forty six sixteen. This is Lady Renee, we just turned around. We're coming back at you there. I think I see you right a little ways away.
+VESSEL: Yeah, okay, we're forty six sixteen seven point eight eight, one twenty four oh eight point three one. Going down here.
+USCG: Vessel taking on water, have you put on all your life jackets or survival jackets over?
+USCG: Vessel taking on water, this is the Coast Guard captain. Have you donned your life jackets or survival suits over?
+USCG: To the vessel that is turning around to go help the vessel that is taking on water this is the Coast Guard at one six.
+OTHER: Yeah, this is fishing vessel Lady Renee. Yeah, we're forty six seventeen seventy three, and we're headed that way. Not sure which boat it is. There's quite a few lights here.
+USCG: Roger, fishing vessel Lady Renee. I got your position [unintelligible] in route. Do you know how long it will take you to get there?
+OTHER: I'm guessing ten minutes.
+USCG: Fishing vessel Lady Renee, this is the Coast Guard Roger, Captain, keep us updated I'm going to keep making call outs to this vessel. Break, Break vessel that is taking on water, vessel is taking on water this is the Coast Guard at one six.
+OTHER: Can you repeat the reading for the boat that was sinking or is taking on water? Can you repeat them reading?
+USCG: Pan-pan, Pan-pan, Pan-pan, all stations, all stations. This is Coast Guard Sector Columbia River. Coast Guard Sector Columbia River. At time zero four fifty one local twelve fifty one Greenwich meantime, the Coast Guard received a report of the fifty six foot steel vessel listing hard to starboard, possibly taken on water with five persons on board and last possible position: four six one six decimal two seven five north by one two four zero seven decimal nine zero west.

@@ -3,12 +3,8 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-We're swamped right now and uh we're actually gonna go down here Charlie.
-We're about eight miles off Diamond Head.
-Vessel calling in this is the Coast Guard.
-Roger copy you're swamped right now and you're gonna be going down shortly over?
-Roger that's affirmative.
-We gotta [unintelligible].
-We got some uh we're not sure if we're gonna go all the way down but it's potential.
-We're about we're going down shortly.
-Roger we got five persons on board, I can't give you my GPS brand at this point.
+VESSEL: We're swamped right now and uh we're actually gonna go down here [unintelligible].
+VESSEL: We're about eight miles off Diamond Head.
+USCG: Vessel calling in this is the Coast Guard, roger, copy you're swamped right now and you're gonna be going down shortly, over?
+VESSEL: Roger that's affirmative. We gotta [unintelligible]. We got some uh we're not sure if we're gonna go all the way down but it's potential. We're about we're going down shortly.
+VESSEL: Roger we got five persons on board, I can't give you my GPS [unintelligible] at this point.

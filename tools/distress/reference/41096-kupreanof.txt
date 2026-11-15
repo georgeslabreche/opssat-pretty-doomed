@@ -3,6 +3,4 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-Mayday, Mayday, Mayday.
-This is the Kupreanof. Kupreanof.
-We are taking on water over the stern, can't shed it.
+VESSEL: Mayday, Mayday, Mayday. This is the Kupreanof. Kupreanof. We are taking on water over the stern, can't shed it.

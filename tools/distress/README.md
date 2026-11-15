@@ -60,16 +60,20 @@ The drafts are Parakeet TDT 0.6B v2 output. It was the most accurate model in th
 
 To check a transcript:
 
-1. Listen to the clip, and correct the text. Write what is said, not what is meant. Write "[unintelligible]" for speech that cannot be understood.
-2. Optionally, start a line with `VESSEL:`, `USCG:`, or `OTHER:` to show the speaker. A line without a label counts as speech from any speaker.
+1. Listen to the clip, and correct the text. Write what is said, not what is meant. Write "[unintelligible]" for speech that cannot be understood. Write every number as words, the way it is said, for example "channel one six", "forty six sixteen point seven five", or "zero four fifty one". Do not use hyphens in numbers.
+2. Start each line with a speaker label: `VESSEL:` for the vessel in distress, `USCG:` for a Coast Guard station, or `OTHER:` for any other station, for example a vessel that relays the call or comes to help.
 3. Set `status: checked`.
 
 Before it calculates the WER, the scorer normalizes the reference and the model output in the same way:
 
-- It ignores case, punctuation, and line breaks.
+- It ignores case, punctuation, and line breaks. A hyphen counts as a space.
 - It removes the `[unintelligible]` tags and the speaker labels.
 - It removes filler words such as "uh" and "um".
 - It changes digits to words, for example "16" to "sixteen" and "40" to "forty".
 - It changes the words "oh" and "o" to "zero", because speakers often say "oh" for the digit 0.
 
-Thus you can write numbers as digits or as words. When a speaker says a number digit by digit, write the digits as words, for example "channel one six" or "zero six nine". The scorer cannot know that "16" was said as "one six".
+The main WER uses the `VESSEL` and `OTHER` turns, that is, all turns that are not from the Coast Guard. The Coast Guard audio in these recordings is recorded at the shore station and is much clearer than the radio audio from the vessels. Thus a WER on all turns makes a model look better than it is on the radio speech that the detector must catch. The scorer also gives the WER on all turns, to show this difference.
+
+The model transcribes the full clip, so its output has no speaker labels. The scorer aligns the model output with the full reference. Each substitution and deletion counts for the speaker of the reference word. Each insertion counts for the speaker of the reference word that comes before it.
+
+The references have no digits, so the digit rule applies only to the model output. A reference with digits is ambiguous, because the scorer cannot know that "16" was said as "one six".
