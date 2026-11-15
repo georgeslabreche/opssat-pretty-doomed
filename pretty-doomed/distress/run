@@ -129,19 +129,20 @@ echo "epoch,timestamp,cpu0_user,cpu0_nice,cpu0_system,cpu0_idle,cpu0_iowait,cpu1
 ) >> "${OUT}/resource.csv" 0<&- &
 MON_PID=$!
 
-# Process monitor: memory of the running pretty-doomed process every second.
+# Process monitor: memory of each running pretty-doomed process every second.
 # On the SEPP emulator, resource.csv shows the Docker VM, but this file shows
-# the process. The config that runs is in current.txt.
+# the processes. The config of a process is the -c argument in its command
+# line: two configs can run at the same time (see below).
 echo "epoch,timestamp,config,pid,vm_rss_kb,vm_hwm_kb,threads" > "${OUT}/process.csv"
 (
     PARENT=$$
     while kill -0 "$PARENT" 2>/dev/null; do
-        CUR=$(cat "${OUT}/current.txt" 2>/dev/null)
         for c in /proc/[0-9]*/comm; do
             # A process can end during the scan: the braces also hide that error.
             { read -r name < "$c"; } 2>/dev/null || continue
             [ "$name" = "pretty-doomed" ] || continue
             p=${c%/comm}
+            CUR=$(tr '\0' '\n' < "$p/cmdline" 2>/dev/null | sed -n 's|.*config\.distress\.\(.*\)\.cfg$|\1|p' | head -1)
             awk -v e="$(date '+%s')" -v t="$(date '+%Y-%m-%d %H:%M:%S')" -v m="$CUR" -v pid="${p#/proc/}" \
                 '/^VmRSS:/{r=$2} /^VmHWM:/{h=$2} /^Threads:/{n=$2} END{if (r != "") print e","t","m","pid","r","h","n}' \
                 "$p/status" 2>/dev/null
@@ -153,6 +154,25 @@ PMON_PID=$!
 
 echo "model	exit	seconds" > "${OUT}/exit.txt"
 cd "$ROOT" || exit 1
+# The configs run one after the other. A config frees its model when its last
+# clip is transcribed and then writes stt.done; it then only draws its last
+# report cards. The next config starts at stt.done, so its model load does not
+# wait for those cards. It starts only when the memory of the previous process
+# (VmRSS) is below OVERLAP_MAX_KB, so two models are never in memory at the
+# same time; else it waits for the previous process to end. Each config
+# writes its line in exit.txt when its process ends.
+OVERLAP_MAX_KB=204800
+config_rss_kb() {
+    for c in /proc/[0-9]*/comm; do
+        { read -r name < "$c"; } 2>/dev/null || continue
+        [ "$name" = "pretty-doomed" ] || continue
+        p=${c%/comm}
+        tr '\0' '\n' < "$p/cmdline" 2>/dev/null | grep -q "config\.distress\.$1\.cfg$" || continue
+        awk '/^VmRSS:/{print $2}' "$p/status" 2>/dev/null
+        return
+    done
+}
+JOBS=""
 for m in $MODELS; do
     cfg="${DIR}/config.distress.${m}.cfg"
     if [ ! -f "$cfg" ]; then
@@ -160,22 +180,33 @@ for m in $MODELS; do
         continue
     fi
     echo "=== ${m} ==="
-    echo "$m" > "${OUT}/current.txt"
-    t0=$(date '+%s')
-    if [ "$TIMEOUT_S" -gt 0 ] 2>/dev/null; then
-        timeout "$TIMEOUT_S" "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
-            -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
-    else
-        "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
-            -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
-    fi
-    rc=$?
-    echo "${m}	${rc}	$(( $(date '+%s') - t0 ))" >> "${OUT}/exit.txt"
+    (
+        t0=$(date '+%s')
+        if [ "$TIMEOUT_S" -gt 0 ] 2>/dev/null; then
+            timeout "$TIMEOUT_S" "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+                -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
+        else
+            "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+                -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
+        fi
+        rc=$?
+        echo "${m}	${rc}	$(( $(date '+%s') - t0 ))" >> "${OUT}/exit.txt"
+    ) &
+    JOB=$!
+    JOBS="$JOBS $JOB"
+    while kill -0 "$JOB" 2>/dev/null; do
+        if [ -f "${OUT}/${m}/stt.done" ]; then
+            rss=$(config_rss_kb "$m")
+            [ "${rss:-0}" -lt "$OVERLAP_MAX_KB" ] && break
+        fi
+        sleep 1
+    done
 done
+wait $JOBS
 
 kill "$MON_PID" "$PMON_PID" 2>/dev/null
 wait "$MON_PID" "$PMON_PID" 2>/dev/null
-rm -f "${OUT}/current.txt"
+rm -f "${OUT}"/*/stt.done
 [ "$RUN_CLIPS" = "$CLIPS" ] || rm -rf "$RUN_CLIPS"
 echo "end_utc: $(date -u '+%Y-%m-%d %H:%M:%S')" >> "${OUT}/manifest.txt"
 

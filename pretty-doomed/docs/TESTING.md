@@ -205,7 +205,7 @@ set +e
 cp -r toGround/distress-00001 "/app/toGround/emu-distress/$1"
 EOF
 
-# First test: all five configs on the clip of run.cfg (4 s), with the
+# First test: all five configs on the two clips of run.cfg (4.0 s and 4.3 s), with the
 # 1 GB memory of the EM. Minutes, not hours.
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run --rm --no-deps \
     pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh first'

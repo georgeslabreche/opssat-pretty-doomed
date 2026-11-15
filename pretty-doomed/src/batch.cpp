@@ -49,11 +49,12 @@ std::string file_stem(const std::string& path) {
     return std::filesystem::path(path).stem().string();
 }
 
-long long parse_vmhwm_kb(std::istream& status) {
+long long parse_status_kb(std::istream& status, const std::string& key) {
+    const std::string prefix = key + ":";
     std::string line;
     while (std::getline(status, line)) {
-        if (line.rfind("VmHWM:", 0) == 0) {
-            std::istringstream fields(line.substr(6));
+        if (line.rfind(prefix, 0) == 0) {
+            std::istringstream fields(line.substr(prefix.size()));
             long long kb = -1;
             if (fields >> kb) return kb;
             return -1;
@@ -62,8 +63,18 @@ long long parse_vmhwm_kb(std::istream& status) {
     return -1;
 }
 
+long long parse_vmhwm_kb(std::istream& status) {
+    return parse_status_kb(status, "VmHWM");
+}
+
 long long peak_rss_kb() {
     std::ifstream status("/proc/self/status");
     if (!status) return -1;
     return parse_vmhwm_kb(status);
+}
+
+long long rss_kb() {
+    std::ifstream status("/proc/self/status");
+    if (!status) return -1;
+    return parse_status_kb(status, "VmRSS");
 }

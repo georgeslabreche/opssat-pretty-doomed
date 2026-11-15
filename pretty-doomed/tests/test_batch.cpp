@@ -75,3 +75,13 @@ TEST_CASE("parse_vmhwm_kb gives -1 without a VmHWM line") {
     std::istringstream status("Name:\tpretty-doomed\nVmRSS:\t  500000 kB\n");
     CHECK(parse_vmhwm_kb(status) == -1);
 }
+
+TEST_CASE("parse_status_kb reads the line of the given key, not a longer key with the same start") {
+    std::istringstream status("Name:\tpretty-doomed\nVmRSSx:\t  1 kB\nVmHWM:\t  612345 kB\nVmRSS:\t  500000 kB\n");
+    CHECK(parse_status_kb(status, "VmRSS") == 500000);
+}
+
+TEST_CASE("parse_status_kb gives -1 without the key") {
+    std::istringstream status("Name:\tpretty-doomed\n");
+    CHECK(parse_status_kb(status, "VmRSS") == -1);
+}

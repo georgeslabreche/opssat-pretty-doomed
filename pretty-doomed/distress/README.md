@@ -58,7 +58,7 @@ sha256sum -c MANIFEST.sha256
 | `models` | Configs to run, in order, comma-separated: `config.distress.<name>.cfg`. | All five, in the order of the table above. |
 | `clips` | Clips to run, by name, comma-separated: `clips/<name>.wav`. | All 13 clips. |
 
-The package comes with all five configs and one clip, `clips=37977-bainbridge-skiff`: 4 s of "Mayday, Mayday, Mayday", the shortest and simplest clip, which every model detects on the ground. Run this first test before the full run. It shows in minutes that each config loads its model, transcribes, detects, writes its report card, and fits in memory. Most of its time is the five model loads. Expected result: exit code 0 for each config in `exit.txt`, `detected` = `yes` in each `timing.tsv`, and one `report_card.png` per config.
+The package comes with all five configs and the two shortest clips, `clips=37977-bainbridge-skiff,56367-netarts-pwc`: 4.0 s of "Mayday, Mayday, Mayday" and 4.3 s of "Mayday, mayday, mayday. Jet skier down.", which every model detects on the ground. Run this first test before the full run. It shows in minutes that each config loads its model, transcribes more than one clip, detects, writes its report cards, and fits in memory. Most of its time is the five model loads. Expected result: exit code 0 for each config in `exit.txt`, `detected` = `yes` for both clips in each `timing.tsv`, and two `report_card.png` per config.
 
 For the full run, leave `clips=` empty. The estimated run time on the EM is 4 to 8 hours for all five configs on the 13 clips. Most of it is the three Parakeet 0.6B v2 configs.
 
@@ -81,7 +81,7 @@ Each config has `report_card=true`. The binary draws one PNG per clip on board, 
 - The exact matches (MATCHED) and the approximate matches with the words that were heard (NEAR).
 - A transcript excerpt around the matches.
 
-A separate thread draws the cards while the main thread transcribes the next clip, so the STT time of a clip does not include a card. The log lines of the cards (`Report card:`) have the thread ID of that thread. A card is approximately 100 kB to 250 kB, so 65 cards are approximately 13 MB.
+A separate thread draws the cards while the main thread transcribes the next clip, so the STT time of a clip does not include a card. After the last clip, the process frees its model and writes `stt.done`, and then draws its last cards. `run` starts the next config at `stt.done` when the memory of the previous process is below 200 MiB, so the next model load does not wait for the last cards, and two models are never in memory at the same time. The log lines of the cards (`Report card:`) have the thread ID of that thread. A card is approximately 100 kB to 250 kB, so 65 cards are approximately 13 MB.
 
 ## Output
 

@@ -27,10 +27,17 @@ std::vector<std::string> list_wav_files(const std::string& dir);
 // The file name without the directory and the extension: "/a/b/41096-kupreanof.wav" -> "41096-kupreanof".
 std::string file_stem(const std::string& path);
 
+// The value in kB of one key ("VmRSS", "VmHWM") from the text of
+// /proc/self/status. -1 if not found.
+long long parse_status_kb(std::istream& status, const std::string& key);
+
 // Peak resident memory (VmHWM) in kB from the text of /proc/self/status. -1 if not found.
 long long parse_vmhwm_kb(std::istream& status);
 
 // Peak resident memory of this process in kB. -1 if /proc/self/status is not available.
 long long peak_rss_kb();
+
+// Resident memory (VmRSS) of this process in kB now. -1 if /proc/self/status is not available.
+long long rss_kb();
 
 #endif

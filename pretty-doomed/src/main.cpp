@@ -21,6 +21,9 @@
 #include <deque>
 #include <mutex>
 #include <ctime>
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
 #include <getopt.h>
 #include <filesystem>
 #include <fstream>
@@ -535,11 +538,12 @@ int main(int argc, char** argv) {
         auto wavs = list_wav_files(args.input_file);
         log_info() << "Directory input mode: " << wavs.size() << " WAV file(s) in "
                    << args.input_file << "\n";
-        Transcriber stt_dir(cfg);
-        if (!stt_dir.is_ready()) {
+        auto stt_dir = std::make_unique<Transcriber>(cfg);
+        if (!stt_dir->is_ready()) {
             log_error() << "STT model failed to load\n";
             return 1;
         }
+        const long long load_ms = stt_dir->load_ms();
         std::unique_ptr<ReportCardWorker> cards;
         if (cfg.report_card) {
             cards = std::make_unique<ReportCardWorker>(cfg, variants, config_name_of(args.config_file));
@@ -554,7 +558,7 @@ int main(int argc, char** argv) {
             const std::string clip = file_stem(wav);
             const std::string clip_dir = args.output_dir + "/" + clip;
             std::filesystem::create_directories(clip_dir);
-            PipelineStageResult stage1 = process_wav_stt(wav, clip_dir, cfg, variants, stt_dir,
+            PipelineStageResult stage1 = process_wav_stt(wav, clip_dir, cfg, variants, *stt_dir,
                                                           args.config_file);
             process_wav_exec(stage1, clip_dir, cfg, args.doom_binary, args.demos_dir, "");
             if (stage1.command_detected) any_detected = true;
@@ -569,7 +573,15 @@ int main(int argc, char** argv) {
                                stage1.command_detected});
             }
         }
-        // The peak memory includes the report cards.
+        // All the STT is done: free the model, then tell the run script
+        // (stt.done), so that it can load the next config while this process
+        // draws the last report cards. The peak memory includes the cards.
+        stt_dir.reset();
+#ifdef __GLIBC__
+        malloc_trim(0);  // glibc keeps freed memory; musl (SEPP) returns it by itself
+#endif
+        log_info() << "STT model released, VmRSS " << rss_kb() << " kB\n";
+        std::ofstream(args.output_dir + "/stt.done") << "\n";
         if (cards) {
             cards->finish();
             log_info() << "Report cards: " << cards->written() << " written\n";
@@ -579,7 +591,7 @@ int main(int argc, char** argv) {
         stt_info << "model_type\tdecoding\twindow_s\tthreads\tload_ms\tpeak_rss_kb\tclips\n"
                  << (cfg.stt_model_type.empty() ? "auto" : cfg.stt_model_type) << "\t"
                  << cfg.stt_decoding_method << "\t" << cfg.stt_window_s << "\t"
-                 << cfg.stt_num_threads << "\t" << stt_dir.load_ms() << "\t"
+                 << cfg.stt_num_threads << "\t" << load_ms << "\t"
                  << peak_kb << "\t" << wavs.size() << "\n";
         log_info() << "Peak memory (VmHWM): " << peak_kb << " kB\n";
     } else {
