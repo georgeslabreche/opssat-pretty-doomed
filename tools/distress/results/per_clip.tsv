@@ -51,6 +51,84 @@ binary-zipformer-small-int8	48097-oahu-sailboat	no	62	84	0.790	0.738	no	no			0.0
 binary-zipformer-small-int8	53901-captain-billy-haver	no	272	397	0.746	0.751	no	no			0.0355
 binary-zipformer-small-int8	56367-netarts-pwc	no	6	6	1.333	1.333	yes	yes	mayday	mayday	0.0371
 binary-zipformer-small-int8	87205-molokai	no	27	27	0.963	0.963	no	no			0.0357
+emu-parakeet-0.6b-v2-int8-w5	34749-imagination	no	54	194	0.815	0.691	no	no			13.2353
+emu-parakeet-0.6b-v2-int8-w5	35098-midnite-sun-relay	no	72	92	0.208	0.283	yes	yes	grounded,mayday	grounded,mayday	15.7466
+emu-parakeet-0.6b-v2-int8-w5	35135-double-time	no	83	133	0.337	0.406	yes	yes	help,mayday	help,mayday,taking on water	15.4242
+emu-parakeet-0.6b-v2-int8-w5	35628-miss-yalanda	no	19	19	0.211	0.211	yes	yes	going down,mayday	going down,mayday	13.6758
+emu-parakeet-0.6b-v2-int8-w5	37977-bainbridge-skiff	no	3	3	0.000	0.000	yes	yes	mayday	mayday	11.0496
+emu-parakeet-0.6b-v2-int8-w5	41096-kupreanof	no	19	19	0.474	0.474	yes	yes	mayday,taking on water	mayday,taking on water	8.7422
+emu-parakeet-0.6b-v2-int8-w5	44865-galveston-capsize	yes	3	3	7.667	7.667	yes	yes	mayday	mayday	10.7847
+emu-parakeet-0.6b-v2-int8-w5	46250-star-king	no	197	534	0.269	0.242	yes	yes	going down,help,listing	going down,help,listing,taking on water	12.7715
+emu-parakeet-0.6b-v2-int8-w5	46887-surfside-fire	no	22	41	0.136	0.293	yes	yes	fire,mayday	fire,mayday	14.1056
+emu-parakeet-0.6b-v2-int8-w5	48097-oahu-sailboat	no	62	84	0.290	0.226	yes	yes	going down	going down	12.1115
+emu-parakeet-0.6b-v2-int8-w5	53901-captain-billy-haver	no	272	397	0.382	0.426	yes	yes	mayday	mayday	11.5809
+emu-parakeet-0.6b-v2-int8-w5	56367-netarts-pwc	no	6	6	0.500	0.500	yes	yes	mayday	mayday	15.4535
+emu-parakeet-0.6b-v2-int8-w5	87205-molokai	no	27	27	0.667	0.667	yes	yes	mayday,sinking	mayday,sinking	11.4619
+emu-parakeet-0.6b-v2-int8	34749-imagination	no	54	194	0.519	0.521	no	no			11.5176
+emu-parakeet-0.6b-v2-int8	35098-midnite-sun-relay	no	72	92	0.236	0.207	yes	yes	grounded,mayday	grounded,mayday	12.919
+emu-parakeet-0.6b-v2-int8	35135-double-time	no	83	133	0.277	0.353	yes	yes	mayday	mayday,taking on water	14.8617
+emu-parakeet-0.6b-v2-int8	35628-miss-yalanda	no	19	19	0.211	0.211	yes	yes	going down,mayday	going down,mayday	12.7733
+emu-parakeet-0.6b-v2-int8	37977-bainbridge-skiff	no	3	3	0.000	0.000	yes	yes	mayday	mayday	8.6529
+emu-parakeet-0.6b-v2-int8	41096-kupreanof	no	19	19	0.368	0.368	yes	yes	mayday,taking on water	mayday,taking on water	11.7193
+emu-parakeet-0.6b-v2-int8	44865-galveston-capsize	yes	3	3	16.000	16.000	yes	yes	mayday	mayday	10.8662
+emu-parakeet-0.6b-v2-int8	46250-star-king	no	197	534	0.208	0.154	yes	yes	going down,help,sinking	going down,help,listing,sinking,taking on water	8.3024
+emu-parakeet-0.6b-v2-int8	46887-surfside-fire	no	22	41	0.182	0.171	yes	yes	fire,mayday	fire,mayday	7.0448
+emu-parakeet-0.6b-v2-int8	48097-oahu-sailboat	no	62	84	0.129	0.107	yes	yes	going down	going down	7.3279
+emu-parakeet-0.6b-v2-int8	53901-captain-billy-haver	no	272	397	0.261	0.312	yes	yes	mayday	mayday	8.2203
+emu-parakeet-0.6b-v2-int8	56367-netarts-pwc	no	6	6	0.500	0.500	yes	yes	mayday	mayday	8.0578
+emu-parakeet-0.6b-v2-int8	87205-molokai	no	27	27	0.556	0.556	yes	yes	mayday,sinking	mayday,sinking	7.881
+emu-parakeet-110m-int8	34749-imagination	no	54	194	0.611	0.598	no	no			4.6517
+emu-parakeet-110m-int8	35098-midnite-sun-relay	no	72	92	0.278	0.293	yes	yes	grounded,mayday	grounded,mayday	5.1358
+emu-parakeet-110m-int8	35135-double-time	no	83	133	0.325	0.323	yes	yes	mayday	mayday	6.109
+emu-parakeet-110m-int8	35628-miss-yalanda	no	19	19	0.474	0.474	yes	yes	going down,mayday	going down,mayday	4.0975
+emu-parakeet-110m-int8	37977-bainbridge-skiff	no	3	3	0.667	0.667	yes	yes	mayday	mayday	4.0862
+emu-parakeet-110m-int8	41096-kupreanof	no	19	19	0.316	0.316	yes	yes	mayday,taking on water	mayday,taking on water	4.1251
+emu-parakeet-110m-int8	44865-galveston-capsize	yes	3	3	9.000	9.000	no	no			4.5914
+emu-parakeet-110m-int8	46250-star-king	no	197	534	0.442	0.298	yes	yes	taking on water	fire,help,listing,taking on water	4.2785
+emu-parakeet-110m-int8	46887-surfside-fire	no	22	41	0.455	0.268	yes	yes	fire,mayday	fire,mayday	4.9409
+emu-parakeet-110m-int8	48097-oahu-sailboat	no	62	84	0.306	0.250	yes	yes	going down	going down	4.9037
+emu-parakeet-110m-int8	53901-captain-billy-haver	no	272	397	0.434	0.469	no	no			4.6895
+emu-parakeet-110m-int8	56367-netarts-pwc	no	6	6	0.500	0.500	yes	yes	mayday	mayday	4.8199
+emu-parakeet-110m-int8	87205-molokai	no	27	27	0.741	0.741	yes	yes	sinking	sinking	4.9172
+emu-zipformer-small-int8	34749-imagination	no	54	194	0.944	0.820	no	no			4.2778
+emu-zipformer-small-int8	35098-midnite-sun-relay	no	72	92	0.653	0.609	no	no			4.8559
+emu-zipformer-small-int8	35135-double-time	no	83	133	0.940	0.797	no	no			4.8813
+emu-zipformer-small-int8	35628-miss-yalanda	no	19	19	0.789	0.789	no	no			4.7372
+emu-zipformer-small-int8	37977-bainbridge-skiff	no	3	3	2.000	2.000	yes	yes	mayday	mayday	4.8946
+emu-zipformer-small-int8	41096-kupreanof	no	19	19	0.579	0.579	yes	yes	mayday	mayday	4.9534
+emu-zipformer-small-int8	44865-galveston-capsize	yes	3	3	6.000	6.000	no	no			4.9322
+emu-zipformer-small-int8	46250-star-king	no	197	534	0.523	0.401	no	yes		help,listing	3.8081
+emu-zipformer-small-int8	46887-surfside-fire	no	22	41	0.773	0.610	yes	yes	fire,mayday	fire,mayday	3.8888
+emu-zipformer-small-int8	48097-oahu-sailboat	no	62	84	0.806	0.750	no	no			3.8491
+emu-zipformer-small-int8	53901-captain-billy-haver	no	272	397	0.761	0.758	no	no			3.7961
+emu-zipformer-small-int8	56367-netarts-pwc	no	6	6	1.333	1.333	yes	yes	mayday	mayday	4.4138
+emu-zipformer-small-int8	87205-molokai	no	27	27	0.926	0.926	no	no			4.8245
+emu1g-parakeet-0.6b-v2-int8-w5	34749-imagination	no	54	194	0.815	0.691	no	no			13.9617
+emu1g-parakeet-0.6b-v2-int8-w5	35098-midnite-sun-relay	no	72	92	0.208	0.283	yes	yes	grounded,mayday	grounded,mayday	10.6745
+emu1g-parakeet-0.6b-v2-int8-w5	35135-double-time	no	83	133	0.337	0.406	yes	yes	help,mayday	help,mayday,taking on water	11.5022
+emu1g-parakeet-0.6b-v2-int8-w5	35628-miss-yalanda	no	19	19	0.211	0.211	yes	yes	going down,mayday	going down,mayday	10.8371
+emu1g-parakeet-0.6b-v2-int8-w5	37977-bainbridge-skiff	no	3	3	0.000	0.000	yes	yes	mayday	mayday	12.1337
+emu1g-parakeet-0.6b-v2-int8-w5	41096-kupreanof	no	19	19	0.474	0.474	yes	yes	mayday,taking on water	mayday,taking on water	11.8463
+emu1g-parakeet-0.6b-v2-int8-w5	44865-galveston-capsize	yes	3	3	7.667	7.667	yes	yes	mayday	mayday	15.0339
+emu1g-parakeet-0.6b-v2-int8-w5	46250-star-king	no	197	534	0.269	0.242	yes	yes	going down,help,listing	going down,help,listing,taking on water	11.7044
+emu1g-parakeet-0.6b-v2-int8-w5	46887-surfside-fire	no	22	41	0.136	0.293	yes	yes	fire,mayday	fire,mayday	12.1069
+emu1g-parakeet-0.6b-v2-int8-w5	48097-oahu-sailboat	no	62	84	0.290	0.226	yes	yes	going down	going down	11.9374
+emu1g-parakeet-0.6b-v2-int8-w5	53901-captain-billy-haver	no	272	397	0.382	0.426	yes	yes	mayday	mayday	13.8691
+emu1g-parakeet-0.6b-v2-int8-w5	56367-netarts-pwc	no	6	6	0.500	0.500	yes	yes	mayday	mayday	13.5216
+emu1g-parakeet-0.6b-v2-int8-w5	87205-molokai	no	27	27	0.667	0.667	yes	yes	mayday,sinking	mayday,sinking	15.5587
+emu1g-parakeet-0.6b-v2-int8	34749-imagination	no	54	194	0.519	0.521	no	no			11.2917
+emu1g-parakeet-0.6b-v2-int8	35098-midnite-sun-relay	no	72	92	0.236	0.207	yes	yes	grounded,mayday	grounded,mayday	12.282
+emu1g-parakeet-0.6b-v2-int8	35135-double-time	no	83	133	0.277	0.353	yes	yes	mayday	mayday,taking on water	16.15
+emu1g-parakeet-0.6b-v2-int8	35628-miss-yalanda	no	19	19	0.211	0.211	yes	yes	going down,mayday	going down,mayday	17.7979
+emu1g-parakeet-0.6b-v2-int8	37977-bainbridge-skiff	no	3	3	0.000	0.000	yes	yes	mayday	mayday	14.997
+emu1g-parakeet-0.6b-v2-int8	41096-kupreanof	no	19	19	0.368	0.368	yes	yes	mayday,taking on water	mayday,taking on water	16.681
+emu1g-parakeet-0.6b-v2-int8	44865-galveston-capsize	yes	3	3	16.000	16.000	yes	yes	mayday	mayday	14.7778
+emu1g-parakeet-0.6b-v2-int8	46250-star-king	no	197	534	0.208	0.154	yes	yes	going down,help,sinking	going down,help,listing,sinking,taking on water	11.9265
+emu1g-parakeet-0.6b-v2-int8	46887-surfside-fire	no	22	41	0.182	0.171	yes	yes	fire,mayday	fire,mayday	13.6093
+emu1g-parakeet-0.6b-v2-int8	48097-oahu-sailboat	no	62	84	0.129	0.107	yes	yes	going down	going down	14.028
+emu1g-parakeet-0.6b-v2-int8	53901-captain-billy-haver	no	272	397	0.261	0.312	yes	yes	mayday	mayday	12.6134
+emu1g-parakeet-0.6b-v2-int8	56367-netarts-pwc	no	6	6	0.500	0.500	yes	yes	mayday	mayday	12.0072
+emu1g-parakeet-0.6b-v2-int8	87205-molokai	no	27	27	0.556	0.556	yes	yes	mayday,sinking	mayday,sinking	10.9439
 parakeet-0.6b-v2-int8	34749-imagination	no	54	194	0.500	0.546	no	no			0.1007
 parakeet-0.6b-v2-int8	35098-midnite-sun-relay	no	72	92	0.250	0.217	yes	yes	grounded,mayday	grounded,mayday	0.0987
 parakeet-0.6b-v2-int8	35135-double-time	no	83	133	0.301	0.376	yes	yes	mayday	mayday,taking on water	0.1017

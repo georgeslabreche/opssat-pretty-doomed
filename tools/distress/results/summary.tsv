@@ -3,6 +3,12 @@ binary-parakeet-0.6b-v2-int8-w5	630.6	13/13	12/13	12/13	10/12	0.377	0.383	0.138	
 binary-parakeet-0.6b-v2-int8	630.6	13/13	12/13	12/13	10/12	0.272	0.269	0.145	1401.0	greedy_search	1	1.13.8 (distress binary)	ground, Docker
 binary-parakeet-110m-int8	130.2	13/13	10/13	10/13	7/12	0.426	0.384	0.043	358.2	greedy_search	1	1.13.8 (distress binary)	ground, Docker
 binary-zipformer-small-int8	27.1	13/13	5/13	6/13	4/12	0.734	0.637	0.034	307.0	modified_beam_search	1	1.13.8 (distress binary)	ground, Docker
+emu-parakeet-0.6b-v2-int8-w5	630.6	13/13	12/13	12/13	10/12	0.358	0.372	12.771	821.5	greedy_search	1	1.13.8 (distress binary)	SEPP emulator (QEMU armv7l)
+emu-parakeet-0.6b-v2-int8	630.6	13/13	12/13	12/13	10/12	0.264	0.270	8.653	868.5	greedy_search	1	1.13.8 (distress binary)	SEPP emulator (QEMU armv7l)
+emu-parakeet-110m-int8	130.2	13/13	10/13	10/13	7/12	0.423	0.389	4.689	328.0	greedy_search	1	1.13.8 (distress binary)	SEPP emulator (QEMU armv7l)
+emu-zipformer-small-int8	27.1	13/13	4/13	5/13	4/12	0.739	0.638	4.737	231.7	modified_beam_search	1	1.13.8 (distress binary)	SEPP emulator (QEMU armv7l)
+emu1g-parakeet-0.6b-v2-int8-w5	630.6	13/13	12/13	12/13	10/12	0.358	0.372	12.107	821.3	greedy_search	1	1.13.8 (distress binary)	SEPP emulator (QEMU armv7l), 1 GB limit
+emu1g-parakeet-0.6b-v2-int8	630.6	13/13	12/13	12/13	10/12	0.264	0.270	13.609	869.4	greedy_search	1	1.13.8 (distress binary)	SEPP emulator (QEMU armv7l), 1 GB limit
 parakeet-0.6b-v2-int8	630.6	13/13	12/13	12/13	10/12	0.269	0.282	0.097	1323.2	greedy_search	1	1.13.8	Darwin arm64
 parakeet-0.6b-v3-int8	639.4	13/13	9/13	9/13	7/12	0.551	0.529	0.095	1328.3	greedy_search	1	1.13.8	Darwin arm64
 parakeet-110m-int8	130.2	13/13	10/13	10/13	7/12	0.423	0.384	0.028	480.0	greedy_search	1	1.13.8	Darwin arm64
