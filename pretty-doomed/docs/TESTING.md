@@ -179,9 +179,65 @@ All x86_64 emulator limitations apply, plus:
 
 - **Very slow.** STT model loading takes ~7s under QEMU (vs 0.7s on x86_64, ~26s on native ARM). QEMU_STRACE makes it even slower.
 - **Intermittent SIGFPE.** The ARM32 binary can crash with `qemu: uncaught target signal 8 (Arithmetic exception)` during GNU Radio flowgraph execution. Strace analysis shows this is a deliberate `tkill(SIGFPE)` triggered by IIO buffer read timeouts, not a hardware FPU trap. It does not occur on native ARM or x86_64.
+- **SIGFPE on the second capture.** With `sdr_captures=2` and `doom_force_trigger=true`, the v8 binary and later binaries get the SIGFPE at the start of capture 2, while capture 1 is in the background STT. To test the DOOM path under QEMU, set `sdr_captures=1`.
+- **Restart the SDR emulator after a SIGFPE.** After a client crash, the next client cannot connect (`Could not connect to IIO`). Run `docker-compose -f docker-compose.sepp-emu-test.yml up -d --force-recreate sdr-emu` before the next run.
 - **LD_LIBRARY_PATH required.** The pre-built GNU Radio libs are mounted at `/app/libs-gnuradio/lib` and must be added to `LD_LIBRARY_PATH` manually.
 
 **When to use:** only when you need to validate the exact ARM32 binary before shipping to the EM. For regular development and pipeline testing, use the x86_64 emulator test (section 2).
+
+### Distress call evaluation package
+
+The distress package (#142, see [`distress/README.md`](../distress/README.md)) runs in file mode, so it does not need the SDR emulator. The test installs the v8 package and the distress package in the container, as on the EM, and runs `run-distress`. Build the package first (see [BUILDING.md](BUILDING.md), section "Distress call evaluation package").
+
+```bash
+mkdir -p toGround/emu-distress
+cat > toGround/emu-distress/emu-run.sh <<'EOF'
+#!/bin/sh
+# Usage (in the SEPP emu container): sh emu-run.sh <label>
+set -e
+I=/tmp/install
+cp -a /app/package/exp4023-pretty-DOOMed-v8 "$I"
+tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-1.tar.gz -C "$I"
+cd "$I"
+echo "manifest failures: $(sha256sum -c distress/MANIFEST.sha256 | grep -vc ': OK$')"
+set +e
+./distress/run-distress
+cp -r toGround/distress-00001 "/app/toGround/emu-distress/$1"
+EOF
+
+# All four configs, no memory limit
+docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-full \
+    pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh full > toGround/emu-distress/full.out 2>&1'
+
+# Parakeet 0.6B v2 only, with the 1 GB memory of the EM
+SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-1g \
+    pretty-doomed-sepp sh -c 'DISTRESS_MODELS="parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8" \
+    sh toGround/emu-distress/emu-run.sh mem1g > toGround/emu-distress/mem1g.out 2>&1'
+
+# Ground analysis of a run
+cd ../tools/distress
+python3 import_em.py ../../pretty-doomed/toGround/emu-distress/full --label emu --machine "SEPP emulator (QEMU armv7l)"
+python3 score.py
+```
+
+The two runs use one CPU each. `SEPP_EMU_MEM_LIMIT` sets `mem_limit` of the container. The default (64g) has no effect, so the DOOM emulation tests above do not change.
+
+Results of `v8-distress-1` on the SEPP emulator (13 clips, 830 s of audio):
+
+| Config | Memory limit | Clips | Exit | Peak memory (VmHWM) | WER, ship-side | Recall, ship-side | Run time |
+|---|---|---|---|---|---|---|---|
+| `zipformer-small-int8` | none | 13/13 | 0 | 232 MB | 0.739 | 4/13 | 57 min |
+| `parakeet-110m-int8` | none | 13/13 | 0 | 328 MB | 0.423 | 10/13 | 65 min |
+| `parakeet-0.6b-v2-int8-w5` | none | 13/13 | 0 | 821 MB | 0.358 | 12/13 | 176 min |
+| `parakeet-0.6b-v2-int8` | none | 13/13 | 0 | 869 MB | 0.264 | 12/13 | 133 min |
+| `parakeet-0.6b-v2-int8-w5` | 1 GB | 13/13 | 0 | 821 MB | 0.358 | 12/13 | 178 min |
+| `parakeet-0.6b-v2-int8` | 1 GB | 13/13 | 0 | 869 MB | 0.264 | 12/13 | 175 min |
+
+The peak memory includes the memory of QEMU. Thus Parakeet 0.6B v2 fits in the 1 GB of the EM. On arm64 (ground, Docker) the same binary uses 1.3 GB to 1.4 GB, because 64-bit pointers and the arm64 kernels of ONNX Runtime use more memory.
+
+The ARM32 transcripts are not identical to the ground transcripts: approximately 5% to 7% of the words are different. The ARM32 and arm64 int8 kernels of ONNX Runtime give small numerical differences. The WER and the recall are approximately the same. Compare `results/emu-*` with `results/binary-*` in `tools/distress/`.
+
+The run times are QEMU run times, approximately 4 to 13 times longer than the audio. They are not the EM run times.
 
 ## 3. EM/Hardware (Engineering Model)
 

@@ -24,7 +24,7 @@ Ground truth and model comparison for the distress call evaluation (issue #142).
 | `score.py` | Scores the outputs in `results/` against the references. Writes `per_clip.tsv`, `summary.tsv`, and `RESULTS.md`. |
 | `window_sweep.sh` | Scores Parakeet 0.6B v2 with 5, 10, 15, and 30 s windows. Writes `results/window-sweep/`. |
 | `run_binary.sh` | Runs the pretty-doomed binary with the EM configs on the ground, in Docker. Writes `results/binary-<model>/`. |
-| `import_em.py` | Imports an EM run (`toGround/distress-NNNNN/`) into `results/em-<model>/`. |
+| `import_em.py` | Imports an EM run (`toGround/distress-NNNNN/`) into `results/em-<model>/`. `--label` and `--machine` name an emulator run. |
 | `results/` | Model outputs and scores. |
 | `tests/` | Unit tests for `scoring.py`. |
 
@@ -126,3 +126,5 @@ The flight binary uses sherpa-onnx 1.12.21. There is no Python package of that v
 The EM package (`pretty-doomed/distress/`) runs the pretty-doomed binary, not `transcribe.py`. `run_binary.sh` runs the same binary source with the same configs and the same sherpa-onnx version (1.13.8) on the ground. Thus `results/binary-<model>` against `results/em-<model>` shows the effect of the EM hardware only, and `results/binary-<model>` against `results/<model>` shows the effect of the binary (its WAV reader and resampler) only.
 
 The binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherpa-onnx 1.12.21 (the v8 version) to 1.13.4 gives an empty text for some windows. For example, the first two 30 s windows of the Star King clip give no text, and the WER of Parakeet 0.6B v2 goes from 0.32 to 0.59. The Zipformer models are not affected.
+
+`results/emu-<model>` and `results/emu1g-<model>` are runs of the EM package on the SEPP emulator (ARM32 under QEMU, see `pretty-doomed/docs/TESTING.md`). `emu1g` has a 1 GB memory limit, the memory of the EM. All configs complete all 13 clips. The peak memory of Parakeet 0.6B v2 is 869 MB with 10 s windows and 821 MB with 5 s windows, with the memory of QEMU included, against 1401 MB and 1307 MB on arm64. Thus the 10 s config fits the EM. The WER and the recall on ARM32 are approximately the same as on arm64. The run times of the emulator are not the EM run times.

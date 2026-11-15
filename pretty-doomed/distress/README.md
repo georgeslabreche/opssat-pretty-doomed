@@ -55,7 +55,7 @@ Optional environment variables:
 | `DISTRESS_CLIPS` | `distress/clips` | Directory of 16 kHz mono WAV clips. |
 | `DISTRESS_TIMEOUT_S` | 0 (no limit) | Time limit per model in seconds. |
 
-The estimated run time on the EM is 2 to 3.5 hours for all three models. Most of it is Parakeet 0.6B v2.
+The estimated run time on the EM is 3 to 6 hours for all four configs. Most of it is the two Parakeet 0.6B v2 configs.
 
 ## Output
 
