@@ -47,3 +47,12 @@ python3 scripts/plots/plot_resource.py --batch \
 python3 scripts/plots/plot_log_timeline.py toGround/run-00001/pretty-doomed.log output.png "Run 1"
 python3 scripts/plots/plot_resource.py toGround/run-00001 --output-dir /tmp/plots
 ```
+
+### Distress runs (#142)
+
+`plot_resource.py` also reads a `run-distress` folder (`toGround/distress-NNNNN/`): it merges the `<config>/pretty-doomed.log` of each config, adds the config name to each thread row, shifts the logs onto the `resource.csv` time axis, and adds the memory of the pretty-doomed process from `process.csv`. The Report Card phase is the thread that draws the report cards.
+
+```bash
+python3 scripts/plots/plot_resource.py toGround/distress-00001 --output-dir /tmp/plots
+```
+

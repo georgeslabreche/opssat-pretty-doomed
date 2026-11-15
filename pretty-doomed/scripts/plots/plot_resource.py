@@ -272,6 +272,41 @@ def parse_resource_csv(csv_path):
             prev = (c0_active, c0_total, c1_active, c1_total)
     return data
 
+def distress_log_offset(log_files, csv_path):
+    """Seconds from the first resource.csv sample to the first log line (distress runs)."""
+    first_log = None
+    for p in log_files:
+        for line in open(p, errors="replace"):
+            m = LOG_RE.match(line.strip("\x00\n\r"))
+            if m:
+                ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S.%f")
+                first_log = ts if first_log is None else min(first_log, ts)
+                break
+    with open(csv_path) as f:
+        row = next(csv.DictReader(f), None)
+    if first_log is None or row is None:
+        return 0.0
+    return (first_log - datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M:%S")).total_seconds()
+
+
+def parse_process_csv(path, resource_csv):
+    """Memory of the pretty-doomed process (process.csv of run-distress) as % of MemTotal, or None."""
+    if not os.path.exists(path):
+        return None
+    with open(resource_csv) as f:
+        row = next(csv.DictReader(f), None)
+    total = int(row["mem_total_kb"]) if row else 0
+    data = {"epoch": [], "rss_pct": []}
+    with open(path) as f:
+        for r in csv.DictReader(f):
+            try:
+                data["epoch"].append(int(r["epoch"]))
+                data["rss_pct"].append(100.0 * int(r["vm_rss_kb"]) / total if total else 0)
+            except (KeyError, ValueError):
+                continue
+    return data if data["epoch"] else None
+
+
 # ---------------------------------------------------------------------------
 # Combined plot
 # ---------------------------------------------------------------------------
@@ -315,9 +350,13 @@ def plot_resource_only(run_dir, output_path, title, x_max=None):
     # --- Memory ---
     ax_mem.fill_between(t_res, res["mem_pct"], alpha=0.3, color="#8B0000")
     ax_mem.plot(t_res, res["mem_pct"], color="#8B0000", linewidth=1.3, label="Memory Used")
+    proc = parse_process_csv(os.path.join(run_dir, "process.csv"), csv_path)
+    if proc:
+        ax_mem.plot([e - t0_res for e in proc["epoch"]], proc["rss_pct"], color="#1b9e77",
+                    linewidth=1.3, label="pretty-doomed\n(VmRSS)")
     ax_mem.set_ylabel("Memory (%)", fontsize=10)
     ax_mem.set_xlabel("Time (seconds)", fontsize=10)
-    ax_mem.set_ylim(0, max(max(res["mem_pct"]) * 1.5, 30))
+    ax_mem.set_ylim(0, max(max(res["mem_pct"] + (proc["rss_pct"] if proc else [])) * 1.5, 30))
     ax_mem.legend(loc="upper left", bbox_to_anchor=(1.01, 0.85),
                   fontsize=8, framealpha=0.9)
     ax_mem.grid(True, alpha=0.3)
@@ -348,8 +387,23 @@ def plot_combined(run_dir, output_path, title, x_max=None):
         cap_log = cap / "run.log"
         if cap_log.exists():
             log_files.append(str(cap_log))
+    # Distress run (#142): one process and one log per config, in <config>/.
+    # Each thread row gets the name of its config.
+    config_logs = [] if log_files else sorted(Path(run_dir).glob("*/pretty-doomed.log"))
+    log_files += [str(p) for p in config_logs]
+    tid_config = {}
+    for log in config_logs:
+        for line in open(log, errors="replace"):
+            m = LOG_RE.match(line.strip("\x00\n\r"))
+            if m:
+                tid_config.setdefault(int(m.group(3)), log.parent.name)
 
     entries = parse_log(log_files) if log_files else []
+    if config_logs and entries:
+        # The logs start after the run script has started resource.csv (it
+        # writes the manifest first): shift the log times onto the resource axis.
+        entries = [(t + distress_log_offset(log_files, csv_path), cpu, tid, ph, msg)
+                   for t, cpu, tid, ph, msg in entries]
     entries = annotate_capture_numbers(entries)
     spans = build_phase_spans(entries)
 
@@ -364,6 +418,8 @@ def plot_combined(run_dir, output_path, title, x_max=None):
         cpus = [e[1] for e in entries if e[2] == tid]
         main_cpu = max(set(cpus), key=cpus.count)
         tid_labels[tid] = f"CPU{main_cpu} / Thread {tid}"
+        if tid in tid_config:
+            tid_labels[tid] += f"  [{tid_config[tid]}]"
 
     # Move capture #N from bar labels to thread labels where possible
     spans, tid_labels = relocate_capture_labels(spans, tid_labels)

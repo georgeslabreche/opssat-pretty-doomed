@@ -25,7 +25,7 @@ Ground truth and model comparison for the distress call evaluation (issue #142).
 | `window_sweep.sh` | Scores Parakeet 0.6B v2 with 5, 10, 15, and 30 s windows. Writes `results/window-sweep/`. |
 | `run_binary.sh` | Runs the pretty-doomed binary with the EM configs on the ground, in Docker. Writes `results/binary-<model>/`. |
 | `import_em.py` | Imports an EM run (`toGround/distress-NNNNN/`) into `results/em-<model>/`. `--label` and `--machine` name an emulator run. |
-| `report.py` | Report of one EM or emulator run: resource use (the same `resource.csv` as the DOOM runs), peak memory, speed, and accuracy, with figures. Writes `reports/<label>/`. |
+| `report.py` | Report of one EM or emulator run, with figures: the thread timeline with per-core CPU and memory (`plot_resource.py`, the figure of the DOOM runs), peak memory, the report cards made on board, speed, and accuracy. Writes `reports/<label>/`. |
 | `mem_headroom.py` | Free memory of the SEPP in past EM and flight runs, and the margin of each distress config. Writes the tables of `results/MEMORY.md`. |
 | `results/` | Model outputs and scores. |
 | `tests/` | Unit tests for `scoring.py`. |

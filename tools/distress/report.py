@@ -5,9 +5,10 @@ Reads a run directory (toGround/distress-NNNNN/ of run-distress) and the scores
 of score.py, and writes reports/<label>/:
 
   REPORT.md               run data, resource use, speed, and accuracy tables
-  resource_timeline.png   per-core CPU and free memory for the full run, one band per config
+  timeline-and-resource.png  thread timeline, per-core CPU, and memory (plot_resource.py, as for the DOOM runs)
   peak_memory.png         peak memory (VmHWM) of each config, and the free memory at the start
   rtf.png                 real-time factor of each clip, per config
+  report_card_<config>.png  the report card of one clip per config, made on board
   accuracy.png            ship-side WER and recall, this run and the ground binary
 
 The resource data is the same as for the DOOM runs: resource.csv has per-core
@@ -105,17 +106,6 @@ def read_resource(path):
     return out
 
 
-def rolling_mean(values, n):
-    """Mean of the last n samples at each point (n=60 is one minute at 1 Hz)."""
-    out, acc = [], 0.0
-    for i, v in enumerate(values):
-        acc += v
-        if i >= n:
-            acc -= values[i - n]
-        out.append(acc / min(i + 1, n))
-    return out
-
-
 def style(ax):
     ax.set_facecolor(SURFACE)
     for side in ("top", "right"):
@@ -139,72 +129,17 @@ def save(fig, path):
     plt.close(fig)
 
 
-def read_process(path):
-    """Return samples of time and VmRSS (MiB) of the pretty-doomed process, or None."""
-    if not os.path.exists(path):
+def plot_timeline_and_resource(run_dir, out_dir):
+    """Thread timeline with per-core CPU and memory: plot_resource.py, the figure of the DOOM runs."""
+    script = os.path.join(HERE, "..", "..", "pretty-doomed", "scripts", "plots", "plot_resource.py")
+    done = subprocess.run([sys.executable, script, run_dir, "--output-dir", out_dir],
+                          capture_output=True, text=True)
+    produced = os.path.join(out_dir, os.path.basename(os.path.normpath(run_dir)) + "-timeline-and-resource.png")
+    target = os.path.join(out_dir, "timeline-and-resource.png")
+    if done.returncode != 0 or not os.path.exists(produced):
         return None
-    out = {"t": [], "rss": []}
-    with open(path, encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            if (r.get("vm_rss_kb") or "").isdigit():
-                out["t"].append(datetime.datetime.strptime(r["timestamp"], TS_FORMAT))
-                out["rss"].append(int(r["vm_rss_kb"]) / 1024)
-    return out if out["t"] else None
-
-
-def plot_timeline(res, proc, spans, free_ref, system_data, path):
-    """Memory, and per-core CPU (one-minute mean), over the full run, with one band per config.
-
-    system_data=False (emulator): resource.csv is the Docker VM, so only the
-    process memory and the reference free memory are drawn.
-    """
-    start = res["t"][0]
-
-    def hours(ts):
-        return [(t - start).total_seconds() / 3600 for t in ts]
-
-    fig, axes = new_figure(2 if system_data else 1, 5.2 if system_data else 2.8)
-    ax_mem = axes[-1]
-    for ax in axes:
-        for i, (name, (a, b)) in enumerate(spans.items()):
-            if i % 2 == 0:
-                ax.axvspan(*hours([a, b]), color=BAND, zorder=0)
-    top_ax = axes[0]
-    top_y = 103 if system_data else free_ref[0] * 1.12
-    step = 9 if system_data else free_ref[0] * 0.08
-    for i, (name, (a, b)) in enumerate(spans.items()):
-        mid = sum(hours([a, b])) / 2
-        top_ax.text(mid, top_y + step * (i % 2), name, ha="center", va="bottom", fontsize=7, color=INK_2)
-    if system_data:
-        ax_cpu = axes[0]
-        h = hours(res["t"])
-        ax_cpu.plot(h, rolling_mean(res["cpu0"], 60), color=SERIES[0], linewidth=1.2, label="CPU 0")
-        ax_cpu.plot(h, rolling_mean(res["cpu1"], 60), color=SERIES[1], linewidth=1.2, label="CPU 1")
-        ax_cpu.set_ylim(0, 100)
-        ax_cpu.set_ylabel("CPU busy, 1 min mean (%)", color=INK_2, fontsize=8)
-        ax_cpu.legend(loc="lower left", ncol=2, fontsize=7, frameon=True, facecolor=SURFACE, edgecolor=GRID)
-        ax_mem.plot(h, res["avail"], color=SERIES[0], linewidth=1.5, label="System free memory (MemAvailable)")
-    if proc:
-        ax_mem.plot(hours(proc["t"]), proc["rss"], color=SERIES[1], linewidth=1.5,
-                    label="pretty-doomed process memory (VmRSS)")
-    ax_mem.axhline(free_ref[0], color=INK_2, linewidth=0.8, linestyle=(0, (4, 3)))
-    ymax = res["total"] if system_data else free_ref[0] * 1.3
-    ax_mem.text(0, free_ref[0] + ymax * 0.02, f"{free_ref[1]}: {free_ref[0]:.0f} MiB",
-                va="bottom", ha="left", fontsize=7, color=INK_2)
-    ax_mem.set_ylim(0, ymax)
-    ax_mem.set_ylabel("Memory (MiB)", color=INK_2, fontsize=8)
-    ax_mem.set_xlabel("Time from start of run (h)", color=INK_2, fontsize=8)
-    ax_mem.legend(loc="lower right", fontsize=7, frameon=True, facecolor=SURFACE, edgecolor=GRID)
-    title = "CPU and memory during the run" if system_data else "Process memory during the run"
-    top_ax.set_title(title, loc="left", fontsize=10, color=INK, pad=26)
-    save(fig, path)
-
-
-def plot_gantt(log, png, title):
-    """Phase timeline of one config log, by thread (plot_log_timeline.py of the DOOM runs)."""
-    script = os.path.join(HERE, "..", "..", "pretty-doomed", "scripts", "plots", "plot_log_timeline.py")
-    done = subprocess.run([sys.executable, script, log, png, title], capture_output=True, text=True)
-    return done.returncode == 0 and os.path.exists(png)
+    os.replace(produced, target)
+    return os.path.basename(target)
 
 
 def plot_peak_memory(configs, free_ref, path):
@@ -351,16 +286,7 @@ def main():
         free_ref = (statistics.median(history), f"{args.free_from} free memory, median of {len(history)} runs")
     else:
         free_ref = (res["idle_avail"], "free at start")
-    proc = read_process(os.path.join(args.run_dir, "process.csv"))
-    system_data = not args.free_from
-    timeline = system_data or proc is not None
-    if timeline:
-        plot_timeline(res, proc, spans, free_ref, system_data, os.path.join(out, "resource_timeline.png"))
-    gantts = {}
-    for name in configs:
-        png = os.path.join(out, f"gantt_{name}.png")
-        if plot_gantt(os.path.join(args.run_dir, name, "pretty-doomed.log"), png, f"{name}: phases by thread"):
-            gantts[name] = os.path.basename(png)
+    timeline = plot_timeline_and_resource(args.run_dir, out)
     cards = {}
     for name in configs:
         src = os.path.join(args.run_dir, name, args.card_clip, "report_card.png")
@@ -415,12 +341,19 @@ def main():
             f"The reference free memory is the {free_ref[1]}, {free_ref[0]:.0f} MiB, measured by `mem_headroom.py` from "
             f"the `resource.csv` files of those runs (`--free-from {args.free_from}`). On the SEPP emulator, "
             "`resource.csv` shows the CPU and the memory of the Docker VM, with all of its containers, and not of the EM. "
-            "Thus the plot shows only the memory of the pretty-doomed process (`process.csv`), and MemTotal and the "
-            "free memory in the run table are not EM data. The process memory includes the memory of QEMU.",
+            "Thus the CPU panel, the system memory line, MemTotal, and the free memory in the run table are not EM data. "
+            "The thread timeline and the memory of the pretty-doomed process (`process.csv`) are valid. The process "
+            "memory includes the memory of QEMU.",
             "",
         ]
-    lines += ["![Memory during the run](resource_timeline.png)", ""] if timeline else [
-        "No memory plot: this run has no `process.csv` (made by `run-distress` from v8-distress-v1).", ""]
+    lines += [
+        "Thread timeline, per-core CPU, and memory (`plot_resource.py`, the figure of the DOOM runs). Each config "
+        "runs in its own process. Each thread row has the name of its config: the main thread transcribes the "
+        "clips, and the report card thread draws the cards while the next clip is transcribed. The memory panel "
+        "has the system memory (`resource.csv`) and the memory of the pretty-doomed process (`process.csv`).",
+        "",
+    ]
+    lines += [f"![Thread timeline, CPU, and memory]({timeline})", ""] if timeline else ["No timeline: plot_resource.py failed.", ""]
     lines += [
         "![Peak memory per config](peak_memory.png)",
         "",
@@ -435,15 +368,6 @@ def main():
         lines.append(f"| `{name}` | {c['exit']} | {run_t} | {c['load_s']:.1f} s | {peak} | {margin} | {low} |")
     lines += [
         "",
-        "## Threads",
-        "",
-        "Phases of each config by thread, from the log (`plot_log_timeline.py`, as for the DOOM runs). The report "
-        "cards are drawn by their own thread while the main thread transcribes the next clip.",
-        "",
-    ]
-    for name, png in gantts.items():
-        lines += [f"![{name}]({png})", ""]
-    lines += [
         "## Report cards made on board",
         "",
         f"One PNG per clip and config, drawn by the pretty-doomed binary on board (`report_card=true`). "
