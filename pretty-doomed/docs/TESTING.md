@@ -187,7 +187,7 @@ All x86_64 emulator limitations apply, plus:
 
 ### Distress call evaluation package
 
-The distress package (#142, see [`distress/README.md`](../distress/README.md)) runs in file mode, so it does not need the SDR emulator. The test extracts the distress package in an empty folder in the container, without the v8 install, and runs `run-distress`. Thus it also shows that the package is self-contained. Build the package first (see [BUILDING.md](BUILDING.md), section "Distress call evaluation package").
+The distress package (#142, see [`distress/README.md`](../distress/README.md)) runs in file mode, so it does not need the SDR emulator. The test extracts the distress package in an empty folder in the container, as on a cleared EM, and runs `./run`. Thus it also shows that the package is self-contained. Build the package first (see [BUILDING.md](BUILDING.md), section "Distress call evaluation package").
 
 ```bash
 mkdir -p toGround/emu-distress
@@ -199,13 +199,13 @@ I=/tmp/install
 mkdir -p "$I"
 tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-v1.tar.gz -C "$I"
 cd "$I"
-echo "manifest failures: $(sha256sum -c distress/MANIFEST.sha256 | grep -vc ': OK$')"
+echo "manifest failures: $(sha256sum -c MANIFEST.sha256 | grep -vc ': OK$')"
 set +e
-./distress/run-distress
+./run
 cp -r toGround/distress-00001 "/app/toGround/emu-distress/$1"
 EOF
 
-# First test: all five configs on the clip of run-distress.cfg (4 s), with the
+# First test: all five configs on the clip of run.cfg (4 s), with the
 # 1 GB memory of the EM. Minutes, not hours.
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run --rm --no-deps \
     pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh first'

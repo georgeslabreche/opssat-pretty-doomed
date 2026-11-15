@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report of one distress run on the EM or on the SEPP emulator (issue #142).
 
-Reads a run directory (toGround/distress-NNNNN/ of run-distress) and the
+Reads a run directory (toGround/distress-NNNNN/ of the distress ./run) and the
 per-clip scores of score.py, and writes reports/<label>/:
 
   REPORT.md               run data, resource use, speed, and accuracy tables

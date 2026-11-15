@@ -1,20 +1,21 @@
 # Distress call evaluation on the EM
 
-An add-on for the EM that transcribes 13 real distress calls with three speech-to-text models in five configurations (issue #142). It is not for flight. It is self-contained in a `distress/` folder: it has its own binary, libs, and models, so it does not need the v8 install. If the v8 install is present, the add-on does not change any v8 file.
+An EM package that transcribes 13 real distress calls with three speech-to-text models in five configurations (issue #142). It is not for flight. It has the layout of the DOOM package: the files are at the root of the experiment folder, and `./run` is the entry point. It is self-contained, with its own binary, libs, and models, so it also runs on a cleared EM. It replaces the v8 install: reinstall the v8 package after the evaluation.
 
 ## Contents
 
 | Path | Description |
 |---|---|
-| `run-distress.cfg` | The configs and the clips that `run-distress` runs. |
-| `run-distress` | Entry script. Runs each model in its own process and writes the results to `toGround/distress-NNNNN/`. |
+| `run` | Entry point, as `run` of the DOOM package. Runs each config in its own process and writes the results to `toGround/distress-NNNNN/`. |
+| `run.cfg` | The configs and the clips that `run` runs. |
 | `config.distress.<model>.cfg` | One pipeline config per model. All use `operation=detect`, so DOOM does not launch. |
 | `variants.distress.cfg` | Empty variants file. |
-| `VERSION` | Version of the add-on and of its binary. |
+| `VERSION` | Version of the package and of its binary. |
 | `pretty-doomed` | The ARM32 binary, built from the same source as v8 plus the keys of #142, with sherpa-onnx 1.13.8 (v8 uses 1.12.21). Added by the package build. |
 | `clips/` | The 13 clips as 16 kHz mono WAV. Added by the package build. |
 | `libs/` | The shared libraries of the binary (GNU Radio, Boost, and others), the same as the v8 `libs/`. Added by the package build. |
-| `models/` | The Zipformer small model (a copy of the v8 model), and the Parakeet 110M and Parakeet 0.6B v2 models. Added by the package build. |
+| `models/` | `sherpa-onnx/small/`: the Zipformer small model, the v8 files at the v8 path. `parakeet-110m-int8/` and `parakeet-0.6b-v2-int8/`: the Parakeet models. Added by the package build. |
+| `toGround/` | The output folder. |
 | `README.md` | This file. |
 | `MANIFEST.sha256` | SHA-256 of each file in the package. Added by the package build. |
 
@@ -22,7 +23,7 @@ An add-on for the EM that transcribes 13 real distress calls with three speech-t
 
 | Config | Model | Decoding | Window | Files | Notes |
 |---|---|---|---|---|---|
-| `zipformer-small-int8` | Zipformer small | `modified_beam_search` | 10 s | 27 MB, a copy of the v8 files | The flight model. Baseline. |
+| `zipformer-small-int8` | Zipformer small | `modified_beam_search` | 10 s | 27 MB, the v8 files | The flight model. Baseline. |
 | `parakeet-110m-int8` | Parakeet TDT 110M | `nemo_transducer`, `greedy_search` | 10 s | 130 MB | |
 | `parakeet-0.6b-v2-int8-w5` | Parakeet TDT 0.6B v2 | `nemo_transducer`, `greedy_search` | 5 s | 631 MB | Fallback with less memory. |
 | `parakeet-0.6b-v2-int8` | Parakeet TDT 0.6B v2 | `nemo_transducer`, `greedy_search` | 10 s | the same files | The most accurate model on the ground. |
@@ -36,38 +37,38 @@ The binary uses sherpa-onnx 1.13.8, the version of the ground comparison. With t
 
 ## Install
 
-Extract the package in the experiment folder. The v8 install is not necessary:
+Extract the package in the experiment folder, as the DOOM package. The v8 install is not necessary:
 
 ```sh
 cd <experiment folder>
 tar -xzf exp4023-pretty-DOOMed-v<version>.tar.gz   # for example v8-distress-v1
-sha256sum -c distress/MANIFEST.sha256
+sha256sum -c MANIFEST.sha256
 ```
 
 ## Run
 
 ```sh
-./distress/run-distress
+./run
 ```
 
-`distress/run-distress.cfg` sets what runs:
+`run.cfg` sets what runs:
 
 | Key | Value | Empty |
 |---|---|---|
 | `models` | Configs to run, in order, comma-separated: `config.distress.<name>.cfg`. | All five, in the order of the table above. |
-| `clips` | Clips to run, by name, comma-separated: `distress/clips/<name>.wav`. | All 13 clips. |
+| `clips` | Clips to run, by name, comma-separated: `clips/<name>.wav`. | All 13 clips. |
 
 The package comes with all five configs and one clip, `clips=37977-bainbridge-skiff`: 4 s of "Mayday, Mayday, Mayday", the shortest and simplest clip, which every model detects on the ground. Run this first test before the full run. It shows in minutes that each config loads its model, transcribes, detects, writes its report card, and fits in memory. Most of its time is the five model loads. Expected result: exit code 0 for each config in `exit.txt`, `detected` = `yes` in each `timing.tsv`, and one `report_card.png` per config.
 
 For the full run, leave `clips=` empty. The estimated run time on the EM is 4 to 8 hours for all five configs on the 13 clips. Most of it is the three Parakeet 0.6B v2 configs.
 
-Optional environment variables, which override `run-distress.cfg`:
+Optional environment variables, which override `run.cfg`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `DISTRESS_MODELS` | `models` of `run-distress.cfg` | Configs to run, in order, comma-separated. |
-| `DISTRESS_CLIP_NAMES` | `clips` of `run-distress.cfg` | Clips to run, by name, comma-separated. |
-| `DISTRESS_CLIPS` | `distress/clips` | Directory of 16 kHz mono WAV clips. |
+| `DISTRESS_MODELS` | `models` of `run.cfg` | Configs to run, in order, comma-separated. |
+| `DISTRESS_CLIP_NAMES` | `clips` of `run.cfg` | Clips to run, by name, comma-separated. |
+| `DISTRESS_CLIPS` | `clips` | Directory of 16 kHz mono WAV clips. |
 | `DISTRESS_TIMEOUT_S` | 0 (no limit) | Time limit per model in seconds. |
 
 ## Report cards

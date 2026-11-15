@@ -290,7 +290,7 @@ def distress_log_offset(log_files, csv_path):
 
 
 def parse_process_csv(path, resource_csv):
-    """Memory of the pretty-doomed process (process.csv of run-distress) as % of MemTotal, or None."""
+    """Memory of the pretty-doomed process (process.csv of the distress run script) as % of MemTotal, or None."""
     if not os.path.exists(path):
         return None
     with open(resource_csv) as f:

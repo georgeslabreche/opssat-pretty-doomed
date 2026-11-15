@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Import an EM distress run into the results format of transcribe.py.
 
-run-distress on the EM writes toGround/distress-NNNNN/<model>/ with
+The distress package (./run) on the EM writes toGround/distress-NNNNN/<model>/ with
 stt.tsv, timing.tsv, and <clip>/transcription.txt. This script writes
 results/em-<model>/<clip>.txt and results/em-<model>/run.json, so that
 score.py scores the EM run next to the ground run.

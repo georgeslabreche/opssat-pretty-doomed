@@ -357,8 +357,10 @@ package-tar:
 	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"
 	@ls -lh package/$(PACKAGE_NAME).tar.gz
 
-# Distress call evaluation add-on for the EM (#142). It installs next to v8 in
-# a distress/ folder and does not change any v8 file.
+# Distress call evaluation package for the EM (#142). The same layout as the
+# DOOM package: the files are at the root of the experiment folder, and ./run
+# is the entry point. It replaces the v8 install on the EM; reinstall the v8
+# package after the evaluation.
 # 1. Inside the SEPP container, build the binary with sherpa-onnx 1.13.8 and the
 #    distress version (see docs/BUILDING.md):
 #      make SHERPA_SRC=/opt/sherpa-onnx-src-distress BUILDDIR=/tmp/sepp-distress \
@@ -366,7 +368,7 @@ package-tar:
 # 2. Outside the container, after tools/distress/fetch_models.sh and prepare_clips.sh:
 #      make package-distress
 DISTRESS_NAME = exp4023-pretty-DOOMed-v$(shell cat distress/VERSION 2>/dev/null)
-DISTRESS_DIR = package/$(DISTRESS_NAME)/distress
+DISTRESS_DIR = package/$(DISTRESS_NAME)
 DISTRESS_MODELS_SRC = ../tools/distress/models
 DISTRESS_CLIPS_SRC = ../tools/distress/audio
 DISTRESS_PARAKEET = parakeet-110m-int8:sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8 \
@@ -383,20 +385,21 @@ package-distress-prepare: $(TARGET)
 # Run OUTSIDE container
 package-distress:
 	test -x $(DISTRESS_DIR)/pretty-doomed
-	cp distress/run-distress distress/run-distress.cfg distress/README.md distress/VERSION distress/variants.distress.cfg distress/config.distress.*.cfg $(DISTRESS_DIR)/
-	chmod +x $(DISTRESS_DIR)/run-distress
-	mkdir -p $(DISTRESS_DIR)/clips
+	cp distress/run distress/run.cfg distress/README.md distress/VERSION distress/variants.distress.cfg distress/config.distress.*.cfg $(DISTRESS_DIR)/
+	chmod +x $(DISTRESS_DIR)/run
+	mkdir -p $(DISTRESS_DIR)/clips $(DISTRESS_DIR)/toGround
 	cp $(DISTRESS_CLIPS_SRC)/*.wav $(DISTRESS_DIR)/clips/
 	for pair in $(DISTRESS_PARAKEET); do \
 		name=$${pair%%:*}; src=$(DISTRESS_MODELS_SRC)/$${pair#*:}; \
 		mkdir -p $(DISTRESS_DIR)/models/$$name; \
 		cp $$src/encoder.int8.onnx $$src/decoder.int8.onnx $$src/joiner.int8.onnx $$src/tokens.txt $(DISTRESS_DIR)/models/$$name/; \
 	done
-	mkdir -p $(DISTRESS_DIR)/models/zipformer-small-int8
-	cp $(MODEL_FILES) $(DISTRESS_DIR)/models/zipformer-small-int8/
-	cd package/$(DISTRESS_NAME) && find distress -type f ! -name MANIFEST.sha256 | sort | xargs shasum -a 256 > distress/MANIFEST.sha256
+	# Zipformer small: the v8 model files, at the v8 path.
+	mkdir -p $(DISTRESS_DIR)/models/sherpa-onnx/small
+	cp $(MODEL_FILES) $(DISTRESS_DIR)/models/sherpa-onnx/small/
+	cd $(DISTRESS_DIR) && find . -type f ! -name MANIFEST.sha256 | sed 's|^\./||' | sort | xargs shasum -a 256 > MANIFEST.sha256
 	COPYFILE_DISABLE=1 tar --owner=exp --group=exp \
-		-czf package/$(DISTRESS_NAME).tar.gz -C package/$(DISTRESS_NAME) distress
+		-czf package/$(DISTRESS_NAME).tar.gz -C $(DISTRESS_DIR) .
 	@ls -lh package/$(DISTRESS_NAME).tar.gz
 
 # Incremental patch package: only changed files.

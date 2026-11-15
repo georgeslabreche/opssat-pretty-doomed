@@ -108,7 +108,7 @@ tar -xzf exp4023-pretty-DOOMed-v<VERSION>.tar.gz
 
 ## Distress call evaluation package
 
-An add-on for the EM only (#142). It is self-contained in a `distress/` folder, with its own binary, libs, and models, so it does not need the v8 install. It does not change any v8 file. See [`distress/README.md`](../distress/README.md) for the contents, the run, and the output.
+An EM-only package (#142) with the layout of the DOOM package: `./run` at the root of the experiment folder. It is self-contained, with its own binary, libs, and models. It replaces the v8 install on the EM. See [`distress/README.md`](../distress/README.md) for the contents, the run, and the output.
 
 ```bash
 # 1. Ground inputs: the 13 clips as WAV, and the Parakeet models

@@ -1,17 +1,19 @@
 #!/bin/sh
-# Distress call evaluation on the EM (issue #142).
+# Distress call evaluation on the EM (issue #142): the run script of the
+# distress package, at the root of the experiment folder, as ./run of the DOOM
+# package.
 #
-# Transcribes each clip in distress/clips/ with each candidate model. Each
+# Transcribes each clip in clips/ with each candidate model. Each
 # model runs in its own process, with one model load for all the clips. The
 # models run one after the other, the largest last, so that a model that runs
 # out of memory cannot stop the other models.
 #
-# The add-on is self-contained: it has its own pretty-doomed binary, libs/,
-# and models/, so it does not need the v8 install. It does not change any v8
-# file. operation=detect does not launch DOOM, so the DOOM binary and the demos
+# The package is self-contained: it has its own pretty-doomed binary, libs/,
+# and models/. It replaces the v8 install: reinstall the v8 package after the
+# evaluation. operation=detect does not launch DOOM, so the DOOM binary and the demos
 # are not necessary (-d and -e must not be empty, but are not used).
 #
-# What runs is set in distress/run-distress.cfg:
+# What runs is set in run.cfg:
 #   models=   configs to run, in order, comma-separated (empty: all five)
 #   clips=    clips to run, by name, without .wav, comma-separated (empty: all the clips)
 # For a short first test, list one clip. For the full run, leave clips= empty.
@@ -24,18 +26,18 @@
 #   exit.txt            exit code and run time of each model
 #   <model>/            pretty-doomed.log, stt.tsv, timing.tsv, <clip>/
 #
-# Environment (all optional, they override run-distress.cfg):
+# Environment (all optional, they override run.cfg):
 #   DISTRESS_MODELS     configs to run, in order, comma-separated
 #   DISTRESS_CLIP_NAMES clips to run, by name, comma-separated
-#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: distress/clips)
+#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: clips)
 #   DISTRESS_TIMEOUT_S  time limit per model in seconds (default: 0, no limit)
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(dirname "$DIR")"
+ROOT="$DIR"
 export LD_LIBRARY_PATH="${DIR}/libs:${LD_LIBRARY_PATH}"
 
 ALL_MODELS="zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2"
-RUN_CFG="${DIR}/run-distress.cfg"
+RUN_CFG="${DIR}/run.cfg"
 cfg_value() {
     [ -f "$RUN_CFG" ] && sed -n "s/^$1=//p" "$RUN_CFG" | tail -1
 }
@@ -97,13 +99,15 @@ mkdir -p "$OUT"
     grep -E '^(MemTotal|MemAvailable|SwapTotal):' /proc/meminfo 2>/dev/null
     df -k "$ROOT" 2>/dev/null | tail -1 | sed 's/^/disk_kb: /'
     echo "sha256:"
-    (cd "$ROOT" && sha256sum distress/pretty-doomed distress/config.distress.*.cfg 2>/dev/null)
+    (cd "$ROOT" && sha256sum pretty-doomed run run.cfg config.distress.*.cfg 2>/dev/null)
+    # Model files, once each (configs can share a model).
     for m in $MODELS; do
         cfg="${DIR}/config.distress.${m}.cfg"
         for key in stt_model_encoder stt_model_decoder stt_model_joiner stt_model_tokens; do
-            f=$(sed -n "s/^${key}=//p" "$cfg")
-            (cd "$ROOT" && sha256sum "$f" 2>/dev/null)
+            sed -n "s/^${key}=//p" "$cfg"
         done
+    done | awk '!seen[$0]++' | while read -r f; do
+        (cd "$ROOT" && sha256sum "$f" 2>/dev/null)
     done
     echo "clip_files:"
     (cd "$RUN_CLIPS" && sha256sum ./*.wav 2>/dev/null)
@@ -132,7 +136,8 @@ echo "epoch,timestamp,config,pid,vm_rss_kb,vm_hwm_kb,threads" > "${OUT}/process.
     while kill -0 "$PARENT" 2>/dev/null; do
         CUR=$(cat "${OUT}/current.txt" 2>/dev/null)
         for c in /proc/[0-9]*/comm; do
-            read -r name < "$c" 2>/dev/null || continue
+            # A process can end during the scan: the braces also hide that error.
+            { read -r name < "$c"; } 2>/dev/null || continue
             [ "$name" = "pretty-doomed" ] || continue
             p=${c%/comm}
             awk -v e="$(date '+%s')" -v t="$(date '+%Y-%m-%d %H:%M:%S')" -v m="$CUR" -v pid="${p#/proc/}" \

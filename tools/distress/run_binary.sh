@@ -9,7 +9,7 @@
 # Usage (from tools/distress, after fetch_models.sh and prepare_clips.sh):
 #   ./run_binary.sh
 # Output: binary-run/ (raw, gitignored), then results/binary-<model>/ via import_em.py.
-# Environment: DISTRESS_MODELS (default: the four configs of run-distress).
+# Environment: DISTRESS_MODELS (default: the five configs of the EM package).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -27,12 +27,11 @@ fi
 docker run --rm -w /app \
     -v "$app/src:/app/src:ro" -v "$repo/common:/app/common:ro" \
     -v "$app/Makefile:/app/Makefile:ro" -v "$app/VERSION:/app/VERSION:ro" \
-    -v "$app/models:/app/models:ro" -v "$app/ascii.txt:/app/ascii.txt:ro" \
+    -v "$app/models/sherpa-onnx:/app/models/sherpa-onnx:ro" -v "$app/ascii.txt:/app/ascii.txt:ro" \
     -v "$repo/doom/demos:/app/demos:ro" -v "$repo/doom/build:/app/doom-build:ro" \
     -v "$app/distress:/app/distress-src:ro" \
-    -v "$app/models/sherpa-onnx/small:/app/distress/models/zipformer-small-int8:ro" \
-    -v "$here/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8:/app/distress/models/parakeet-110m-int8:ro" \
-    -v "$here/models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8:/app/distress/models/parakeet-0.6b-v2-int8:ro" \
+    -v "$here/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8:/app/models/parakeet-110m-int8:ro" \
+    -v "$here/models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8:/app/models/parakeet-0.6b-v2-int8:ro" \
     -v "$here/audio:/clips:ro" -v "$out:/out" \
     -e MODELS="$models" \
     "$image" bash -c '
