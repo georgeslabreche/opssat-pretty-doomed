@@ -8,7 +8,7 @@ per-clip scores of score.py, and writes reports/<label>/:
   timeline-and-resource.png  thread timeline, per-core CPU, and memory (plot_resource.py, as for the DOOM runs)
   peak_memory.png         peak memory (VmHWM) of each config, and the free memory at the start
   rtf.png                 real-time factor of each clip, per config
-  report_card_<config>.png  the report card of one clip per config, made on board
+  report_cards/<clip>/<config>.png  every report card of the run, made on board
   accuracy.png            ship-side WER and recall, this run and the ground binary
 
 The resource data is the same as for the DOOM runs: resource.csv has per-core
@@ -260,8 +260,8 @@ def main():
     parser.add_argument("--out", help="output directory (default: reports/<label>)")
     parser.add_argument("--results", default=os.path.join(HERE, "results"),
                         help="results directory with per_clip.tsv of score.py (default: results)")
-    parser.add_argument("--card-clip", default="46250-star-king",
-                        help="clip whose report cards are shown in the report (default: 46250-star-king)")
+    parser.add_argument("--card-clip",
+                        help="show the report cards of this clip only (default: all the cards of the run)")
     parser.add_argument("--free-from", choices=sorted(mem_headroom.PATTERNS),
                         help="use the median idle free memory of the past runs of this machine (mem_headroom.py) as "
                              "the reference, not MemAvailable at the start of this run. Use it for an emulator run, "
@@ -314,15 +314,20 @@ def main():
     else:
         free_ref = (res["idle_avail"], "free at start")
     timeline = plot_timeline_and_resource(args.run_dir, out)
-    card_clip = args.card_clip
-    if not any(os.path.exists(os.path.join(args.run_dir, n, card_clip, "report_card.png")) for n in configs):
-        card_clip = next((x["clip"] for c in configs.values() for x in c["clips"]), card_clip)
-    cards = {}
+    # Every report card of the run, by clip: report_cards/<clip>/<config>.png.
+    # --card-clip keeps the cards of one clip only.
+    run_clip_names = list(dict.fromkeys(x["clip"] for c in configs.values() for x in c["clips"]))
+    card_clips = [args.card_clip] if args.card_clip else run_clip_names
+    cards = {}  # clip -> [(config, relative path)]
+    for clip in card_clips:
+        for name in configs:
+            src = os.path.join(args.run_dir, name, clip, "report_card.png")
+            if os.path.exists(src):
+                rel = os.path.join("report_cards", clip, f"{name}.png")
+                os.makedirs(os.path.join(out, "report_cards", clip), exist_ok=True)
+                shutil.copyfile(src, os.path.join(out, rel))
+                cards.setdefault(clip, []).append((name, rel))
     for name in configs:
-        src = os.path.join(args.run_dir, name, card_clip, "report_card.png")
-        if os.path.exists(src):
-            shutil.copyfile(src, os.path.join(out, f"report_card_{name}.png"))
-            cards[name] = f"report_card_{name}.png"
         configs[name]["cards"] = len(glob.glob(os.path.join(args.run_dir, name, "*", "report_card.png")))
     plot_peak_memory(configs, free_ref, os.path.join(out, "peak_memory.png"))
     plot_rtf(configs, os.path.join(out, "rtf.png"))
@@ -404,7 +409,7 @@ def main():
         "## Report cards made on board",
         "",
         f"One PNG per clip and config, drawn by the pretty-doomed binary on board (`report_card=true`). "
-        f"The cards of `{card_clip}`:",
+        f"{sum(len(v) for v in cards.values())} cards below, by clip, in `report_cards/<clip>/<config>.png`.",
         "",
         "| Config | Cards | Card time, median |",
         "|---|---|---|",
@@ -412,8 +417,10 @@ def main():
     for name, c in configs.items():
         lines.append(f"| `{name}` | {c['cards']} | {c['card_ms']} |")
     lines.append("")
-    for name, png in cards.items():
-        lines += [f"![{name}]({png})", ""]
+    for clip, items in cards.items():
+        lines += [f"### {clip}", ""]
+        for name, rel in items:
+            lines += [f"![{clip}, {name}]({rel})", ""]
     lines += [
         "",
         "## Speed",
