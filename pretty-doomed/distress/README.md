@@ -27,7 +27,7 @@ An add-on for the EM that transcribes 13 real distress calls with three speech-t
 
 All configs use one thread. The two Parakeet 0.6B v2 configs use the same model files.
 
-The peak memory of Parakeet 0.6B v2 on the ground (arm64, VmHWM) is 0.87 GB to 1.39 GB for one clip, and 1.3 GB (5 s) to 1.4 GB (10 s) for all 13 clips. The EM has approximately 990 MB of free memory. Thus Parakeet 0.6B v2 can run out of memory on the EM. Each config runs in its own process, so a config that runs out of memory does not stop the other configs. The clips that are done before the failure stay in `timing.tsv`.
+The peak memory of Parakeet 0.6B v2 on the ground (arm64, VmHWM) is 0.87 GB to 1.39 GB for one clip, and 1.3 GB (5 s) to 1.4 GB (10 s) for all 13 clips. On the SEPP emulator (ARM32) the peak is 869 MiB (10 s) and 821 MiB (5 s). In past runs, the free memory (MemAvailable) at the start of a run is 939 MiB to 970 MiB on the EM and 964 MiB to 968 MiB in flight (see `tools/distress/results/MEMORY.md`). Thus the margin of the 10 s config is only 70 MiB to 100 MiB, and Parakeet 0.6B v2 can run out of memory if other processes use memory. Each config runs in its own process, so a config that runs out of memory does not stop the other configs. The clips that are done before the failure stay in `timing.tsv`.
 
 The binary uses sherpa-onnx 1.13.8, the version of the ground comparison. With the Parakeet models, sherpa-onnx 1.12.21 to 1.13.4 gives an empty text for some windows. 1.13.5 is the first version without this fault.
 
