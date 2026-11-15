@@ -22,6 +22,9 @@ Ground truth and model comparison for the distress call evaluation (issue #142).
 | `transcribe.py` | Transcribes each clip with each model. Writes the output, the real-time factor, and the peak memory to `results/`. |
 | `scoring.py` | The scoring rules: normalization, alignment, WER per speaker, and phrase matching. Python standard library only. |
 | `score.py` | Scores the outputs in `results/` against the references. Writes `per_clip.tsv`, `summary.tsv`, and `RESULTS.md`. |
+| `window_sweep.sh` | Scores Parakeet 0.6B v2 with 5, 10, 15, and 30 s windows. Writes `results/window-sweep/`. |
+| `run_binary.sh` | Runs the pretty-doomed binary with the EM configs on the ground, in Docker. Writes `results/binary-<model>/`. |
+| `import_em.py` | Imports an EM run (`toGround/distress-NNNNN/`) into `results/em-<model>/`. |
 | `results/` | Model outputs and scores. |
 | `tests/` | Unit tests for `scoring.py`. |
 
@@ -47,6 +50,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python transcribe.py  # writes results/<model>/
 python3 score.py                # writes results/per_clip.tsv, summary.tsv, and RESULTS.md
 python3 -m unittest discover -s tests
+./window_sweep.sh               # writes results/window-sweep/
+./run_binary.sh                 # writes results/binary-<model>/ (needs Docker)
+python3 import_em.py <toGround/distress-NNNNN>   # writes results/em-<model>/
 ```
 
 `prepare_clips.sh` requires `shasum` and `ffmpeg`, and `curl` for a clip that is not in `clips/`. To add a clip, add a row to `clips.tsv` and run `build_manifest.py`, then `prepare_clips.sh`, and commit the new MP3. A SHA-256 that changes on a page check means that DVIDS replaced a file. Keep the committed file, and record the change in the manifest.
@@ -111,6 +117,12 @@ A phrase matches a run of whole words in the normalized model output. Only "mayd
 
 A model word gets the speaker of the reference word that it aligns with. An extra model word gets the speaker of the reference word before it. This is the same rule as for the WER.
 
-`transcribe.py` cuts each clip into 30 s windows, because the Parakeet models do not accept long audio. It uses one thread, as on the flight. The Zipformer models use `modified_beam_search`, as on the flight, and the Parakeet models use `greedy_search`. The real-time factor and the memory are from the machine that runs the script, not from the payload computer.
+`transcribe.py` cuts each clip into 10 s windows (`--window`), because the Parakeet models do not accept long audio, and because the memory of Parakeet 0.6B v2 grows with the window length. The EM has about 990 MB free. The window length is set by this memory limit, not by the scores. `window_sweep.sh` records the scores for other window lengths. It uses one thread, as on the flight. The Zipformer models use `modified_beam_search`, as on the flight, and the Parakeet models use `greedy_search`. The real-time factor and the memory are from the machine that runs the script, not from the payload computer.
 
 The flight binary uses sherpa-onnx 1.12.21. There is no Python package of that version for all platforms, so `requirements.txt` pins 1.13.8. The test of the flight binary itself is issue #148.
+
+## Ground binary and EM runs
+
+The EM package (`pretty-doomed/distress/`) runs the pretty-doomed binary, not `transcribe.py`. `run_binary.sh` runs the same binary source with the same configs and the same sherpa-onnx version (1.13.8) on the ground. Thus `results/binary-<model>` against `results/em-<model>` shows the effect of the EM hardware only, and `results/binary-<model>` against `results/<model>` shows the effect of the binary (its WAV reader and resampler) only.
+
+The binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherpa-onnx 1.12.21 (the v8 version) to 1.13.4 gives an empty text for some windows. For example, the first two 30 s windows of the Star King clip give no text, and the WER of Parakeet 0.6B v2 goes from 0.32 to 0.59. The Zipformer models are not affected.
