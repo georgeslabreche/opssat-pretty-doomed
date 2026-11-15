@@ -1,0 +1,66 @@
+{
+ "model": "parakeet-110m-int8",
+ "archive": "sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8",
+ "decoding": "greedy_search",
+ "threads": 1,
+ "window_s": 30,
+ "sherpa_onnx": "1.13.8",
+ "machine": "Darwin arm64",
+ "model_mb": 130.2,
+ "load_s": 0.62,
+ "peak_rss_mb": 741.7,
+ "clips": {
+  "34749-imagination": {
+   "audio_s": 131.37,
+   "rtf": 0.0363
+  },
+  "35098-midnite-sun-relay": {
+   "audio_s": 54.73,
+   "rtf": 0.0326
+  },
+  "35135-double-time": {
+   "audio_s": 50.99,
+   "rtf": 0.0316
+  },
+  "35628-miss-yalanda": {
+   "audio_s": 5.43,
+   "rtf": 0.0305
+  },
+  "37977-bainbridge-skiff": {
+   "audio_s": 4.44,
+   "rtf": 0.0304
+  },
+  "41096-kupreanof": {
+   "audio_s": 10.58,
+   "rtf": 0.0288
+  },
+  "44865-galveston-capsize": {
+   "audio_s": 31.35,
+   "rtf": 0.0312
+  },
+  "46250-star-king": {
+   "audio_s": 227.23,
+   "rtf": 0.0348
+  },
+  "46887-surfside-fire": {
+   "audio_s": 14.68,
+   "rtf": 0.0291
+  },
+  "48097-oahu-sailboat": {
+   "audio_s": 35.79,
+   "rtf": 0.0322
+  },
+  "53901-captain-billy-haver": {
+   "audio_s": 240.08,
+   "rtf": 0.0344
+  },
+  "56367-netarts-pwc": {
+   "audio_s": 4.31,
+   "rtf": 0.0288
+  },
+  "87205-molokai": {
+   "audio_s": 18.94,
+   "rtf": 0.0315
+  }
+ }
+}
