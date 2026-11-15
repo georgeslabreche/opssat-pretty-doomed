@@ -136,7 +136,7 @@ The free memory of the SEPP (MemAvailable at the start of a run) is 939 MiB to 9
 `reports/emu/` and `reports/emu1g/` are the reports of the two emulator runs:
 
 ```sh
-.venv/bin/python report.py <toGround/distress-NNNNN> --label emu --free-mib 965 --free-label "EM free memory, median of 18 runs"
+.venv/bin/python report.py <toGround/distress-NNNNN> --label emu --free-from EM
 ```
 
-For an EM run, omit `--free-mib`: the report then uses MemAvailable at the start of the run, from `resource.csv`.
+`--free-from EM` uses the median free memory at the start of the past EM runs, measured by `mem_headroom.py` from their `resource.csv` files, because on the emulator `resource.csv` shows the Docker VM. For an EM run, omit `--free-from`: the report then uses MemAvailable at the start of the run, from its own `resource.csv`.

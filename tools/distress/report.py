@@ -33,6 +33,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 
+import mem_headroom  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Reference palette of the dataviz method: categorical slots 1-4, fixed order.
@@ -253,11 +255,10 @@ def main():
     parser.add_argument("--ground-label", default="binary", help="label of the ground baseline (default: binary)")
     parser.add_argument("--title", help="report title")
     parser.add_argument("--out", help="output directory (default: reports/<label>)")
-    parser.add_argument("--free-mib", type=float,
-                        help="reference free memory in MiB (default: MemAvailable at the start of the run). "
-                             "Use it for an emulator run, where resource.csv shows the Docker VM and not the EM")
-    parser.add_argument("--free-label", default="EM free memory",
-                        help="name of --free-mib in the plots and tables (default: EM free memory)")
+    parser.add_argument("--free-from", choices=sorted(mem_headroom.PATTERNS),
+                        help="use the median idle free memory of the past runs of this machine (mem_headroom.py) as "
+                             "the reference, not MemAvailable at the start of this run. Use it for an emulator run, "
+                             "where resource.csv shows the Docker VM and not the EM")
     args = parser.parse_args()
 
     out = args.out or os.path.join(HERE, "reports", args.label)
@@ -296,7 +297,13 @@ def main():
     if not configs:
         sys.exit("No config output in the run directory.")
 
-    free_ref = (args.free_mib, args.free_label) if args.free_mib else (res["idle_avail"], "free at start")
+    if args.free_from:
+        history = mem_headroom.idle_free(args.free_from)
+        if not history:
+            sys.exit(f"No past {args.free_from} runs with memory data.")
+        free_ref = (statistics.median(history), f"{args.free_from} free memory, median of {len(history)} runs")
+    else:
+        free_ref = (res["idle_avail"], "free at start")
     plot_timeline(res, spans, free_ref, os.path.join(out, "resource_timeline.png"))
     plot_peak_memory(configs, free_ref, os.path.join(out, "peak_memory.png"))
     plot_rtf(configs, os.path.join(out, "rtf.png"))
@@ -340,9 +347,10 @@ def main():
         "The peak memory is the VmHWM of the pretty-doomed process, from `stt.tsv`.",
         "",
     ]
-    if args.free_mib:
+    if args.free_from:
         lines += [
-            f"The reference free memory is {free_ref[1]}, {free_ref[0]:.0f} MiB (`--free-mib`). On the SEPP emulator, "
+            f"The reference free memory is the {free_ref[1]}, {free_ref[0]:.0f} MiB, measured by `mem_headroom.py` from "
+            f"the `resource.csv` files of those runs (`--free-from {args.free_from}`). On the SEPP emulator, "
             "`resource.csv` shows the CPU and the memory of the Docker VM, with all of its containers, and not of the EM. "
             "Thus the CPU and free memory plot, MemTotal, and the free memory in the run table are not EM data. "
             "The peak memory (VmHWM) is the memory of the process, and includes the memory of QEMU.",

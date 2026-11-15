@@ -47,6 +47,21 @@ def run_memory(path):
     return date, int(rows[0]["mem_total_kb"]) / 1024, avail[0], min(avail)
 
 
+def runs():
+    """Yield (machine, run, date, total, idle, min) for each past run with memory data."""
+    for machine, pattern in PATTERNS.items():
+        for path in sorted(glob.glob(os.path.join(APP, pattern), recursive=True)):
+            m = run_memory(path)
+            if m is not None:
+                run = os.path.relpath(os.path.dirname(path), os.path.join(APP, "docs"))
+                yield (machine, run) + m
+
+
+def idle_free(machine):
+    """Return the idle free memory (MiB) at the start of each past run of a machine (EM or flight)."""
+    return [r[4] for r in runs() if r[0] == machine]
+
+
 def load_peaks(args_peaks):
     """Return {name: MiB} from --peak NAME=MiB, or from the emulator results."""
     if args_peaks:
@@ -67,15 +82,9 @@ def main():
     print("| Machine | Run | Date | Total | Idle | Min | Run peak |")
     print("|---|---|---|---|---|---|---|")
     idle = {}
-    for machine, pattern in PATTERNS.items():
-        for path in sorted(glob.glob(os.path.join(APP, pattern), recursive=True)):
-            m = run_memory(path)
-            if m is None:
-                continue
-            date, total, start, low = m
-            run = os.path.relpath(os.path.dirname(path), os.path.join(APP, "docs"))
-            print(f"| {machine} | {run} | {date} | {total:.0f} | {start:.0f} | {low:.0f} | {start - low:.0f} |")
-            idle.setdefault(machine, []).append(start)
+    for machine, run, date, total, start, low in runs():
+        print(f"| {machine} | {run} | {date} | {total:.0f} | {start:.0f} | {low:.0f} | {start - low:.0f} |")
+        idle.setdefault(machine, []).append(start)
 
     print("\n| Machine | Runs | Idle, lowest | Idle, median | Idle, highest |")
     print("|---|---|---|---|---|")
