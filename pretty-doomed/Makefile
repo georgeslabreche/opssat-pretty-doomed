@@ -65,7 +65,7 @@ BUILDDIR ?= build/local
 TESTDIR = tests
 
 # Pure C++17 sources (no external deps - unit testable)
-SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SRCDIR)/executor.cpp $(SRCDIR)/batch.cpp
+SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SRCDIR)/executor.cpp $(SRCDIR)/batch.cpp $(SRCDIR)/report_card.cpp
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
@@ -136,6 +136,9 @@ $(BUILDDIR)/executor.o: $(SRCDIR)/executor.cpp $(SRCDIR)/executor.h | $(BUILDDIR
 $(BUILDDIR)/batch.o: $(SRCDIR)/batch.cpp $(SRCDIR)/batch.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
 
+$(BUILDDIR)/report_card.o: $(SRCDIR)/report_card.cpp $(SRCDIR)/report_card.h $(SRCDIR)/config.h $(SRCDIR)/matcher.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
+
 $(BUILDDIR)/postcard.o: $(SRCDIR)/postcard.cpp $(SRCDIR)/postcard.h $(SRCDIR)/postcard_image.h $(SRCDIR)/postcard_sc16.h $(SRCDIR)/doom_palette.h $(SRCDIR)/bitmap_font.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -DPOSTCARD_USE_FFTW -c $< -o $@
 
@@ -155,20 +158,20 @@ $(BUILDDIR)/sdr.o: $(SRCDIR)/sdr.cpp $(SRCDIR)/sdr.h $(SRCDIR)/config.h | $(BUIL
 $(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/chain.h $(SRCDIR)/config.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/config.h $(SRCDIR)/transcriber.h $(SRCDIR)/audio_io.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
+$(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/batch.h $(SRCDIR)/config.h $(SRCDIR)/transcriber.h $(SRCDIR)/audio_io.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/batch.h $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
+$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/batch.h $(SRCDIR)/report_card.h $(SRCDIR)/matcher.h $(SRCDIR)/audio_io.h $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -DAPP_VERSION=$(APP_VERSION) -c $< -o $@
 
 #############################################
 # Unit tests - pure C++17 modules only
 #############################################
 
-TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_resample.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp $(TESTDIR)/test_postcard.cpp $(TESTDIR)/test_batch.cpp
+TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_resample.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp $(TESTDIR)/test_postcard.cpp $(TESTDIR)/test_batch.cpp $(TESTDIR)/test_report_card.cpp
 TEST_OBJS = $(patsubst $(TESTDIR)/%.cpp,$(BUILDDIR)/%.o,$(TEST_SRCS))
 
-$(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp $(SRCDIR)/config.h $(SRCDIR)/batch.h $(SRCDIR)/matcher.h | $(BUILDDIR)
+$(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp $(SRCDIR)/config.h $(SRCDIR)/batch.h $(SRCDIR)/matcher.h $(SRCDIR)/report_card.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
 
 # Test-specific postcard object (no FFTW dependency)
@@ -273,6 +276,38 @@ build-sherpa: patch-sherpa
 
 PACKAGE_DIR = package/$(PACKAGE_NAME)
 
+# Shared libraries of the SEPP binary, copied to $(1). Used by package-prepare
+# and package-distress-prepare, so that both packages have the same libs.
+define COPY_SEPP_LIBS
+	mkdir -p $(1)
+	# GNU Radio + VOLK + AD9361 libs (pre-built or from /opt/gnuradio)
+	cp -P /app/libs-gnuradio/lib/*.so* $(1)/ 2>/dev/null || \
+	cp -P /opt/gnuradio/lib/*.so* $(1)/
+	# Boost libs
+	cp -P /usr/lib/libboost_filesystem.so* $(1)/
+	cp -P /usr/lib/libboost_program_options.so* $(1)/
+	cp -P /usr/lib/libboost_thread.so* $(1)/
+	# Core dependencies
+	cp -P /usr/lib/libfmt.so* $(1)/
+	cp -P /usr/lib/libspdlog.so* $(1)/
+	cp -P /usr/lib/libgmp.so.10* $(1)/
+	cp -P /usr/lib/liborc-0.4.so* $(1)/
+	# FFT libs
+	cp -P /usr/lib/libfftw3f.so* $(1)/
+	cp -P /usr/lib/libfftw3f_threads.so* $(1)/
+	# Audio libs (libsndfile + codecs)
+	cp -P /usr/lib/libsndfile.so* $(1)/
+	cp -P /usr/lib/libogg.so* $(1)/
+	cp -P /usr/lib/libvorbis.so* $(1)/
+	cp -P /usr/lib/libvorbisenc.so* $(1)/
+	cp -P /usr/lib/libFLAC.so* $(1)/
+	cp -P /usr/lib/libopus.so* $(1)/
+	cp -P /usr/lib/libmpg123.so* $(1)/
+	cp -P /usr/lib/libmp3lame.so* $(1)/
+	# IIO libs (SDR capture)
+	cp -P /usr/lib/libiio.so* $(1)/
+endef
+
 # Run inside ARM32 container
 package-prepare: $(TARGET) doom
 	mkdir -p $(PACKAGE_DIR)/libs
@@ -296,32 +331,7 @@ package-prepare: $(TARGET) doom
 	# Postcard assets
 	mkdir -p $(PACKAGE_DIR)/assets
 	cp assets/*.png $(PACKAGE_DIR)/assets/
-	# GNU Radio + VOLK + AD9361 libs (pre-built or from /opt/gnuradio)
-	cp -P /app/libs-gnuradio/lib/*.so* $(PACKAGE_DIR)/libs/ 2>/dev/null || \
-	cp -P /opt/gnuradio/lib/*.so* $(PACKAGE_DIR)/libs/
-	# Boost libs
-	cp -P /usr/lib/libboost_filesystem.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libboost_program_options.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libboost_thread.so* $(PACKAGE_DIR)/libs/
-	# Core dependencies
-	cp -P /usr/lib/libfmt.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libspdlog.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libgmp.so.10* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/liborc-0.4.so* $(PACKAGE_DIR)/libs/
-	# FFT libs
-	cp -P /usr/lib/libfftw3f.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libfftw3f_threads.so* $(PACKAGE_DIR)/libs/
-	# Audio libs (libsndfile + codecs)
-	cp -P /usr/lib/libsndfile.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libogg.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libvorbis.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libvorbisenc.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libFLAC.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libopus.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libmpg123.so* $(PACKAGE_DIR)/libs/
-	cp -P /usr/lib/libmp3lame.so* $(PACKAGE_DIR)/libs/
-	# IIO libs (SDR capture)
-	cp -P /usr/lib/libiio.so* $(PACKAGE_DIR)/libs/
+	$(call COPY_SEPP_LIBS,$(PACKAGE_DIR)/libs)
 	# Sherpa-ONNX + ONNX Runtime: statically linked into pretty-doomed binary
 	# (no shared libs needed — see build-sherpa comment)
 	@echo "Package prepared in $(PACKAGE_DIR)/"
@@ -367,7 +377,8 @@ package-distress-prepare: $(TARGET)
 	cp $(TARGET) $(DISTRESS_DIR)/pretty-doomed
 	strip $(DISTRESS_DIR)/pretty-doomed
 	upx --best $(DISTRESS_DIR)/pretty-doomed
-	@echo "Distress binary prepared in $(DISTRESS_DIR)/"
+	$(call COPY_SEPP_LIBS,$(DISTRESS_DIR)/libs)
+	@echo "Distress binary and libs prepared in $(DISTRESS_DIR)/"
 
 # Run OUTSIDE container
 package-distress:
@@ -381,6 +392,8 @@ package-distress:
 		mkdir -p $(DISTRESS_DIR)/models/$$name; \
 		cp $$src/encoder.int8.onnx $$src/decoder.int8.onnx $$src/joiner.int8.onnx $$src/tokens.txt $(DISTRESS_DIR)/models/$$name/; \
 	done
+	mkdir -p $(DISTRESS_DIR)/models/zipformer-small-int8
+	cp $(MODEL_FILES) $(DISTRESS_DIR)/models/zipformer-small-int8/
 	cd package/$(DISTRESS_NAME) && find distress -type f ! -name MANIFEST.sha256 | sort | xargs shasum -a 256 > distress/MANIFEST.sha256
 	COPYFILE_DISABLE=1 tar --owner=exp --group=exp \
 		-czf package/$(DISTRESS_NAME).tar.gz -C package/$(DISTRESS_NAME) distress

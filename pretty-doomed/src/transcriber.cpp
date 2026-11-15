@@ -65,7 +65,12 @@ bool Transcriber::is_ready() const {
 }
 
 std::string Transcriber::transcribe(const std::vector<float>& samples, int sample_rate) {
-    if (!recognizer_) return "";
+    return join_transcripts(transcribe_windows(samples, sample_rate));
+}
+
+std::vector<std::string> Transcriber::transcribe_windows(const std::vector<float>& samples,
+                                                         int sample_rate) {
+    if (!recognizer_) return {};
     // stt_window_s=0 gives one window over all the samples: the v8 behavior.
     auto windows = stt_windows(samples.size(), sample_rate, window_s_,
                                static_cast<std::size_t>(sample_rate / 2));
@@ -76,7 +81,7 @@ std::string Transcriber::transcribe(const std::vector<float>& samples, int sampl
     for (const auto& [begin, end] : windows) {
         parts.push_back(transcribe_window(samples.data() + begin, end - begin, sample_rate));
     }
-    return join_transcripts(parts);
+    return parts;
 }
 
 std::string Transcriber::transcribe_window(const float* samples, std::size_t n, int sample_rate) {

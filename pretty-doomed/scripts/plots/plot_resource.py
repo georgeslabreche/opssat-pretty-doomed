@@ -38,14 +38,15 @@ PHASE_PATTERNS = [
     ("Artifacts",      re.compile(r"IQ diag:|IQ RMS:|IQ zeros:|IQ metrics:|Spectrogram:|Constellation:|PSD:")),
     ("DSP Filter",     re.compile(r"Filtering \(GNU Radio\)")),   # legacy logs (pre-v7)
     ("Resample",       re.compile(r"Resampling to")),
-    ("STT Inference",  re.compile(r"Transcribing \(|STT time:")),
+    ("STT Inference",  re.compile(r"Transcribing \(|STT time:|\d+ windows of [\d.]+ s")),
     # Detection runs on the STT thread; "Command detected! Launching DOOM" is
     # the exec thread announcing the launch, so it belongs to the DOOM phase.
-    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering")),
+    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|operation=detect, no action")),
     ("DOOM",           re.compile(r"Command detected|Running DOOM demo:|Completed demo:")),
     # "SC16 replay" lines match SDR Init above (first match wins); these are
     # the postcard/exec-stage lines (input path, keep/delete cleanup).
     ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16:|SC16 deleted|SC16 kept")),
+    ("Report Card",    re.compile(r"Report card: ")),   # distress report card (#142), own thread
 ]
 
 PHASE_COLORS = {
@@ -64,11 +65,12 @@ PHASE_COLORS = {
     "Detection":      "#b15928",  # brown
     "DOOM":           "#6a3d9a",  # dark purple
     "Postcard":       "#cab2d6",  # light purple (paired with DOOM)
+    "Report Card":    "#1b9e77",  # green-teal (distress report card, #142)
 }
 
 PHASE_ORDER = ["STT Model Load", "SDR Config", "SDR Init", "SDR Capture", "SDR Teardown",
                "Narrowing", "Normalize", "Dispatch", "Artifacts", "DSP Filter", "Resample",
-               "STT Inference", "Detection", "DOOM", "Postcard"]
+               "STT Inference", "Detection", "DOOM", "Postcard", "Report Card"]
 
 LOG_RE = re.compile(
     r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]"
@@ -383,7 +385,7 @@ def plot_combined(run_dir, output_path, title, x_max=None):
     fig.suptitle(title, fontsize=14, fontweight="bold", y=0.98)
 
     # --- Gantt timeline ---
-    LABEL_PHASES = {"STT Model Load", "SDR Config", "SDR Init", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
+    LABEL_PHASES = {"STT Model Load", "SDR Config", "SDR Init", "SDR Capture", "STT Inference", "DOOM", "Postcard", "Report Card"}
     bar_height = 0.55
     # Opaque bars, longest first: stretched minimum-width slivers can overlap
     # real spans, and translucent overlaps would blend into colors that exist

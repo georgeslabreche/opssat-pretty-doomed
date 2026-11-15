@@ -40,14 +40,15 @@ PHASE_PATTERNS = [
     ("Artifacts",      re.compile(r"IQ diag:|IQ RMS:|IQ zeros:|IQ metrics:|Spectrogram:|Constellation:|PSD:")),
     ("DSP Filter",     re.compile(r"Filtering \(GNU Radio\)")),   # legacy logs (pre-v7)
     ("Resample",       re.compile(r"Resampling to")),
-    ("STT Inference",  re.compile(r"Transcribing \(|STT time:")),
+    ("STT Inference",  re.compile(r"Transcribing \(|STT time:|\d+ windows of [\d.]+ s")),
     # Detection runs on the STT thread; "Command detected! Launching DOOM" is
     # the exec thread announcing the launch, so it belongs to the DOOM phase.
-    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering")),
+    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|operation=detect, no action")),
     ("DOOM",           re.compile(r"Command detected|Running DOOM demo:|Completed demo:")),
     # "SC16 replay" lines match SDR Init above (first match wins); these are
     # the postcard/exec-stage lines (input path, keep/delete cleanup).
     ("Postcard",       re.compile(r"Generating postcard|Postcard:|Frame:|SC16:|SC16 deleted|SC16 kept")),
+    ("Report Card",    re.compile(r"Report card: ")),   # distress report card (#142), own thread
 ]
 
 PHASE_COLORS = {
@@ -66,6 +67,7 @@ PHASE_COLORS = {
     "Detection":      "#b15928",  # brown
     "DOOM":           "#6a3d9a",  # dark purple
     "Postcard":       "#cab2d6",  # light purple (paired with DOOM)
+    "Report Card":    "#1b9e77",  # green-teal (distress report card, #142)
 }
 
 LOG_RE = re.compile(
@@ -306,7 +308,7 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
     ax.grid(axis="x", alpha=0.3)
 
     # Phase name + duration labels on bars
-    LABEL_PHASES = {"STT Model Load", "SDR Init", "SDR Capture", "STT Inference", "DOOM", "Postcard"}
+    LABEL_PHASES = {"STT Model Load", "SDR Init", "SDR Capture", "STT Inference", "DOOM", "Postcard", "Report Card"}
     x_range = (x_max if x_max else t_max)
     for phase, tid, ts, te in spans:
         if phase_base(phase) not in LABEL_PHASES or (te - ts) < 0.5:
@@ -325,7 +327,7 @@ def plot_timeline(entries, spans, output_path, title, x_max=None):
     # Legend outside plot area
     base_order = ["STT Model Load", "SDR Init", "SDR Capture", "SDR Teardown",
                   "Narrowing", "Normalize", "Artifacts", "DSP Filter", "Resample",
-                  "STT Inference", "Detection", "DOOM", "Postcard"]
+                  "STT Inference", "Detection", "DOOM", "Postcard", "Report Card"]
     seen_bases = set(phase_base(s[0]) for s in spans)
     handles = []
     for phase in base_order:

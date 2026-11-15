@@ -1,6 +1,6 @@
 # Distress call evaluation on the EM
 
-An add-on for the EM that transcribes 13 real distress calls with three speech-to-text models in four configurations (issue #142). It is not for flight. It installs next to the v8 install in a `distress/` folder and does not change any v8 file.
+An add-on for the EM that transcribes 13 real distress calls with three speech-to-text models in four configurations (issue #142). It is not for flight. It is self-contained in a `distress/` folder: it has its own binary, libs, and models, so it does not need the v8 install. If the v8 install is present, the add-on does not change any v8 file.
 
 ## Contents
 
@@ -12,7 +12,8 @@ An add-on for the EM that transcribes 13 real distress calls with three speech-t
 | `VERSION` | Version of the add-on and of its binary. |
 | `pretty-doomed` | The ARM32 binary, built from the same source as v8 plus the keys of #142, with sherpa-onnx 1.13.8 (v8 uses 1.12.21). Added by the package build. |
 | `clips/` | The 13 clips as 16 kHz mono WAV. Added by the package build. |
-| `models/` | The Parakeet 110M and Parakeet 0.6B v2 models. Added by the package build. The Zipformer small model is the v8 model in `../models/`. |
+| `libs/` | The shared libraries of the binary (GNU Radio, Boost, and others), the same as the v8 `libs/`. Added by the package build. |
+| `models/` | The Zipformer small model (a copy of the v8 model), and the Parakeet 110M and Parakeet 0.6B v2 models. Added by the package build. |
 | `README.md` | This file. |
 | `MANIFEST.sha256` | SHA-256 of each file in the package. Added by the package build. |
 
@@ -20,7 +21,7 @@ An add-on for the EM that transcribes 13 real distress calls with three speech-t
 
 | Config | Model | Decoding | Window | Files | Notes |
 |---|---|---|---|---|---|
-| `zipformer-small-int8` | Zipformer small | `modified_beam_search` | 10 s | v8 files, 27 MB | The flight model. Baseline. |
+| `zipformer-small-int8` | Zipformer small | `modified_beam_search` | 10 s | 27 MB, a copy of the v8 files | The flight model. Baseline. |
 | `parakeet-110m-int8` | Parakeet TDT 110M | `nemo_transducer`, `greedy_search` | 10 s | 130 MB | |
 | `parakeet-0.6b-v2-int8-w5` | Parakeet TDT 0.6B v2 | `nemo_transducer`, `greedy_search` | 5 s | 631 MB | Fallback with less memory. |
 | `parakeet-0.6b-v2-int8` | Parakeet TDT 0.6B v2 | `nemo_transducer`, `greedy_search` | 10 s | the same files | The most accurate model on the ground. It runs last. |
@@ -33,11 +34,11 @@ The binary uses sherpa-onnx 1.13.8, the version of the ground comparison. With t
 
 ## Install
 
-Extract the package in the experiment folder, next to the v8 files:
+Extract the package in the experiment folder. The v8 install is not necessary:
 
 ```sh
 cd <experiment folder>
-tar -xzf exp4023-pretty-DOOMed-v<version>.tar.gz   # for example v8-distress-1
+tar -xzf exp4023-pretty-DOOMed-v<version>.tar.gz   # for example v8-distress-v1
 sha256sum -c distress/MANIFEST.sha256
 ```
 
@@ -57,18 +58,31 @@ Optional environment variables:
 
 The estimated run time on the EM is 3 to 6 hours for all four configs. Most of it is the two Parakeet 0.6B v2 configs.
 
+## Report cards
+
+Each config has `report_card=true`. The binary draws one PNG per clip on board, the distress counterpart of the DOOM postcard:
+
+- The verdict: DISTRESS DETECTED or NO DISTRESS PHRASE.
+- The config, the decoding, the window length, the STT time, the RTF, and the peak memory.
+- The audio spectrogram (0 Hz to 4 kHz) with the STT windows. A red window has an exact distress phrase. An orange window has an approximate match only.
+- The exact matches (MATCHED) and the approximate matches with the words that were heard (NEAR).
+- A transcript excerpt around the matches.
+
+A separate thread draws the cards while the main thread transcribes the next clip, so the STT time of a clip does not include a card. The log lines of the cards (`Report card:`) have the thread ID of that thread. A card is approximately 100 kB to 250 kB, so 52 cards are approximately 10 MB.
+
 ## Output
 
 ```
 toGround/distress-NNNNN/
 ├── manifest.txt     binary version, models, SHA-256 of the files, system memory and disk
-├── resource.csv     CPU and memory every second for the full run
+├── resource.csv     CPU and memory every second for the full run (the format of the DOOM runs)
+├── process.csv      memory (VmRSS, VmHWM) and threads of the pretty-doomed process every second
 ├── exit.txt         exit code and run time of each model
 └── <model>/
     ├── pretty-doomed.log
     ├── stt.tsv      model type, decoding, window, threads, load time, peak memory (VmHWM)
     ├── timing.tsv   per clip: audio length, STT time, real-time factor, detection
-    └── <clip>/      transcription.txt, scores.txt, summary.txt
+    └── <clip>/      transcription.txt, scores.txt, summary.txt, report_card.png
 ```
 
 Each clip is written to `timing.tsv` when it is done, so a run that stops keeps the clips that finished.
@@ -89,9 +103,10 @@ Exit codes in `exit.txt`:
 cd tools/distress
 python3 import_em.py <path to distress-NNNNN>
 python3 score.py
+.venv/bin/python report.py <path to distress-NNNNN> --label em
 ```
 
-`import_em.py` writes the EM results to `results/em-<model>/`, and `score.py` scores them next to the ground results.
+`import_em.py` writes the EM results to `results/em-<model>/`, and `score.py` scores them next to the ground results. `report.py` writes `reports/em/REPORT.md` with the figures: CPU, free memory, and process memory during the run (from `resource.csv`, the same data as for the DOOM runs, and `process.csv`), peak memory per config, the phases of each config by thread, the report cards of one clip, speed per clip, and accuracy against the ground binary.
 
 ## Build
 

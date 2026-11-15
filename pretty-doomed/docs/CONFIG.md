@@ -36,6 +36,7 @@ Currently supported operations:
 | `detect_command` | DOOM | Comma-separated commands (e.g., `DOOM,PLAY DOOM`) |
 | `detect_fuzzy_max_distance` | 2 | Max Levenshtein distance for fuzzy matching |
 | `detect_strip_punctuation` | false | Replace punctuation in the transcript with spaces before matching. The Parakeet models write punctuation (`MAYDAY,`). false: as in v8 (#142). |
+| `report_card` | false | Draw a report card PNG per clip in directory mode (`-i`): the verdict, the run numbers, the audio spectrogram with the STT windows, the windows with a distress phrase, the exact and approximate matches, and a transcript excerpt. A separate thread draws it while the next clip is transcribed. false: no card (#142). |
 
 Scoring: exact matches = 2 points, fuzzy matches = 1 point.
 

@@ -187,7 +187,7 @@ All x86_64 emulator limitations apply, plus:
 
 ### Distress call evaluation package
 
-The distress package (#142, see [`distress/README.md`](../distress/README.md)) runs in file mode, so it does not need the SDR emulator. The test installs the v8 package and the distress package in the container, as on the EM, and runs `run-distress`. Build the package first (see [BUILDING.md](BUILDING.md), section "Distress call evaluation package").
+The distress package (#142, see [`distress/README.md`](../distress/README.md)) runs in file mode, so it does not need the SDR emulator. The test extracts the distress package in an empty folder in the container, without the v8 install, and runs `run-distress`. Thus it also shows that the package is self-contained. Build the package first (see [BUILDING.md](BUILDING.md), section "Distress call evaluation package").
 
 ```bash
 mkdir -p toGround/emu-distress
@@ -196,8 +196,8 @@ cat > toGround/emu-distress/emu-run.sh <<'EOF'
 # Usage (in the SEPP emu container): sh emu-run.sh <label>
 set -e
 I=/tmp/install
-cp -a /app/package/exp4023-pretty-DOOMed-v8 "$I"
-tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-1.tar.gz -C "$I"
+mkdir -p "$I"
+tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-v1.tar.gz -C "$I"
 cd "$I"
 echo "manifest failures: $(sha256sum -c distress/MANIFEST.sha256 | grep -vc ': OK$')"
 set +e
@@ -218,6 +218,7 @@ SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run -d 
 cd ../tools/distress
 python3 import_em.py ../../pretty-doomed/toGround/emu-distress/full --label emu --machine "SEPP emulator (QEMU armv7l)"
 python3 score.py
+.venv/bin/python report.py ../../pretty-doomed/toGround/emu-distress/full --label emu --free-from EM
 ```
 
 The two runs use one CPU each. `SEPP_EMU_MEM_LIMIT` sets `mem_limit` of the container. The default (64g) has no effect, so the DOOM emulation tests above do not change.

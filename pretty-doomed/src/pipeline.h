@@ -3,6 +3,7 @@
 
 #include <future>
 #include <string>
+#include <vector>
 #include "config.h"
 #include "transcriber.h"
 
@@ -15,6 +16,7 @@ struct PipelineStageResult {
     std::string ascii_art;           // ASCII art for DOOM banner
     double audio_s = 0.0;            // input audio length in seconds
     double stt_s = 0.0;              // transcription time in seconds
+    std::vector<std::string> window_texts; // text of each STT window (one when stt_window_s=0)
 };
 
 // Stage 1: DSP -> STT -> Detection -> write scores/summary.

@@ -108,7 +108,7 @@ tar -xzf exp4023-pretty-DOOMed-v<VERSION>.tar.gz
 
 ## Distress call evaluation package
 
-An add-on for the EM only (#142). It installs next to v8 in a `distress/` folder and does not change any v8 file. See [`distress/README.md`](../distress/README.md) for the contents, the run, and the output.
+An add-on for the EM only (#142). It is self-contained in a `distress/` folder, with its own binary, libs, and models, so it does not need the v8 install. It does not change any v8 file. See [`distress/README.md`](../distress/README.md) for the contents, the run, and the output.
 
 ```bash
 # 1. Ground inputs: the 13 clips as WAV, and the Parakeet models
@@ -127,7 +127,7 @@ docker-compose -f docker-compose.sepp.yml run --rm -v $PWD/distress:/app/distres
 make package-distress
 ```
 
-This creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz` (for example `v8-distress-1`), about 580 MB. Almost all of it is the Parakeet 0.6B v2 model.
+This creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz` (for example `v8-distress-v1`), about 605 MB. Almost all of it is the Parakeet 0.6B v2 model.
 
 The distress binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherpa-onnx 1.12.21 (the v8 version) to 1.13.4 gives an empty text for some windows: the first two 30 s windows of the Star King clip, for example. The Zipformer small model is not affected. A new `BUILDDIR` makes sure that no object file is older than `config.h`.
 

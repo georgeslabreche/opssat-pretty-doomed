@@ -6,12 +6,16 @@
 # models run one after the other, the largest last, so that a model that runs
 # out of memory cannot stop the other models.
 #
-# The script does not change the v8 install. It uses the v8 libs/ and the v8
-# Zipformer small model files, and its own pretty-doomed binary.
+# The add-on is self-contained: it has its own pretty-doomed binary, libs/,
+# and models/, so it does not need the v8 install. It does not change any v8
+# file. operation=detect does not launch DOOM, so the DOOM binary and the demos
+# are not necessary (-d and -e must not be empty, but are not used).
 #
 # Output: toGround/distress-NNNNN/
 #   manifest.txt        binary version, models, file SHA-256, and system data
-#   resource.csv        CPU and memory every second for the full run
+#   resource.csv        CPU and memory every second for the full run (the
+#                       format of the DOOM runs)
+#   process.csv         memory of the pretty-doomed process every second
 #   exit.txt            exit code and run time of each model
 #   <model>/            pretty-doomed.log, stt.tsv, timing.tsv, <clip>/
 #
@@ -22,7 +26,7 @@
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$DIR")"
-export LD_LIBRARY_PATH="${ROOT}/libs:${LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="${DIR}/libs:${LD_LIBRARY_PATH}"
 
 BIN="${DIR}/pretty-doomed"
 MODELS="${DISTRESS_MODELS:-zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8}"
@@ -84,6 +88,27 @@ echo "epoch,timestamp,cpu0_user,cpu0_nice,cpu0_system,cpu0_idle,cpu0_iowait,cpu1
 ) >> "${OUT}/resource.csv" 0<&- &
 MON_PID=$!
 
+# Process monitor: memory of the running pretty-doomed process every second.
+# On the SEPP emulator, resource.csv shows the Docker VM, but this file shows
+# the process. The config that runs is in current.txt.
+echo "epoch,timestamp,config,pid,vm_rss_kb,vm_hwm_kb,threads" > "${OUT}/process.csv"
+(
+    PARENT=$$
+    while kill -0 "$PARENT" 2>/dev/null; do
+        CUR=$(cat "${OUT}/current.txt" 2>/dev/null)
+        for c in /proc/[0-9]*/comm; do
+            read -r name < "$c" 2>/dev/null || continue
+            [ "$name" = "pretty-doomed" ] || continue
+            p=${c%/comm}
+            awk -v e="$(date '+%s')" -v t="$(date '+%Y-%m-%d %H:%M:%S')" -v m="$CUR" -v pid="${p#/proc/}" \
+                '/^VmRSS:/{r=$2} /^VmHWM:/{h=$2} /^Threads:/{n=$2} END{if (r != "") print e","t","m","pid","r","h","n}' \
+                "$p/status" 2>/dev/null
+        done
+        sleep 1
+    done
+) >> "${OUT}/process.csv" 0<&- &
+PMON_PID=$!
+
 echo "model	exit	seconds" > "${OUT}/exit.txt"
 cd "$ROOT" || exit 1
 for m in $MODELS; do
@@ -93,6 +118,7 @@ for m in $MODELS; do
         continue
     fi
     echo "=== ${m} ==="
+    echo "$m" > "${OUT}/current.txt"
     t0=$(date '+%s')
     if [ "$TIMEOUT_S" -gt 0 ] 2>/dev/null; then
         timeout "$TIMEOUT_S" "$BIN" -i "$CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
@@ -105,7 +131,8 @@ for m in $MODELS; do
     echo "${m}	${rc}	$(( $(date '+%s') - t0 ))" >> "${OUT}/exit.txt"
 done
 
-kill "$MON_PID" 2>/dev/null
-wait "$MON_PID" 2>/dev/null
+kill "$MON_PID" "$PMON_PID" 2>/dev/null
+wait "$MON_PID" "$PMON_PID" 2>/dev/null
+rm -f "${OUT}/current.txt"
 echo "end_utc: $(date -u '+%Y-%m-%d %H:%M:%S')" >> "${OUT}/manifest.txt"
 echo "Done: ${OUT}"

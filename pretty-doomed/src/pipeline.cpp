@@ -16,6 +16,7 @@
 #include "output.h"
 #include "executor.h"
 #include "postcard.h"
+#include "batch.h"
 
 using namespace pretty;
 
@@ -92,7 +93,8 @@ PipelineStageResult process_wav_stt(const std::string& input_file,
 
     log_info() << "Transcribing (" << cfg.stt_decoding_method << ")...\n";
     auto stt_start = std::chrono::steady_clock::now();
-    result.transcript = stt.transcribe(resampled, 16000);
+    result.window_texts = stt.transcribe_windows(resampled, 16000);
+    result.transcript = join_transcripts(result.window_texts);
     auto stt_end = std::chrono::steady_clock::now();
     log_info() << "  STT time: " << format_duration(stt_end - stt_start) << "\n";
     result.stt_s = std::chrono::duration<double>(stt_end - stt_start).count();

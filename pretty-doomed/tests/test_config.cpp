@@ -245,9 +245,11 @@ TEST_CASE("load_config parses the distress evaluation settings (#142)") {
         "operation=detect\n"
         "stt_model_type=nemo_transducer\n"
         "stt_window_s=30\n"
-        "detect_strip_punctuation=true\n");
+        "detect_strip_punctuation=true\n"
+        "report_card=true\n");
     PipelineConfig cfg;
     REQUIRE(load_config(input, cfg));
+    CHECK(cfg.report_card == true);
     CHECK(cfg.operation == "detect");
     CHECK(cfg.stt_model_type == "nemo_transducer");
     CHECK(cfg.stt_window_s == doctest::Approx(30.0));
@@ -262,6 +264,7 @@ TEST_CASE("distress evaluation defaults keep the v8 behavior (#142)") {
     CHECK(cfg.stt_model_type.empty());        // sherpa-onnx detects the type
     CHECK(cfg.stt_window_s == doctest::Approx(0.0));  // one pass over all the audio
     CHECK(cfg.detect_strip_punctuation == false);
+    CHECK(cfg.report_card == false);  // no report card image
 }
 
 TEST_CASE("only the doom operation launches DOOM (#142)") {

@@ -55,6 +55,9 @@ struct PipelineConfig {
     // Remove punctuation from the transcript before matching (#142). The
     // Parakeet models write punctuation ("MAYDAY,"). false: the v8 behavior.
     bool detect_strip_punctuation = false;
+    // Distress report card (#142): one PNG per clip, drawn on board after the
+    // detection, in its own thread. Off by default.
+    bool report_card = false;
 
     // DOOM: frame capture and execution
     std::unordered_map<std::string, std::string> doom_frames;

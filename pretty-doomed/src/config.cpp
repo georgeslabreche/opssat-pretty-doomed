@@ -42,6 +42,7 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "detect_command") cfg.detect_commands = split_csv(value);
     else if (key == "detect_fuzzy_max_distance") cfg.detect_fuzzy_max_distance = std::stoi(value);
     else if (key == "detect_strip_punctuation") cfg.detect_strip_punctuation = (value == "true" || value == "1");
+    else if (key == "report_card") cfg.report_card = (value == "true" || value == "1");
     // DOOM
     else if (key == "doom_keepgifframes") cfg.doom_keepgifframes = (value == "true" || value == "1");
     else if (key == "doom_demo_order") cfg.doom_demo_order = split_csv(value);

@@ -23,6 +23,10 @@ public:
     // windows and the window texts are joined with spaces.
     std::string transcribe(const std::vector<float>& samples, int sample_rate);
 
+    // The same, but returns the text of each window (one element when
+    // stt_window_s is 0). transcribe() joins these texts.
+    std::vector<std::string> transcribe_windows(const std::vector<float>& samples, int sample_rate);
+
     // Model load time in milliseconds.
     long long load_ms() const { return load_ms_; }
 

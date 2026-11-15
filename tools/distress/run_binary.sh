@@ -30,6 +30,7 @@ docker run --rm -w /app \
     -v "$app/models:/app/models:ro" -v "$app/ascii.txt:/app/ascii.txt:ro" \
     -v "$repo/doom/demos:/app/demos:ro" -v "$repo/doom/build:/app/doom-build:ro" \
     -v "$app/distress:/app/distress-src:ro" \
+    -v "$app/models/sherpa-onnx/small:/app/distress/models/zipformer-small-int8:ro" \
     -v "$here/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8:/app/distress/models/parakeet-110m-int8:ro" \
     -v "$here/models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8:/app/distress/models/parakeet-0.6b-v2-int8:ro" \
     -v "$here/audio:/clips:ro" -v "$out:/out" \
