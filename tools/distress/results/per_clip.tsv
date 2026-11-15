@@ -1,4 +1,17 @@
 model	clip	wer_excluded	ship_words	all_words	wer_ship	wer_all	detected_ship	detected_whole	phrases_ship	phrases_whole	rtf
+binary-parakeet-0.6b-v2-int8-t2	34749-imagination	no	54	194	0.426	0.500	no	no			0.0457
+binary-parakeet-0.6b-v2-int8-t2	35098-midnite-sun-relay	no	72	92	0.236	0.207	yes	yes	grounded,mayday	grounded,mayday	0.0505
+binary-parakeet-0.6b-v2-int8-t2	35135-double-time	no	83	133	0.277	0.286	yes	yes	mayday	mayday,taking on water	0.0521
+binary-parakeet-0.6b-v2-int8-t2	35628-miss-yalanda	no	19	19	0.368	0.368	yes	yes	going down,mayday	going down,mayday	0.0641
+binary-parakeet-0.6b-v2-int8-t2	37977-bainbridge-skiff	no	3	3	0.000	0.000	yes	yes	mayday	mayday	0.0603
+binary-parakeet-0.6b-v2-int8-t2	41096-kupreanof	no	19	19	0.421	0.421	yes	yes	mayday,taking on water	mayday,taking on water	0.0571
+binary-parakeet-0.6b-v2-int8-t2	44865-galveston-capsize	yes	3	3	13.667	13.667	yes	yes	mayday	mayday	0.0545
+binary-parakeet-0.6b-v2-int8-t2	46250-star-king	no	197	534	0.239	0.172	yes	yes	going down,help,sinking	going down,help,listing,sinking,taking on water	0.0494
+binary-parakeet-0.6b-v2-int8-t2	46887-surfside-fire	no	22	41	0.227	0.195	yes	yes	fire,mayday	fire,mayday	0.0564
+binary-parakeet-0.6b-v2-int8-t2	48097-oahu-sailboat	no	62	84	0.129	0.107	yes	yes	going down	going down	0.053
+binary-parakeet-0.6b-v2-int8-t2	53901-captain-billy-haver	no	272	397	0.272	0.312	yes	yes	mayday	mayday	0.0961
+binary-parakeet-0.6b-v2-int8-t2	56367-netarts-pwc	no	6	6	0.500	0.500	yes	yes	mayday	mayday	0.178
+binary-parakeet-0.6b-v2-int8-t2	87205-molokai	no	27	27	0.444	0.444	yes	yes	mayday,sinking	mayday,sinking	0.1379
 binary-parakeet-0.6b-v2-int8-w5	34749-imagination	no	54	194	0.704	0.655	no	no			0.1468
 binary-parakeet-0.6b-v2-int8-w5	35098-midnite-sun-relay	no	72	92	0.250	0.315	yes	yes	grounded,mayday	grounded,mayday	0.1401
 binary-parakeet-0.6b-v2-int8-w5	35135-double-time	no	83	133	0.373	0.436	yes	yes	help,mayday	help,mayday,taking on water	0.1404
