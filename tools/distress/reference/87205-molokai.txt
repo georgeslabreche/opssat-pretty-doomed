@@ -3,6 +3,5 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-VESSEL: Mayday, Mayday, Mayday, this is vessel Hana Hou sinking Ilio Point Molokai.
-VESSEL: Mayday, Mayday, Mayday.
-VESSEL: This is I'm I'm sinking east side Molokai Hana Hou Hana Hou.
+VESSEL: Mayday, Mayday, Mayday, this is vessel Hana Hou sinking. Ilio Point Molokai.
+VESSEL: Mayday, Mayday, Mayday. This is I'm I'm sinking. East side Molokai. Hana Hou Hana Hou.

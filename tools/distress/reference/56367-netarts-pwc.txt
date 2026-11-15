@@ -3,5 +3,4 @@
 # status: checked
 # source: Checked by ear against the audio, all turns.
 
-VESSEL: Mayday, mayday, mayday.
-VESSEL: Jet skier down.
+VESSEL: Mayday, mayday, mayday. Jet skier down.
