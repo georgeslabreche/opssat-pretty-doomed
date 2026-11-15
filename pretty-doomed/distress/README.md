@@ -91,6 +91,7 @@ toGround/distress-NNNNN/
 ├── resource.csv     CPU and memory every second for the full run (the format of the DOOM runs)
 ├── process.csv      memory (VmRSS, VmHWM) and threads of the pretty-doomed process every second
 ├── exit.txt         exit code and run time of each model
+├── summary.txt      the configs side by side: wall time, model load, STT time, RTF, peak memory, detections, and STT time per clip
 └── <model>/
     ├── pretty-doomed.log
     ├── stt.tsv      model type, decoding, window, threads, load time, peak memory (VmHWM)

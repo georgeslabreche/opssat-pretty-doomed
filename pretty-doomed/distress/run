@@ -24,6 +24,8 @@
 #                       format of the DOOM runs)
 #   process.csv         memory of the pretty-doomed process every second
 #   exit.txt            exit code and run time of each model
+#   summary.txt         the configs side by side: wall time, model load, STT
+#                       time, RTF, peak memory, detections, and STT time per clip
 #   <model>/            pretty-doomed.log, stt.tsv, timing.tsv, <clip>/
 #
 # Environment (all optional, they override run.cfg):
@@ -176,4 +178,43 @@ wait "$MON_PID" "$PMON_PID" 2>/dev/null
 rm -f "${OUT}/current.txt"
 [ "$RUN_CLIPS" = "$CLIPS" ] || rm -rf "$RUN_CLIPS"
 echo "end_utc: $(date -u '+%Y-%m-%d %H:%M:%S')" >> "${OUT}/manifest.txt"
+
+# Summary: the configs side by side. Wall time (model load and all clips),
+# model load, STT time, real-time factor, peak memory, and detections of each
+# config, then the STT time of each clip with each config. From exit.txt,
+# <config>/stt.tsv, and <config>/timing.tsv.
+summarize() {
+    echo "Distress run $(basename "$OUT"): $(sed -n 's/^version: //p' "${OUT}/manifest.txt")"
+    echo "clips: ${CLIP_NAMES:-all}"
+    echo
+    printf "%-26s %4s %7s %8s %5s %8s %9s %7s %9s %8s\n" \
+        config exit wall_s load_s clips audio_s stt_s rtf peak_mib detected
+    for m in $MODELS; do
+        rc=$(awk -F'\t' -v m="$m" '$1 == m {print $2}' "${OUT}/exit.txt")
+        wall=$(awk -F'\t' -v m="$m" '$1 == m {print $3}' "${OUT}/exit.txt")
+        load=$(awk -F'\t' 'NR == 2 {printf "%.1f", $5 / 1000}' "${OUT}/${m}/stt.tsv" 2>/dev/null)
+        peak=$(awk -F'\t' 'NR == 2 && $6 > 0 {printf "%.0f", $6 / 1024}' "${OUT}/${m}/stt.tsv" 2>/dev/null)
+        awk -F'\t' -v m="$m" -v rc="${rc:--}" -v wall="${wall:--}" -v load="${load:--}" -v peak="${peak:--}" '
+            NR > 1 {n++; a += $2; s += $3; if ($5 == "yes") d++}
+            END {printf "%-26s %4s %7s %8s %5d %8.1f %9.1f %7s %9s %5d/%d\n", m, rc, wall, load, n, a, s,
+                 (a > 0 ? sprintf("%.3f", s / a) : "-"), peak, d, n}' "${OUT}/${m}/timing.tsv" 2>/dev/null \
+            || printf "%-26s %4s %7s %8s\n" "$m" "${rc:--}" "${wall:--}" "no output"
+    done
+    echo
+    echo "STT time per clip (s):"
+    printf "%-28s %8s" clip audio_s
+    for m in $MODELS; do printf " %26s" "$m"; done
+    echo
+    for c in $(for m in $MODELS; do awk -F'\t' 'NR > 1 {print $1}' "${OUT}/${m}/timing.tsv" 2>/dev/null; done | awk '!seen[$0]++'); do
+        audio=$(for m in $MODELS; do awk -F'\t' -v c="$c" '$1 == c {print $2}' "${OUT}/${m}/timing.tsv" 2>/dev/null; done | head -1)
+        printf "%-28s %8s" "$c" "$audio"
+        for m in $MODELS; do
+            t=$(awk -F'\t' -v c="$c" '$1 == c {print $3}' "${OUT}/${m}/timing.tsv" 2>/dev/null)
+            printf " %26s" "${t:--}"
+        done
+        echo
+    done
+}
+summarize > "${OUT}/summary.txt" 2>/dev/null
+cat "${OUT}/summary.txt"
 echo "Done: ${OUT}"
