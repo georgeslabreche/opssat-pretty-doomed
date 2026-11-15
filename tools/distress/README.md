@@ -1,6 +1,6 @@
 # Distress call clips
 
-Ground truth for the distress call evaluation (issue #142). This folder holds the clip manifest, the clip audio, and one reference transcript per clip.
+Ground truth and model comparison for the distress call evaluation (issue #142). This folder holds the clip manifest, the clip audio, one reference transcript per clip, and the scripts that transcribe the clips with candidate speech-to-text models and score the outputs.
 
 ## Contents
 
@@ -14,6 +14,16 @@ Ground truth for the distress call evaluation (issue #142). This folder holds th
 | `prepare_clips.sh` | Checks each clip in `clips/` against its SHA-256, and converts it to 16 kHz mono WAV. Downloads a clip that is not in `clips/`. |
 | `reference/` | One reference transcript per clip, `<id>-<name>.txt`. |
 | `audio/` | WAV output of `prepare_clips.sh`. Gitignored. |
+| `phrases.txt` | The distress phrase list, fixed before scoring. |
+| `models.tsv` | The candidate models: archive, SHA-256, model files, and decoding method. |
+| `fetch_models.sh` | Downloads each model in `models.tsv`, checks its SHA-256, and extracts it. |
+| `models/` | Output of `fetch_models.sh`. Gitignored. |
+| `requirements.txt` | Pinned Python packages for `transcribe.py`. |
+| `transcribe.py` | Transcribes each clip with each model. Writes the output, the real-time factor, and the peak memory to `results/`. |
+| `scoring.py` | The scoring rules: normalization, alignment, WER per speaker, and phrase matching. Python standard library only. |
+| `score.py` | Scores the outputs in `results/` against the references. Writes `per_clip.tsv`, `summary.tsv`, and `RESULTS.md`. |
+| `results/` | Model outputs and scores. |
+| `tests/` | Unit tests for `scoring.py`. |
 
 ## Clips
 
@@ -32,6 +42,11 @@ The F/V Scandies Rose recording is not in this manifest. It is the last transmis
 ```bash
 ./prepare_clips.sh              # checks clips/ and writes WAVs to tools/distress/audio/
 ./build_manifest.py             # rebuilds manifest.tsv from clips.tsv
+./fetch_models.sh               # downloads and checks the models (about 2.2 GB)
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python transcribe.py  # writes results/<model>/
+python3 score.py                # writes results/per_clip.tsv, summary.tsv, and RESULTS.md
+python3 -m unittest discover -s tests
 ```
 
 `prepare_clips.sh` requires `shasum` and `ffmpeg`, and `curl` for a clip that is not in `clips/`. To add a clip, add a row to `clips.tsv` and run `build_manifest.py`, then `prepare_clips.sh`, and commit the new MP3. A SHA-256 that changes on a page check means that DVIDS replaced a file. Keep the committed file, and record the change in the manifest.
@@ -77,3 +92,25 @@ The main WER uses the `VESSEL` and `OTHER` turns, that is, all turns that are no
 The model transcribes the full clip, so its output has no speaker labels. The scorer aligns the model output with the full reference. Each substitution and deletion counts for the speaker of the reference word. Each insertion counts for the speaker of the reference word that comes before it.
 
 The references have no digits, so the digit rule applies only to the model output. A reference with digits is ambiguous, because the scorer cannot know that "16" was said as "one six".
+
+## Scoring
+
+`score.py` gives these metrics for each model:
+
+| Metric | Definition |
+|---|---|
+| Recall, ship-side | The number of clips where the model output has a phrase from `phrases.txt` in words that align with `VESSEL` or `OTHER` turns. This is the main recall. |
+| Recall, whole clip | The number of clips where the model output has a phrase from `phrases.txt` anywhere. The Coast Guard turns often repeat distress words ("vessel taking on water"), so this recall is too high. |
+| Mayday, ship-side | Of the clips where "mayday" is spoken (`labels.tsv`), the number where the model output has "mayday" in ship-side words. |
+| WER, ship-side | The pooled WER of the `VESSEL` and `OTHER` turns over all clips without `wer: exclude`. This is the main WER. |
+| WER, all turns | The pooled WER of all turns over the same clips. |
+| Median RTF | The median real-time factor over the clips: processing time divided by audio length. |
+| Peak memory | The peak resident memory of the process that loads the model and transcribes all clips. |
+
+A phrase matches a run of whole words in the normalized model output. Only "mayday" also matches with one letter different (with the same first letter, as in the flight matcher), or as two words that make "mayday" when joined ("may day"). The flight matcher allows one letter different for every keyword. That rule is for the flight detector (issue #147). In this comparison it would make "fire" match "five", which is in many position reports.
+
+A model word gets the speaker of the reference word that it aligns with. An extra model word gets the speaker of the reference word before it. This is the same rule as for the WER.
+
+`transcribe.py` cuts each clip into 30 s windows, because the Parakeet models do not accept long audio. It uses one thread, as on the flight. The Zipformer models use `modified_beam_search`, as on the flight, and the Parakeet models use `greedy_search`. The real-time factor and the memory are from the machine that runs the script, not from the payload computer.
+
+The flight binary uses sherpa-onnx 1.12.21. There is no Python package of that version for all platforms, so `requirements.txt` pins 1.13.8. The test of the flight binary itself is issue #148.

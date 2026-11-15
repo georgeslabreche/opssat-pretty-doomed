@@ -31,3 +31,12 @@ jobs:
           name: Unit Test Results
           path: pretty-doomed/test-results.xml
           reporter: java-junit
+
+  distress-scoring-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run distress scoring unit tests
+        working-directory: tools/distress
+        run: python3 -m unittest discover -s tests -v

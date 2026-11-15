@@ -1,0 +1,42 @@
+# Distress phrase list for the distress call evaluation (issue #142).
+#
+# This list is fixed before scoring. It must not be tuned to the words in the
+# test clips, because the recall would then fit the test set.
+#
+# Sources:
+# - The distress signals MAYDAY and PAN PAN (urgency), and SOS.
+# - The nature-of-distress categories of a GMDSS digital selective calling
+#   (DSC) distress alert (ITU-R M.493): fire or explosion, flooding,
+#   collision, grounding, listing and danger of capsizing, sinking, disabled
+#   and adrift, abandoning ship, and person overboard.
+# - The phrases named in issue #146: "taking on water", "going down", and
+#   "help".
+#
+# Format: one phrase per line. The scorer normalizes each phrase in the same
+# way as the model output. A phrase matches a run of whole words.
+
+mayday
+pan pan
+sos
+s o s
+
+fire
+explosion
+flooding
+collision
+aground
+grounded
+listing
+capsize
+capsized
+capsizing
+sinking
+adrift
+abandon ship
+abandoning ship
+man overboard
+person overboard
+
+taking on water
+going down
+help

@@ -1,0 +1,7 @@
+model	model_mb	recall_ship	recall_whole	mayday_ship	wer_ship	wer_all	rtf_median	peak_rss_mb	decoding	threads	sherpa_onnx	machine
+parakeet-0.6b-v2-int8	630.6	12/13	12/13	11/12	0.307	0.296	0.114	1741.7	greedy_search	1	1.13.8	Darwin arm64
+parakeet-0.6b-v3-int8	639.4	9/13	9/13	6/12	0.681	0.651	0.101	1807.6	greedy_search	1	1.13.8	Darwin arm64
+parakeet-110m-int8	130.2	9/13	9/13	7/12	0.499	0.467	0.032	741.7	greedy_search	1	1.13.8	Darwin arm64
+zipformer-large-int8	147.5	7/13	9/13	4/12	0.598	0.564	0.044	877.0	modified_beam_search	1	1.13.8	Darwin arm64
+zipformer-medium-fp32	250.7	5/13	5/13	2/12	0.681	0.620	0.050	998.9	modified_beam_search	1	1.13.8	Darwin arm64
+zipformer-small-int8	27.1	7/13	7/13	4/12	0.694	0.614	0.028	608.4	modified_beam_search	1	1.13.8	Darwin arm64

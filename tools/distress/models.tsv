@@ -1,0 +1,7 @@
+name	type	archive	sha256	encoder	decoder	joiner	decoding
+zipformer-small-int8	zipformer	sherpa-onnx-zipformer-small-en-2023-06-26	c8bff1091c26c49731cddbcd60ef18061142ea11523df1b73bf1b14451b9c15e	encoder-epoch-99-avg-1.int8.onnx	decoder-epoch-99-avg-1.onnx	joiner-epoch-99-avg-1.int8.onnx	modified_beam_search
+zipformer-medium-fp32	zipformer	sherpa-onnx-zipformer-en-2023-06-26	652181d80dfe0e8e0659cf32036d1d6ef56fa2f1ab5b35c54d0cee8a663e8954	encoder-epoch-99-avg-1.onnx	decoder-epoch-99-avg-1.onnx	joiner-epoch-99-avg-1.onnx	modified_beam_search
+zipformer-large-int8	zipformer	sherpa-onnx-zipformer-large-en-2023-06-26	3be45493f6b60d95f6263ccece8c97c83c1eed41faf43547d0ee8a2262d60c1f	encoder-epoch-99-avg-1.int8.onnx	decoder-epoch-99-avg-1.onnx	joiner-epoch-99-avg-1.int8.onnx	modified_beam_search
+parakeet-110m-int8	nemo	sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8	f628312e9fdf8686374cb01a69425c41732529d540860311f16f37cbc32cfe9b	encoder.int8.onnx	decoder.int8.onnx	joiner.int8.onnx	greedy_search
+parakeet-0.6b-v2-int8	nemo	sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8	6fc4426b54aa549a0019b8a75b8dea59164e71790a37ac56a045ad57f915f714	encoder.int8.onnx	decoder.int8.onnx	joiner.int8.onnx	greedy_search
+parakeet-0.6b-v3-int8	nemo	sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8	1495e91b59d7fc53ddca91f3431758ec99f8fa253fdb0e1e851be0f72b14b0f9	encoder.int8.onnx	decoder.int8.onnx	joiner.int8.onnx	greedy_search
