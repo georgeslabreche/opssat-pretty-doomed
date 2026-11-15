@@ -16,7 +16,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 app="$repo/pretty-doomed"
 image="pretty-doomed-local:sherpa-1.13.8"
-models="${DISTRESS_MODELS:-zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8}"
+models="${DISTRESS_MODELS:-zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2}"
 out="$here/binary-run"
 mkdir -p "$out"
 

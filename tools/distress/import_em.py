@@ -16,6 +16,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -47,6 +48,11 @@ def model_mb(name):
     return None
 
 
+def base_model(config):
+    """The model of a config: the config name without a window (-w5) or thread (-t2) suffix."""
+    return re.sub(r"-[wt]\d+$", "", config)
+
+
 def import_model(run_dir, model, out_dir, manifest, machine=None):
     """Write the results of one model. Return the number of clips, or 0 if the model has no output."""
     model_dir = os.path.join(run_dir, model)
@@ -75,7 +81,7 @@ def import_model(run_dir, model, out_dir, manifest, machine=None):
         "sherpa_onnx": "1.13.8 (distress binary)",
         "machine": machine or (f"EM ({manifest['uname'].split()[-2]})" if manifest.get("uname") else "ground, Docker"),
         "binary": manifest.get("version", ""),
-        "model_mb": model_mb(model.split("-w")[0]),
+        "model_mb": model_mb(base_model(model)),
         "load_s": round(int(stt.get("load_ms", -1)) / 1000, 2),
         "peak_rss_mb": round(peak_kb / 1024, 1) if peak_kb > 0 else None,
         "clips": clips,

@@ -205,13 +205,13 @@ set +e
 cp -r toGround/distress-00001 "/app/toGround/emu-distress/$1"
 EOF
 
-# All four configs, no memory limit
+# All five configs, no memory limit
 docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-full \
     pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh full > toGround/emu-distress/full.out 2>&1'
 
-# Parakeet 0.6B v2 only, with the 1 GB memory of the EM
+# The Parakeet 0.6B v2 configs only, with the 1 GB memory of the EM
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-1g \
-    pretty-doomed-sepp sh -c 'DISTRESS_MODELS="parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8" \
+    pretty-doomed-sepp sh -c 'DISTRESS_MODELS="parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2" \
     sh toGround/emu-distress/emu-run.sh mem1g > toGround/emu-distress/mem1g.out 2>&1'
 
 # Ground analysis of a run
