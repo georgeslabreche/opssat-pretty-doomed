@@ -13,6 +13,8 @@ struct PipelineStageResult {
     std::string transcript;
     std::string detection_timestamp; // UTC timestamp at detection time
     std::string ascii_art;           // ASCII art for DOOM banner
+    double audio_s = 0.0;            // input audio length in seconds
+    double stt_s = 0.0;              // transcription time in seconds
 };
 
 // Stage 1: DSP -> STT -> Detection -> write scores/summary.

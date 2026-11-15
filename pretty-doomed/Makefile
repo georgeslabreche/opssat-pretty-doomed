@@ -34,7 +34,9 @@ ifneq ($(wildcard /opt/sherpa-onnx/include/sherpa-onnx/c-api/c-api.h),)
   SHERPA_LIBS = -L/opt/sherpa-onnx/lib -lsherpa-onnx-c-api -lonnxruntime
 else
   # SEPP: source build with static libs
-  SHERPA_SRC = /opt/sherpa-onnx-src
+  # Overridable for the distress package (#142), which needs sherpa-onnx >= 1.13.5
+  # for the Parakeet models. The defaults are the v8 flight build.
+  SHERPA_SRC ?= /opt/sherpa-onnx-src
   SHERPA_BUILD = $(SHERPA_SRC)/build
   SHERPA_CFLAGS = -I$(SHERPA_SRC) \
                   -I$(SHERPA_BUILD)/_deps/onnxruntime-src/include
@@ -63,7 +65,7 @@ BUILDDIR ?= build/local
 TESTDIR = tests
 
 # Pure C++17 sources (no external deps - unit testable)
-SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SRCDIR)/executor.cpp
+SRCS_PURE = $(SRCDIR)/config.cpp $(SRCDIR)/matcher.cpp $(SRCDIR)/output.cpp $(SRCDIR)/executor.cpp $(SRCDIR)/batch.cpp
 OBJS_PURE = $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS_PURE))
 
 # Sources with external deps
@@ -131,6 +133,9 @@ $(BUILDDIR)/output.o: $(SRCDIR)/output.cpp $(SRCDIR)/output.h $(SRCDIR)/matcher.
 $(BUILDDIR)/executor.o: $(SRCDIR)/executor.cpp $(SRCDIR)/executor.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
 
+$(BUILDDIR)/batch.o: $(SRCDIR)/batch.cpp $(SRCDIR)/batch.h | $(BUILDDIR)
+	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -c $< -o $@
+
 $(BUILDDIR)/postcard.o: $(SRCDIR)/postcard.cpp $(SRCDIR)/postcard.h $(SRCDIR)/postcard_image.h $(SRCDIR)/postcard_sc16.h $(SRCDIR)/doom_palette.h $(SRCDIR)/bitmap_font.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -DPOSTCARD_USE_FFTW -c $< -o $@
 
@@ -141,29 +146,29 @@ $(BUILDDIR)/chain.o: $(SRCDIR)/chain.cpp $(SRCDIR)/chain.h $(SRCDIR)/config.h | 
 $(BUILDDIR)/audio_io.o: $(SRCDIR)/audio_io.cpp $(SRCDIR)/audio_io.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h | $(BUILDDIR)
+$(BUILDDIR)/transcriber.o: $(SRCDIR)/transcriber.cpp $(SRCDIR)/transcriber.h $(SRCDIR)/config.h $(SRCDIR)/batch.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
 $(BUILDDIR)/sdr.o: $(SRCDIR)/sdr.cpp $(SRCDIR)/sdr.h $(SRCDIR)/config.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/chain.h | $(BUILDDIR)
+$(BUILDDIR)/capture.o: $(SRCDIR)/capture.cpp $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/chain.h $(SRCDIR)/config.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/audio_io.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
+$(BUILDDIR)/pipeline.o: $(SRCDIR)/pipeline.cpp $(SRCDIR)/pipeline.h $(SRCDIR)/config.h $(SRCDIR)/transcriber.h $(SRCDIR)/audio_io.h $(SRCDIR)/matcher.h $(SRCDIR)/output.h $(SRCDIR)/executor.h $(SRCDIR)/postcard.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
+$(BUILDDIR)/main.o: $(SRCDIR)/main.cpp $(SRCDIR)/batch.h $(SRCDIR)/config.h $(SRCDIR)/pipeline.h $(SRCDIR)/capture.h $(SRCDIR)/sdr.h $(SRCDIR)/transcriber.h VERSION | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) $(GNURADIO_CFLAGS) $(SHERPA_CFLAGS) -DAPP_VERSION=$(APP_VERSION) -c $< -o $@
 
 #############################################
 # Unit tests - pure C++17 modules only
 #############################################
 
-TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_resample.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp $(TESTDIR)/test_postcard.cpp
+TEST_SRCS = $(TESTDIR)/test_main.cpp $(TESTDIR)/test_config.cpp $(TESTDIR)/test_resample.cpp $(TESTDIR)/test_matcher.cpp $(TESTDIR)/test_output.cpp $(TESTDIR)/test_executor.cpp $(TESTDIR)/test_postcard.cpp $(TESTDIR)/test_batch.cpp
 TEST_OBJS = $(patsubst $(TESTDIR)/%.cpp,$(BUILDDIR)/%.o,$(TEST_SRCS))
 
-$(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp $(SRCDIR)/config.h | $(BUILDDIR)
+$(BUILDDIR)/test_%.o: $(TESTDIR)/test_%.cpp $(SRCDIR)/config.h $(SRCDIR)/batch.h $(SRCDIR)/matcher.h | $(BUILDDIR)
 	$(CXX) $(CXXFLAGS) $(COMMON_CFLAGS) -I$(SRCDIR) -I$(TESTDIR) -c $< -o $@
 
 # Test-specific postcard object (no FFTW dependency)
@@ -218,7 +223,7 @@ preview-onboard: $(PREVIEW_TARGET)
 # onnxruntime symbols at link time via glibc_compat.o stubs.
 #############################################
 
-SHERPA_VERSION = 1.12.21
+SHERPA_VERSION ?= 1.12.21
 
 # Clone sherpa-onnx source
 clone-sherpa:
@@ -341,6 +346,43 @@ package-tar:
 		-C $(PACKAGE_DIR) .
 	@echo "Package created: package/$(PACKAGE_NAME).tar.gz"
 	@ls -lh package/$(PACKAGE_NAME).tar.gz
+
+# Distress call evaluation add-on for the EM (#142). It installs next to v8 in
+# a distress/ folder and does not change any v8 file.
+# 1. Inside the SEPP container, build the binary with the distress version:
+#      make BUILDDIR=build/sepp APP_VERSION=$(cat distress/VERSION) package-distress-prepare
+# 2. Outside the container, after tools/distress/fetch_models.sh and prepare_clips.sh:
+#      make package-distress
+DISTRESS_NAME = exp4023-pretty-DOOMed-v$(shell cat distress/VERSION 2>/dev/null)
+DISTRESS_DIR = package/$(DISTRESS_NAME)/distress
+DISTRESS_MODELS_SRC = ../tools/distress/models
+DISTRESS_CLIPS_SRC = ../tools/distress/audio
+DISTRESS_PARAKEET = parakeet-110m-int8:sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8 \
+                    parakeet-0.6b-v2-int8:sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8
+
+package-distress-prepare: $(TARGET)
+	mkdir -p $(DISTRESS_DIR)
+	cp $(TARGET) $(DISTRESS_DIR)/pretty-doomed
+	strip $(DISTRESS_DIR)/pretty-doomed
+	upx --best $(DISTRESS_DIR)/pretty-doomed
+	@echo "Distress binary prepared in $(DISTRESS_DIR)/"
+
+# Run OUTSIDE container
+package-distress:
+	test -x $(DISTRESS_DIR)/pretty-doomed
+	cp distress/run-distress distress/VERSION distress/variants.distress.cfg distress/config.distress.*.cfg $(DISTRESS_DIR)/
+	chmod +x $(DISTRESS_DIR)/run-distress
+	mkdir -p $(DISTRESS_DIR)/clips
+	cp $(DISTRESS_CLIPS_SRC)/*.wav $(DISTRESS_DIR)/clips/
+	for pair in $(DISTRESS_PARAKEET); do \
+		name=$${pair%%:*}; src=$(DISTRESS_MODELS_SRC)/$${pair#*:}; \
+		mkdir -p $(DISTRESS_DIR)/models/$$name; \
+		cp $$src/encoder.int8.onnx $$src/decoder.int8.onnx $$src/joiner.int8.onnx $$src/tokens.txt $(DISTRESS_DIR)/models/$$name/; \
+	done
+	cd package/$(DISTRESS_NAME) && find distress -type f ! -name MANIFEST.sha256 | sort | xargs shasum -a 256 > distress/MANIFEST.sha256
+	COPYFILE_DISABLE=1 tar --owner=exp --group=exp \
+		-czf package/$(DISTRESS_NAME).tar.gz -C package/$(DISTRESS_NAME) distress
+	@ls -lh package/$(DISTRESS_NAME).tar.gz
 
 # Incremental patch package: only changed files.
 # Requires package-prepare to have been run first.

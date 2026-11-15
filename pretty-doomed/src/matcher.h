@@ -12,6 +12,10 @@ std::string to_upper(const std::string& s);
 // Split text into words on whitespace.
 std::vector<std::string> split_words(const std::string& text);
 
+// Replace each character that is not a letter, a digit, an apostrophe, or a
+// space with a space: "MAYDAY, MAYDAY." -> "MAYDAY  MAYDAY " (#142).
+std::string strip_punctuation(const std::string& text);
+
 // Levenshtein edit distance between two strings.
 int levenshtein(const std::string& a, const std::string& b);
 

@@ -33,12 +33,15 @@ static void apply_config_entry(const std::string& key, const std::string& value,
     else if (key == "stt_model_tokens") cfg.stt_model_tokens = value;
     else if (key == "stt_decoding_method") cfg.stt_decoding_method = value;
     else if (key == "stt_num_threads") cfg.stt_num_threads = std::stoi(value);
+    else if (key == "stt_model_type") cfg.stt_model_type = value;
+    else if (key == "stt_window_s") cfg.stt_window_s = std::stod(value);
     else if (key == "stt_concurrent_load") cfg.stt_concurrent_load = (value == "true" || value == "1");
     // Detection
     else if (key == "detect_wake_word") cfg.detect_wake_word = value;
     else if (key == "detect_call_signs") cfg.detect_call_signs = split_csv(value);
     else if (key == "detect_command") cfg.detect_commands = split_csv(value);
     else if (key == "detect_fuzzy_max_distance") cfg.detect_fuzzy_max_distance = std::stoi(value);
+    else if (key == "detect_strip_punctuation") cfg.detect_strip_punctuation = (value == "true" || value == "1");
     // DOOM
     else if (key == "doom_keepgifframes") cfg.doom_keepgifframes = (value == "true" || value == "1");
     else if (key == "doom_demo_order") cfg.doom_demo_order = split_csv(value);

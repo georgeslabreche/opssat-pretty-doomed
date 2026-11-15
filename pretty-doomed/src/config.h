@@ -21,9 +21,16 @@ inline bool should_keep_sc16(Sc16Keep mode, bool command_detected) {
            (mode == Sc16Keep::Detected && command_detected);
 }
 
+// True if a detection with this operation launches DOOM. Only "doom" does.
+inline bool operation_launches_doom(const std::string& operation) {
+    return operation == "doom";
+}
+
 struct PipelineConfig {
     // Operation: what the voice command triggers (feature flag)
-    std::string operation = "doom";     // "doom" (only implementation for now)
+    // "doom": a detection launches DOOM. "detect": a detection is logged and
+    // scored, and no action follows (distress call evaluation, #142).
+    std::string operation = "doom";
 
     // STT: speech-to-text model
     std::string stt_model_encoder;
@@ -31,6 +38,12 @@ struct PipelineConfig {
     std::string stt_model_joiner;
     std::string stt_model_tokens;
     std::string stt_decoding_method = "modified_beam_search";
+    // sherpa-onnx model type, e.g. "nemo_transducer" for Parakeet (#142).
+    // Empty: sherpa-onnx detects the type (the v8 behavior).
+    std::string stt_model_type;
+    // Transcribe in windows of this length in seconds, and join the texts (#142).
+    // 0: one pass over all the audio (the v8 behavior).
+    double stt_window_s = 0.0;
     int stt_num_threads = 1;
     bool stt_concurrent_load = false;
 
@@ -39,6 +52,9 @@ struct PipelineConfig {
     std::vector<std::string> detect_call_signs;
     std::vector<std::string> detect_commands = {"DOOM"};
     int detect_fuzzy_max_distance = 2;
+    // Remove punctuation from the transcript before matching (#142). The
+    // Parakeet models write punctuation ("MAYDAY,"). false: the v8 behavior.
+    bool detect_strip_punctuation = false;
 
     // DOOM: frame capture and execution
     std::unordered_map<std::string, std::string> doom_frames;

@@ -239,3 +239,33 @@ TEST_CASE("narrowing defaults keep the chain as flown") {
     CHECK(cfg.sdr_narrow_bw == doctest::Approx(20000.0));
     CHECK(cfg.sdr_narrow_search == doctest::Approx(100000.0));
 }
+
+TEST_CASE("load_config parses the distress evaluation settings (#142)") {
+    std::istringstream input(
+        "operation=detect\n"
+        "stt_model_type=nemo_transducer\n"
+        "stt_window_s=30\n"
+        "detect_strip_punctuation=true\n");
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.operation == "detect");
+    CHECK(cfg.stt_model_type == "nemo_transducer");
+    CHECK(cfg.stt_window_s == doctest::Approx(30.0));
+    CHECK(cfg.detect_strip_punctuation == true);
+}
+
+TEST_CASE("distress evaluation defaults keep the v8 behavior (#142)") {
+    std::istringstream input("stt_decoding_method=modified_beam_search\n");
+    PipelineConfig cfg;
+    REQUIRE(load_config(input, cfg));
+    CHECK(cfg.operation == "doom");
+    CHECK(cfg.stt_model_type.empty());        // sherpa-onnx detects the type
+    CHECK(cfg.stt_window_s == doctest::Approx(0.0));  // one pass over all the audio
+    CHECK(cfg.detect_strip_punctuation == false);
+}
+
+TEST_CASE("only the doom operation launches DOOM (#142)") {
+    CHECK(operation_launches_doom("doom"));
+    CHECK_FALSE(operation_launches_doom("detect"));
+    CHECK_FALSE(operation_launches_doom(""));
+}

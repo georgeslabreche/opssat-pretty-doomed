@@ -5,6 +5,7 @@
  *
  * Modes:
  *   -i <file>  Process a single WAV file
+ *   -i <dir>   Process each WAV file in a directory with one model load (#142)
  *   -s         SDR capture mode: N sequential captures, then process each
  */
 
@@ -17,6 +18,9 @@
 #include <vector>
 #include <memory>
 #include <getopt.h>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 
 #include <csignal>
 #include <cstdio>
@@ -25,6 +29,7 @@
 #include "pretty_log.h"
 #include "pretty_signal.h"
 
+#include "batch.h"
 #include "config.h"
 #include "transcriber.h"
 #include "capture.h"
@@ -76,7 +81,7 @@ struct Args {
 void print_usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options]\n"
               << "\nRequired:\n"
-              << "  -i <file>   Input WAV file (not needed with -s)\n"
+              << "  -i <file>   Input WAV file, or a directory of WAV files (not needed with -s)\n"
               << "  -q <file>   Input sc16 file (optional, for postcard I/Q scatter)\n"
               << "  -c <file>   Pipeline config file\n"
               << "  -f <file>   Fuzzy match variants file\n"
@@ -394,6 +399,47 @@ int main(int argc, char** argv) {
                 }
             }
         }
+    } else if (std::filesystem::is_directory(args.input_file)) {
+        // Directory mode (#142): one model load, then each WAV file in name
+        // order. Each file gets its own output folder. The timing of each file
+        // is appended to timing.tsv as soon as the file is done, so an
+        // interrupted run keeps the files that finished.
+        auto wavs = list_wav_files(args.input_file);
+        log_info() << "Directory input mode: " << wavs.size() << " WAV file(s) in "
+                   << args.input_file << "\n";
+        Transcriber stt_dir(cfg);
+        if (!stt_dir.is_ready()) {
+            log_error() << "STT model failed to load\n";
+            return 1;
+        }
+        const std::string timing_path = args.output_dir + "/timing.tsv";
+        {
+            std::ofstream timing(timing_path);
+            timing << "clip\taudio_s\tstt_s\trtf\tdetected\n";
+        }
+        for (const auto& wav : wavs) {
+            if (!g_running) break;
+            const std::string clip = file_stem(wav);
+            const std::string clip_dir = args.output_dir + "/" + clip;
+            std::filesystem::create_directories(clip_dir);
+            PipelineStageResult stage1 = process_wav_stt(wav, clip_dir, cfg, variants, stt_dir,
+                                                          args.config_file);
+            process_wav_exec(stage1, clip_dir, cfg, args.doom_binary, args.demos_dir, "");
+            if (stage1.command_detected) any_detected = true;
+            std::ofstream timing(timing_path, std::ios::app);
+            timing << clip << "\t" << std::fixed << std::setprecision(2) << stage1.audio_s
+                   << "\t" << stage1.stt_s << "\t" << std::setprecision(4)
+                   << (stage1.audio_s > 0 ? stage1.stt_s / stage1.audio_s : 0.0)
+                   << "\t" << (stage1.command_detected ? "yes" : "no") << "\n";
+        }
+        const long long peak_kb = peak_rss_kb();
+        std::ofstream stt_info(args.output_dir + "/stt.tsv");
+        stt_info << "model_type\tdecoding\twindow_s\tthreads\tload_ms\tpeak_rss_kb\tclips\n"
+                 << (cfg.stt_model_type.empty() ? "auto" : cfg.stt_model_type) << "\t"
+                 << cfg.stt_decoding_method << "\t" << cfg.stt_window_s << "\t"
+                 << cfg.stt_num_threads << "\t" << stt_dir.load_ms() << "\t"
+                 << peak_kb << "\t" << wavs.size() << "\n";
+        log_info() << "Peak memory (VmHWM): " << peak_kb << " kB\n";
     } else {
         // Single file mode: load STT and process
         log_info() << "File input mode, processing=" << cfg.process_mode << "\n";

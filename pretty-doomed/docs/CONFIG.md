@@ -8,7 +8,7 @@ The `operation` key selects what action the pipeline executes when a voice comma
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `operation` | doom | Operation to trigger on command detection. Currently only `doom` is implemented. |
+| `operation` | doom | Operation to trigger on command detection. `doom` launches DOOM. `detect` logs and scores the detection, and no action follows (distress call evaluation, #142). |
 
 Currently supported operations:
 - `doom` -- runs a DOOM demo, captures frames, generates a postcard. All `doom_*` config keys apply.
@@ -22,6 +22,8 @@ Currently supported operations:
 | `stt_model_joiner` | (required) | Sherpa-ONNX joiner model path |
 | `stt_model_tokens` | (required) | Sherpa-ONNX tokens file path |
 | `stt_decoding_method` | modified_beam_search | Decoding method |
+| `stt_model_type` | (empty) | sherpa-onnx model type, for example `nemo_transducer` for the Parakeet models. Empty: sherpa-onnx detects the type, as in v8 (#142). |
+| `stt_window_s` | 0 | Transcribe in windows of this length in seconds, and join the window texts with spaces. A last window shorter than 0.5 s is dropped. 0: one pass over all the audio, as in v8 (#142). |
 | `stt_num_threads` | 1 | Number of ONNX Runtime inference threads. Set to 2 on dual-core systems (e.g., OPS-SAT SEPP) to use both cores during STT inference. |
 | `stt_concurrent_load` | false | In background mode, load STT model on a background thread concurrently with the first SDR capture. Saves ~16s on the SEPP but increases CPU contention during capture. No effect in sequential mode. |
 
@@ -33,6 +35,7 @@ Currently supported operations:
 | `detect_call_signs` | (empty) | Comma-separated call signs to detect |
 | `detect_command` | DOOM | Comma-separated commands (e.g., `DOOM,PLAY DOOM`) |
 | `detect_fuzzy_max_distance` | 2 | Max Levenshtein distance for fuzzy matching |
+| `detect_strip_punctuation` | false | Replace punctuation in the transcript with spaces before matching. The Parakeet models write punctuation (`MAYDAY,`). false: as in v8 (#142). |
 
 Scoring: exact matches = 2 points, fuzzy matches = 1 point.
 
