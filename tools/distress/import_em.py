@@ -47,7 +47,7 @@ def model_mb(name):
     return None
 
 
-def import_model(run_dir, model, out_dir, manifest):
+def import_model(run_dir, model, out_dir, manifest, machine=None):
     """Write the results of one model. Return the number of clips, or 0 if the model has no output."""
     model_dir = os.path.join(run_dir, model)
     timing_path = os.path.join(model_dir, "timing.tsv")
@@ -73,7 +73,7 @@ def import_model(run_dir, model, out_dir, manifest):
         "threads": int(stt.get("threads", 0) or 0),
         "window_s": float(stt.get("window_s", 0) or 0),
         "sherpa_onnx": "1.13.8 (distress binary)",
-        "machine": f"EM ({manifest['uname'].split()[-2]})" if manifest.get("uname") else "ground, Docker",
+        "machine": machine or (f"EM ({manifest['uname'].split()[-2]})" if manifest.get("uname") else "ground, Docker"),
         "binary": manifest.get("version", ""),
         "model_mb": model_mb(model.split("-w")[0]),
         "load_s": round(int(stt.get("load_ms", -1)) / 1000, 2),
@@ -90,6 +90,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("run_dir", help="the toGround/distress-NNNNN directory of an EM run")
     parser.add_argument("--label", default="em", help="prefix of the results directories (default: em)")
+    parser.add_argument("--machine", help="machine name in run.json (default: EM (<arch>) from the manifest)")
     parser.add_argument("--results", default=os.path.join(HERE, "results"), help="results directory")
     args = parser.parse_args()
 
@@ -99,7 +100,7 @@ def main():
     imported = 0
     for model in models:
         out_dir = os.path.join(args.results, f"{args.label}-{model}")
-        n = import_model(args.run_dir, model, out_dir, manifest)
+        n = import_model(args.run_dir, model, out_dir, manifest, args.machine)
         print(f"{model}: {n} clip(s)" if n else f"{model}: no output")
         imported += n
     if not imported:

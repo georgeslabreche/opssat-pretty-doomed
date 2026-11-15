@@ -349,8 +349,10 @@ package-tar:
 
 # Distress call evaluation add-on for the EM (#142). It installs next to v8 in
 # a distress/ folder and does not change any v8 file.
-# 1. Inside the SEPP container, build the binary with the distress version:
-#      make BUILDDIR=build/sepp APP_VERSION=$(cat distress/VERSION) package-distress-prepare
+# 1. Inside the SEPP container, build the binary with sherpa-onnx 1.13.8 and the
+#    distress version (see docs/BUILDING.md):
+#      make SHERPA_SRC=/opt/sherpa-onnx-src-distress BUILDDIR=/tmp/sepp-distress \
+#           APP_VERSION=$(cat distress/VERSION) package-distress-prepare
 # 2. Outside the container, after tools/distress/fetch_models.sh and prepare_clips.sh:
 #      make package-distress
 DISTRESS_NAME = exp4023-pretty-DOOMed-v$(shell cat distress/VERSION 2>/dev/null)
@@ -370,7 +372,7 @@ package-distress-prepare: $(TARGET)
 # Run OUTSIDE container
 package-distress:
 	test -x $(DISTRESS_DIR)/pretty-doomed
-	cp distress/run-distress distress/VERSION distress/variants.distress.cfg distress/config.distress.*.cfg $(DISTRESS_DIR)/
+	cp distress/run-distress distress/README.md distress/VERSION distress/variants.distress.cfg distress/config.distress.*.cfg $(DISTRESS_DIR)/
 	chmod +x $(DISTRESS_DIR)/run-distress
 	mkdir -p $(DISTRESS_DIR)/clips
 	cp $(DISTRESS_CLIPS_SRC)/*.wav $(DISTRESS_DIR)/clips/
