@@ -1,0 +1,6 @@
+# id: 41096
+# name: kupreanof
+# status: checked
+# source: Checked by ear against the audio, all turns.
+
+VESSEL: Mayday, Mayday, Mayday. This is the Kupreanof. Kupreanof. We are taking on water over the stern, can't shed it.

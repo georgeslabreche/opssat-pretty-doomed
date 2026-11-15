@@ -1,0 +1,8 @@
+# id: 44865
+# name: galveston-capsize
+# status: checked
+# source: Checked by ear against the audio. Only the opening mayday is intelligible.
+# wer: exclude
+
+VESSEL: Mayday, mayday, mayday.
+VESSEL: [unintelligible]

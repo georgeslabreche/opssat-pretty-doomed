@@ -1,0 +1,6 @@
+# id: 37977
+# name: bainbridge-skiff
+# status: checked
+# source: Checked by ear against the audio, all turns.
+
+VESSEL: Mayday, Mayday, Mayday.

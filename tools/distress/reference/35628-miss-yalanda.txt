@@ -1,0 +1,6 @@
+# id: 35628
+# name: miss-yalanda
+# status: checked
+# source: Checked by ear against the audio, all turns.
+
+VESSEL: Mayday, Mayday, Mayday. This is the fishing vessel Miss Yalanda. We are breached in the hull. We're going down.
