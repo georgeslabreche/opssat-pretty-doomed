@@ -369,6 +369,9 @@ DISTRESS_NAME = exp4023-pretty-DOOMed-v$(shell cat distress/VERSION 2>/dev/null)
 DISTRESS_DIR = package/$(DISTRESS_NAME)/distress
 DISTRESS_MODELS_SRC = ../tools/distress/models
 DISTRESS_CLIPS_SRC = ../tools/distress/audio
+# MVP test clip (run-distress mvp): the shortest and simplest clip, 4 s of
+# "Mayday, Mayday, Mayday", detected by every model on the ground.
+DISTRESS_MVP_CLIP = 37977-bainbridge-skiff
 DISTRESS_PARAKEET = parakeet-110m-int8:sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8 \
                     parakeet-0.6b-v2-int8:sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8
 
@@ -385,8 +388,9 @@ package-distress:
 	test -x $(DISTRESS_DIR)/pretty-doomed
 	cp distress/run-distress distress/README.md distress/VERSION distress/variants.distress.cfg distress/config.distress.*.cfg $(DISTRESS_DIR)/
 	chmod +x $(DISTRESS_DIR)/run-distress
-	mkdir -p $(DISTRESS_DIR)/clips
+	mkdir -p $(DISTRESS_DIR)/clips $(DISTRESS_DIR)/clips-mvp
 	cp $(DISTRESS_CLIPS_SRC)/*.wav $(DISTRESS_DIR)/clips/
+	cp $(DISTRESS_CLIPS_SRC)/$(DISTRESS_MVP_CLIP).wav $(DISTRESS_DIR)/clips-mvp/
 	for pair in $(DISTRESS_PARAKEET); do \
 		name=$${pair%%:*}; src=$(DISTRESS_MODELS_SRC)/$${pair#*:}; \
 		mkdir -p $(DISTRESS_DIR)/models/$$name; \

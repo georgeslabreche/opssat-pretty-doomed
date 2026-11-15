@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Report of one distress run on the EM or on the SEPP emulator (issue #142).
 
-Reads a run directory (toGround/distress-NNNNN/ of run-distress) and the scores
+Reads a run directory (toGround/distress-NNNNN/ or distress-mvp-NNNNN/ of
+run-distress) and the per-clip scores
 of score.py, and writes reports/<label>/:
 
   REPORT.md               run data, resource use, speed, and accuracy tables
@@ -187,13 +188,14 @@ def plot_rtf(configs, path):
     save(fig, path)
 
 
-def plot_accuracy(rows, label, ground_label, path):
+def plot_accuracy(rows, label, ground_label, n_clips, path):
     """Ship-side WER and recall per config: this run against the ground binary."""
     names = [r["config"] for r in rows]
     fig, (ax_wer, ax_rec) = new_figure(2, 1.2 + 0.9 * len(names))
     y = list(range(len(names)))[::-1]
-    for ax, key, xlabel, xmax in ((ax_wer, "wer", "Ship-side WER (lower is better)", 1.0),
-                                  (ax_rec, "recall", "Ship-side recall (clips with a distress phrase)", 13.9)):
+    wer_max = max([1.0] + [v * 1.1 for r in rows for v in r["wer"] if v is not None])
+    for ax, key, xlabel, xmax in ((ax_wer, "wer", "Ship-side WER (lower is better)", wer_max),
+                                  (ax_rec, "recall", "Ship-side recall (clips with a distress phrase)", n_clips + 0.9)):
         for j, (who, color, offset) in enumerate(((label, SERIES[0], 0.14), (ground_label, SERIES[1], -0.14))):
             vals = [r[key][j] for r in rows]
             pts = [(v, yi + offset) for v, yi in zip(vals, y) if v is not None]
@@ -214,15 +216,40 @@ def plot_accuracy(rows, label, ground_label, path):
     save(fig, path)
 
 
+def subset_scores(per_clip, model, clips):
+    """Pooled ship-side WER and recall of one results/<model> on the given clips (per_clip.tsv of score.py).
+
+    The pooled WER is the sum of the errors over the sum of the reference
+    words, without the clips with wer_excluded=yes.
+    """
+    rows = [r for r in per_clip if r["model"] == model and r["clip"] in clips]
+    if not rows:
+        return {"wer": None, "recall": None, "recall_text": "", "phrases": ""}
+    words = errors = 0.0
+    for r in rows:
+        if r["wer_excluded"] == "yes" or not r["wer_ship"]:
+            continue
+        words += int(r["ship_words"])
+        errors += round(float(r["wer_ship"]) * int(r["ship_words"]))  # whole errors
+    hits = sum(r["detected_ship"] == "yes" for r in rows)
+    phrases = sorted({p for r in rows for p in r["phrases_ship"].split(",") if p})
+    return {"wer": errors / words if words else None, "recall": hits,
+            "recall_text": f"{hits}/{len(rows)}", "phrases": ", ".join(phrases)}
+
+
+def duration(seconds):
+    return f"{seconds:.0f} s" if seconds < 120 else f"{seconds / 60:.0f} min"
+
+
+def fmt3(value):
+    return "" if value is None else f"{value:.3f}"
+
+
 def to_float(value):
     try:
         return float(value)
     except (TypeError, ValueError):
         return None
-
-
-def recall_count(value):
-    return float(value.split("/")[0]) if value else None
 
 
 def main():
@@ -244,7 +271,6 @@ def main():
     os.makedirs(out, exist_ok=True)
     manifest = read_manifest(os.path.join(args.run_dir, "manifest.txt"))
     exits = {r["model"]: r for r in read_tsv(os.path.join(args.run_dir, "exit.txt"))}
-    summary = {r["model"]: r for r in read_tsv(os.path.join(HERE, "results", "summary.tsv"))}
     res = read_resource(os.path.join(args.run_dir, "resource.csv"))
     if not res["t"]:
         sys.exit("resource.csv has no samples.")
@@ -287,26 +313,32 @@ def main():
     else:
         free_ref = (res["idle_avail"], "free at start")
     timeline = plot_timeline_and_resource(args.run_dir, out)
+    card_clip = args.card_clip
+    if not any(os.path.exists(os.path.join(args.run_dir, n, card_clip, "report_card.png")) for n in configs):
+        card_clip = next((x["clip"] for c in configs.values() for x in c["clips"]), card_clip)
     cards = {}
     for name in configs:
-        src = os.path.join(args.run_dir, name, args.card_clip, "report_card.png")
+        src = os.path.join(args.run_dir, name, card_clip, "report_card.png")
         if os.path.exists(src):
             shutil.copyfile(src, os.path.join(out, f"report_card_{name}.png"))
             cards[name] = f"report_card_{name}.png"
         configs[name]["cards"] = len(glob.glob(os.path.join(args.run_dir, name, "*", "report_card.png")))
     plot_peak_memory(configs, free_ref, os.path.join(out, "peak_memory.png"))
     plot_rtf(configs, os.path.join(out, "rtf.png"))
+    # Accuracy on the clips of this run only, for this run and the ground
+    # baseline alike, so that an MVP run (one clip) is not scored on 13 clips.
+    per_clip = read_tsv(os.path.join(HERE, "results", "per_clip.tsv"))
+    run_clips = {x["clip"] for c in configs.values() for x in c["clips"]}
     acc_rows = []
     for name in configs:
-        run_row = summary.get(f"{args.label}-{name}", {})
-        ground_row = summary.get(f"{args.ground_label}-{name}", {})
         acc_rows.append({
             "config": name,
-            "wer": (to_float(run_row.get("wer_ship")), to_float(ground_row.get("wer_ship"))),
-            "recall": (recall_count(run_row.get("recall_ship")), recall_count(ground_row.get("recall_ship"))),
-            "run_row": run_row, "ground_row": ground_row,
+            "run": subset_scores(per_clip, f"{args.label}-{name}", run_clips),
+            "ground": subset_scores(per_clip, f"{args.ground_label}-{name}", run_clips),
         })
-    plot_accuracy(acc_rows, args.label, args.ground_label, os.path.join(out, "accuracy.png"))
+        acc_rows[-1]["wer"] = (acc_rows[-1]["run"]["wer"], acc_rows[-1]["ground"]["wer"])
+        acc_rows[-1]["recall"] = (acc_rows[-1]["run"]["recall"], acc_rows[-1]["ground"]["recall"])
+    plot_accuracy(acc_rows, args.label, args.ground_label, len(run_clips), os.path.join(out, "accuracy.png"))
 
     total_audio = sum(c["audio_s"] for c in next(iter(configs.values()))["clips"])
     run_hours = (res["t"][-1] - res["t"][0]).total_seconds() / 3600
@@ -364,14 +396,14 @@ def main():
         peak = f"{c['peak_mib']:.0f} MiB" if c["peak_mib"] else ""
         margin = f"{free_ref[0] - c['peak_mib']:.0f} MiB" if c["peak_mib"] else ""
         low = f"{c['min_avail']:.0f} MiB" if c["min_avail"] is not None else ""
-        run_t = f"{c['seconds'] / 60:.0f} min" if c["seconds"] is not None else ""
+        run_t = duration(c["seconds"]) if c["seconds"] is not None else ""
         lines.append(f"| `{name}` | {c['exit']} | {run_t} | {c['load_s']:.1f} s | {peak} | {margin} | {low} |")
     lines += [
         "",
         "## Report cards made on board",
         "",
         f"One PNG per clip and config, drawn by the pretty-doomed binary on board (`report_card=true`). "
-        f"The cards of `{args.card_clip}`:",
+        f"The cards of `{card_clip}`:",
         "",
         "| Config | Cards | Card time, median |",
         "|---|---|---|",
@@ -394,7 +426,7 @@ def main():
         rtfs = [x["rtf"] for x in c["clips"]]
         lines.append(
             f"| `{name}` | {c['window_s']} s | {c['decoding']} | {len(c['clips'])} | "
-            f"{sum(x['audio_s'] for x in c['clips']):.0f} s | {sum(x['stt_s'] for x in c['clips']) / 60:.0f} min | "
+            f"{sum(x['audio_s'] for x in c['clips']):.0f} s | {duration(sum(x['stt_s'] for x in c['clips']))} | "
             f"{statistics.median(rtfs):.2f} | {max(rtfs):.2f} |")
     lines += [
         "",
@@ -405,14 +437,16 @@ def main():
         "",
         "![Accuracy](accuracy.png)",
         "",
+        f"Scored on the {len(run_clips)} clip(s) of this run, for this run and for `{args.ground_label}` alike.",
+        "",
         f"| Config | WER, ship-side ({args.label}) | WER, ship-side ({args.ground_label}) | Recall ({args.label}) | "
-        f"Recall ({args.ground_label}) | Mayday ({args.label}) | WER, all turns ({args.label}) |",
-        "|---|---|---|---|---|---|---|",
+        f"Recall ({args.ground_label}) | Phrases, ship-side ({args.label}) |",
+        "|---|---|---|---|---|---|",
     ]
     for r in acc_rows:
-        a, g = r["run_row"], r["ground_row"]
-        lines.append(f"| `{r['config']}` | {a.get('wer_ship', '')} | {g.get('wer_ship', '')} | {a.get('recall_ship', '')} | "
-                     f"{g.get('recall_ship', '')} | {a.get('mayday_ship', '')} | {a.get('wer_all', '')} |")
+        a, g = r["run"], r["ground"]
+        lines.append(f"| `{r['config']}` | {fmt3(a['wer'])} | {fmt3(g['wer'])} | {a['recall_text']} | "
+                     f"{g['recall_text']} | {a['phrases']} |")
     lines += [
         "",
         "## Per clip",

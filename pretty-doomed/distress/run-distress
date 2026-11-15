@@ -11,7 +11,13 @@
 # file. operation=detect does not launch DOOM, so the DOOM binary and the demos
 # are not necessary (-d and -e must not be empty, but are not used).
 #
-# Output: toGround/distress-NNNNN/
+# Usage:
+#   run-distress          full run: every config on the 13 clips in distress/clips/
+#   run-distress mvp      MVP test: every config on the one short clip in
+#                         distress/clips-mvp/ (4 s), to check in minutes that
+#                         each config loads, runs, detects, and writes its output
+#
+# Output: toGround/distress-NNNNN/ (full) or toGround/distress-mvp-NNNNN/ (mvp)
 #   manifest.txt        binary version, models, file SHA-256, and system data
 #   resource.csv        CPU and memory every second for the full run (the
 #                       format of the DOOM runs)
@@ -20,9 +26,17 @@
 #   <model>/            pretty-doomed.log, stt.tsv, timing.tsv, <clip>/
 #
 # Environment (all optional):
-#   DISTRESS_MODELS     configs to run, in order (default: all four)
-#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: distress/clips)
+#   DISTRESS_MODELS     configs to run, in order (default: all five)
+#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: distress/clips,
+#                       or distress/clips-mvp for mvp)
 #   DISTRESS_TIMEOUT_S  time limit per model in seconds (default: 0, no limit)
+
+PROFILE="${1:-full}"
+case "$PROFILE" in
+    full) PREFIX="distress" ;;
+    mvp)  PREFIX="distress-mvp" ;;
+    *)    echo "Usage: $0 [full|mvp]" >&2; exit 1 ;;
+esac
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$DIR")"
@@ -30,7 +44,11 @@ export LD_LIBRARY_PATH="${DIR}/libs:${LD_LIBRARY_PATH}"
 
 BIN="${DIR}/pretty-doomed"
 MODELS="${DISTRESS_MODELS:-zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2}"
-CLIPS="${DISTRESS_CLIPS:-${DIR}/clips}"
+if [ "$PROFILE" = "mvp" ]; then
+    CLIPS="${DISTRESS_CLIPS:-${DIR}/clips-mvp}"
+else
+    CLIPS="${DISTRESS_CLIPS:-${DIR}/clips}"
+fi
 TIMEOUT_S="${DISTRESS_TIMEOUT_S:-0}"
 TOGROUND="${ROOT}/toGround"
 
@@ -42,12 +60,12 @@ fi
 # Next run ID, the same scheme as the run script.
 mkdir -p "$TOGROUND"
 RUNID=1
-for d in "$TOGROUND"/distress-[0-9][0-9][0-9][0-9][0-9]; do
+for d in "$TOGROUND"/"$PREFIX"-[0-9][0-9][0-9][0-9][0-9]; do
     [ -d "$d" ] || continue
     n=$(echo "${d##*-}" | sed 's/^0*//')
     [ -n "$n" ] && [ "$n" -ge "$RUNID" ] && RUNID=$((n + 1))
 done
-OUT=$(printf "%s/distress-%05d" "$TOGROUND" "$RUNID")
+OUT=$(printf "%s/%s-%05d" "$TOGROUND" "$PREFIX" "$RUNID")
 mkdir -p "$OUT"
 
 # Manifest: what ran, on what.
@@ -55,6 +73,7 @@ mkdir -p "$OUT"
     echo "run: $(basename "$OUT")"
     echo "start_utc: $(date -u '+%Y-%m-%d %H:%M:%S')"
     echo "version: $(cat "${DIR}/VERSION" 2>/dev/null)"
+    echo "profile: ${PROFILE}"
     echo "models: ${MODELS}"
     echo "clips: ${CLIPS}"
     echo "timeout_s: ${TIMEOUT_S}"

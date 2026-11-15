@@ -193,7 +193,7 @@ The distress package (#142, see [`distress/README.md`](../distress/README.md)) r
 mkdir -p toGround/emu-distress
 cat > toGround/emu-distress/emu-run.sh <<'EOF'
 #!/bin/sh
-# Usage (in the SEPP emu container): sh emu-run.sh <label>
+# Usage (in the SEPP emu container): sh emu-run.sh <label> [full|mvp]
 set -e
 I=/tmp/install
 mkdir -p "$I"
@@ -201,9 +201,14 @@ tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-v1.tar.gz -C "$I"
 cd "$I"
 echo "manifest failures: $(sha256sum -c distress/MANIFEST.sha256 | grep -vc ': OK$')"
 set +e
-./distress/run-distress
-cp -r toGround/distress-00001 "/app/toGround/emu-distress/$1"
+./distress/run-distress ${2:-full}
+cp -r toGround/distress-*0001 "/app/toGround/emu-distress/$1"
 EOF
+
+# MVP test: all five configs on the 4 s MVP clip, with the 1 GB memory of the EM
+# (minutes, not hours). Run it first.
+SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run --rm --no-deps \
+    pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh mvp mvp'
 
 # All five configs, no memory limit
 docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-full \
