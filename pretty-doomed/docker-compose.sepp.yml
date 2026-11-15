@@ -26,8 +26,11 @@ services:
       - ../doom/demos:/app/demos
       - ./assets:/app/assets
       - sherpa-onnx-src:/opt/sherpa-onnx-src
+      # sherpa-onnx 1.13.8 for the distress package (#142). Not used by the v8 build.
+      - sherpa-onnx-src-distress:/opt/sherpa-onnx-src-distress
     working_dir: /app
     tty: true
 
 volumes:
   sherpa-onnx-src:
+  sherpa-onnx-src-distress:

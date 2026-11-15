@@ -1,0 +1,111 @@
+#!/bin/sh
+# Distress call evaluation on the EM (issue #142).
+#
+# Transcribes each clip in distress/clips/ with each candidate model. Each
+# model runs in its own process, with one model load for all the clips. The
+# models run one after the other, the largest last, so that a model that runs
+# out of memory cannot stop the other models.
+#
+# The script does not change the v8 install. It uses the v8 libs/ and the v8
+# Zipformer small model files, and its own pretty-doomed binary.
+#
+# Output: toGround/distress-NNNNN/
+#   manifest.txt        binary version, models, file SHA-256, and system data
+#   resource.csv        CPU and memory every second for the full run
+#   exit.txt            exit code and run time of each model
+#   <model>/            pretty-doomed.log, stt.tsv, timing.tsv, <clip>/
+#
+# Environment (all optional):
+#   DISTRESS_MODELS     configs to run, in order (default: all four)
+#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: distress/clips)
+#   DISTRESS_TIMEOUT_S  time limit per model in seconds (default: 0, no limit)
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(dirname "$DIR")"
+export LD_LIBRARY_PATH="${ROOT}/libs:${LD_LIBRARY_PATH}"
+
+BIN="${DIR}/pretty-doomed"
+MODELS="${DISTRESS_MODELS:-zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8}"
+CLIPS="${DISTRESS_CLIPS:-${DIR}/clips}"
+TIMEOUT_S="${DISTRESS_TIMEOUT_S:-0}"
+TOGROUND="${ROOT}/toGround"
+
+if [ ! -x "$BIN" ]; then
+    echo "Error: ${BIN} not found" >&2
+    exit 1
+fi
+
+# Next run ID, the same scheme as the run script.
+mkdir -p "$TOGROUND"
+RUNID=1
+for d in "$TOGROUND"/distress-[0-9][0-9][0-9][0-9][0-9]; do
+    [ -d "$d" ] || continue
+    n=$(echo "${d##*-}" | sed 's/^0*//')
+    [ -n "$n" ] && [ "$n" -ge "$RUNID" ] && RUNID=$((n + 1))
+done
+OUT=$(printf "%s/distress-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$OUT"
+
+# Manifest: what ran, on what.
+{
+    echo "run: $(basename "$OUT")"
+    echo "start_utc: $(date -u '+%Y-%m-%d %H:%M:%S')"
+    echo "version: $(cat "${DIR}/VERSION" 2>/dev/null)"
+    echo "models: ${MODELS}"
+    echo "clips: ${CLIPS}"
+    echo "timeout_s: ${TIMEOUT_S}"
+    echo "uname: $(uname -a)"
+    grep -E '^(MemTotal|MemAvailable|SwapTotal):' /proc/meminfo 2>/dev/null
+    df -k "$ROOT" 2>/dev/null | tail -1 | sed 's/^/disk_kb: /'
+    echo "sha256:"
+    (cd "$ROOT" && sha256sum distress/pretty-doomed distress/config.distress.*.cfg 2>/dev/null)
+    for m in $MODELS; do
+        cfg="${DIR}/config.distress.${m}.cfg"
+        for key in stt_model_encoder stt_model_decoder stt_model_joiner stt_model_tokens; do
+            f=$(sed -n "s/^${key}=//p" "$cfg")
+            (cd "$ROOT" && sha256sum "$f" 2>/dev/null)
+        done
+    done
+    echo "clip_files:"
+    (cd "$CLIPS" && sha256sum ./*.wav 2>/dev/null)
+} > "${OUT}/manifest.txt"
+
+# Resource monitor: per-core CPU and memory every second.
+echo "epoch,timestamp,cpu0_user,cpu0_nice,cpu0_system,cpu0_idle,cpu0_iowait,cpu1_user,cpu1_nice,cpu1_system,cpu1_idle,cpu1_iowait,mem_total_kb,mem_available_kb,mem_free_kb" > "${OUT}/resource.csv"
+(
+    PARENT=$$
+    while kill -0 "$PARENT" 2>/dev/null; do
+        CPU0=$(awk '/^cpu0/ {print $2","$3","$4","$5","$6}' /proc/stat)
+        CPU1=$(awk '/^cpu1/ {print $2","$3","$4","$5","$6}' /proc/stat)
+        MEM=$(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} /MemFree/{f=$2} END{print t","a","f}' /proc/meminfo)
+        echo "$(date '+%s'),$(date '+%Y-%m-%d %H:%M:%S'),${CPU0},${CPU1},${MEM}"
+        sleep 1
+    done
+) >> "${OUT}/resource.csv" 0<&- &
+MON_PID=$!
+
+echo "model	exit	seconds" > "${OUT}/exit.txt"
+cd "$ROOT" || exit 1
+for m in $MODELS; do
+    cfg="${DIR}/config.distress.${m}.cfg"
+    if [ ! -f "$cfg" ]; then
+        echo "${m}	no-config	0" >> "${OUT}/exit.txt"
+        continue
+    fi
+    echo "=== ${m} ==="
+    t0=$(date '+%s')
+    if [ "$TIMEOUT_S" -gt 0 ] 2>/dev/null; then
+        timeout "$TIMEOUT_S" "$BIN" -i "$CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+            -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
+    else
+        "$BIN" -i "$CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+            -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
+    fi
+    rc=$?
+    echo "${m}	${rc}	$(( $(date '+%s') - t0 ))" >> "${OUT}/exit.txt"
+done
+
+kill "$MON_PID" 2>/dev/null
+wait "$MON_PID" 2>/dev/null
+echo "end_utc: $(date -u '+%Y-%m-%d %H:%M:%S')" >> "${OUT}/manifest.txt"
+echo "Done: ${OUT}"
