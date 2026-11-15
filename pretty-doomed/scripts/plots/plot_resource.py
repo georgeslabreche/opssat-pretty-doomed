@@ -41,7 +41,7 @@ PHASE_PATTERNS = [
     ("STT Inference",  re.compile(r"Transcribing \(|STT time:|\d+ windows of [\d.]+ s")),
     # Detection runs on the STT thread; "Command detected! Launching DOOM" is
     # the exec thread announcing the launch, so it belongs to the DOOM phase.
-    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|operation=detect, no action")),
+    ("Detection",      re.compile(r"Detecting command|Wake word:|Command \[|Force-triggering|operation=detect")),
     ("DOOM",           re.compile(r"Command detected|Running DOOM demo:|Completed demo:")),
     # "SC16 replay" lines match SDR Init above (first match wins); these are
     # the postcard/exec-stage lines (input path, keep/delete cleanup).

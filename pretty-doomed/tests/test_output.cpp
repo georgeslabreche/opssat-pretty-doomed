@@ -163,7 +163,8 @@ TEST_CASE("format_summary command detected with operation=detect does not claim 
     DetectionTotals t = compute_totals(d);
     std::string summary = format_summary(d, t, cfg, "clips/a.wav", "WE ARE SINKING", "ART");
 
-    CHECK(summary.find("Result: COMMAND DETECTED - no action (operation=detect)") != std::string::npos);
+    CHECK(summary.find("Result: COMMAND DETECTED (operation=detect)\n") != std::string::npos);
+    CHECK(summary.find("no action") == std::string::npos);
     CHECK(summary.find("launching DOOM") == std::string::npos);
     CHECK(summary.find("ART") == std::string::npos);
 }

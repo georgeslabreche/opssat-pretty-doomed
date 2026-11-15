@@ -74,14 +74,19 @@ std::vector<WindowMatch> window_matches(const std::vector<std::string>& window_t
 // first, then by name. The wake word is included under wake_word when it matched.
 MatchCounts match_counts(const DetectionResult& detection, const std::string& wake_word = "");
 
-// The transcript words around the matched phrases, with context_words words
-// on each side, and "..." for the words that are left out. Words are compared
-// without punctuation and case. Without a match: the start of the transcript.
-// The excerpt stops at about max_chars characters.
+// The transcript words, with the words of the matched phrases marked. Words
+// are compared without punctuation and case. If the whole transcript has at
+// most max_chars characters, all of it. Else an excerpt: the words around the
+// matched phrases, with context_words words on each side, and "..." for the
+// words that are left out (without a match: the start of the transcript),
+// stopped at about max_chars characters.
 std::vector<CardWord> match_excerpt(const std::string& transcript,
                                     const DetectionResult& detection,
                                     int context_words,
                                     std::size_t max_chars);
+
+// True if no word of the transcript was left out (no "..." marker).
+bool transcript_is_whole(const std::vector<CardWord>& words);
 
 // Greedy line wrap: each line has at most width characters (words and spaces),
 // except a single word that is longer than width.

@@ -8,7 +8,7 @@ The `operation` key selects what action the pipeline executes when a voice comma
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `operation` | doom | Operation to trigger on command detection. `doom` launches DOOM. `detect` logs and scores the detection, and no action follows (distress call evaluation, #142). |
+| `operation` | doom | Operation to trigger on command detection. `doom` launches DOOM. `detect` logs and scores the detection, and DOOM does not launch (distress call evaluation, #142). |
 
 Currently supported operations:
 - `doom` -- runs a DOOM demo, captures frames, generates a postcard. All `doom_*` config keys apply.

@@ -219,6 +219,15 @@ std::vector<CardWord> match_excerpt(const std::string& transcript,
     mark(exact, false);
     mark(approx, true);
 
+    // The whole transcript when it fits.
+    std::size_t total = 0;
+    for (const auto& w : words) total += w.size() + (total ? 1 : 0);
+    if (total <= max_chars) {
+        std::vector<CardWord> all;
+        for (std::size_t i = 0; i < words.size(); i++) all.push_back(CardWord{words[i], marked[i], approximate[i]});
+        return all;
+    }
+
     std::vector<CardWord> out;
     std::size_t chars = 0;
     auto push = [&](const CardWord& w) {
@@ -264,6 +273,10 @@ std::vector<CardWord> match_excerpt(const std::string& transcript,
     }
     if (ranges.back().second < n - 1) ellipsis();
     return out;
+}
+
+bool transcript_is_whole(const std::vector<CardWord>& words) {
+    return std::none_of(words.begin(), words.end(), [](const CardWord& w) { return w.text == "..."; });
 }
 
 std::vector<std::vector<CardWord>> wrap_words(const std::vector<CardWord>& words, std::size_t width) {
@@ -396,7 +409,7 @@ bool render_report_card(const ReportCardData& data,
 
     // Transcript excerpt.
     y += 10;
-    cv.text(M, y, "TRANSCRIPT EXCERPT", INK, 2);
+    cv.text(M, y, transcript_is_whole(data.excerpt) ? "TRANSCRIPT" : "TRANSCRIPT EXCERPT", INK, 2);
     y += 26;
     const std::size_t per_line = static_cast<std::size_t>((W - 2 * M) / ((GLYPH_W + 1) * 2));
     for (const auto& line : wrap_words(data.excerpt, per_line)) {
@@ -406,7 +419,7 @@ bool render_report_card(const ReportCardData& data,
         y += 22;
     }
 
-    std::string footer = "PRETTY DOOMED  DISTRESS REPORT CARD  MADE ON BOARD  " + data.generated_utc;
+    std::string footer = "OPS-SAT PRETTY ONBOARD DISTRESS DETECTION  " + data.generated_utc;
     cv.text(M, H - 24, footer, GRID, 2);
     return cv.write_png(png_path);
 }

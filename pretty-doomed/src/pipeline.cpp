@@ -214,7 +214,7 @@ void process_wav_exec(const PipelineStageResult& stage1,
     }
 
     if (cfg.operation == "detect") {
-        log_info() << "Command detected (operation=detect, no action)\n";
+        log_info() << "Command detected (operation=detect)\n";
         cleanup_sc16();
         return;
     }

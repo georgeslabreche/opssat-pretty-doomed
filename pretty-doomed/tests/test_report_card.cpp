@@ -84,7 +84,7 @@ TEST_CASE("match_excerpt marks the matched words and keeps the words around them
     DetectionResult d;
     d.command_exact_matches["TAKING ON WATER"] = {"TAKING ON WATER"};
     auto words = match_excerpt("one two three four five six seven eight nine ten we are taking on water now",
-                               d, 2, 200);
+                               d, 2, 60);
     std::vector<CardWord> expected = {{"...", false}, {"we", false}, {"are", false}, {"taking", true},
                                       {"on", true},   {"water", true}, {"now", false}};
     CHECK(words == expected);
@@ -93,7 +93,7 @@ TEST_CASE("match_excerpt marks the matched words and keeps the words around them
 TEST_CASE("match_excerpt separates distant matches with an ellipsis") {
     DetectionResult d;
     d.command_exact_matches["SINKING"] = {"SINKING", "SINKING"};
-    auto words = match_excerpt("sinking a b c d e f g h sinking", d, 1, 200);
+    auto words = match_excerpt("sinking a b c d e f g h sinking", d, 1, 20);
     std::vector<CardWord> expected = {{"sinking", true}, {"a", false}, {"...", false},
                                       {"h", false},      {"sinking", true}};
     CHECK(words == expected);
@@ -102,8 +102,20 @@ TEST_CASE("match_excerpt separates distant matches with an ellipsis") {
 TEST_CASE("match_excerpt matches words without their punctuation, and flags approximate matches") {
     DetectionResult d;
     d.command_approx_matches["FIRE"] = {"FIVE"};
-    auto words = match_excerpt("we have five, people", d, 0, 200);
+    auto words = match_excerpt("we have five, people", d, 0, 10);
     CHECK(words == std::vector<CardWord>{{"...", false}, {"five,", true, true}, {"...", false}});
+}
+
+TEST_CASE("match_excerpt gives the whole transcript, with the matches marked, when it fits") {
+    DetectionResult d;
+    d.command_exact_matches["SINKING"] = {"SINKING"};
+    auto words = match_excerpt("we are sinking now", d, 0, 200);
+    CHECK(words == std::vector<CardWord>{{"we", false}, {"are", false}, {"sinking", true}, {"now", false}});
+    CHECK(transcript_is_whole(words));
+}
+
+TEST_CASE("transcript_is_whole is false when words are left out") {
+    CHECK_FALSE(transcript_is_whole({{"...", false}, {"sinking", true}}));
 }
 
 TEST_CASE("match_excerpt without a match gives the start of the transcript") {

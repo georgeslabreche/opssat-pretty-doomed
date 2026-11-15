@@ -29,7 +29,7 @@ inline bool operation_launches_doom(const std::string& operation) {
 struct PipelineConfig {
     // Operation: what the voice command triggers (feature flag)
     // "doom": a detection launches DOOM. "detect": a detection is logged and
-    // scored, and no action follows (distress call evaluation, #142).
+    // scored, and DOOM does not launch (distress call evaluation, #142).
     std::string operation = "doom";
 
     // STT: speech-to-text model
