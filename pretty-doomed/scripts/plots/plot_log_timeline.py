@@ -28,7 +28,7 @@ from matplotlib.patches import FancyBboxPatch
 PHASE_PATTERNS = [
     ("STT Model Load", re.compile(r"Loading STT model")),
     ("STT Model Load", re.compile(r"STT model loaded")),
-    ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:")),
+    ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:|Model type:")),
     ("SDR Config",     re.compile(r"AD9361(?! hardware FIR disabled)")),
     ("SDR Init",       re.compile(r"=== Capture \d+/\d+ ===")),
     ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:|SC16 replay(?! OK)|Building flowgraph")),

@@ -258,6 +258,8 @@ def main():
     parser.add_argument("--ground-label", default="binary", help="label of the ground baseline (default: binary)")
     parser.add_argument("--title", help="report title")
     parser.add_argument("--out", help="output directory (default: reports/<label>)")
+    parser.add_argument("--results", default=os.path.join(HERE, "results"),
+                        help="results directory with per_clip.tsv of score.py (default: results)")
     parser.add_argument("--card-clip", default="46250-star-king",
                         help="clip whose report cards are shown in the report (default: 46250-star-king)")
     parser.add_argument("--free-from", choices=sorted(mem_headroom.PATTERNS),
@@ -326,7 +328,7 @@ def main():
     plot_rtf(configs, os.path.join(out, "rtf.png"))
     # Accuracy on the clips of this run only, for this run and the ground
     # baseline alike, so that a run of a few clips is not scored on 13 clips.
-    per_clip = read_tsv(os.path.join(HERE, "results", "per_clip.tsv"))
+    per_clip = read_tsv(os.path.join(args.results, "per_clip.tsv"))
     run_clips = {x["clip"] for c in configs.values() for x in c["clips"]}
     acc_rows = []
     for name in configs:

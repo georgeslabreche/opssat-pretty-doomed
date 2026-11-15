@@ -26,7 +26,7 @@ import numpy as np
 PHASE_PATTERNS = [
     ("STT Model Load", re.compile(r"Loading STT model")),
     ("STT Model Load", re.compile(r"STT model loaded")),
-    ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:")),
+    ("STT Model Load", re.compile(r"Encoder:|Decoder:|Joiner:|Tokens:|Model type:")),
     ("SDR Config",     re.compile(r"AD9361(?! hardware FIR disabled)")),
     ("SDR Init",       re.compile(r"=== Capture \d+/\d+ ===")),
     ("SDR Init",       re.compile(r"Configuring SDR|SDR Capture:|SC16 replay(?! OK)|Building flowgraph")),
@@ -350,13 +350,9 @@ def plot_resource_only(run_dir, output_path, title, x_max=None):
     # --- Memory ---
     ax_mem.fill_between(t_res, res["mem_pct"], alpha=0.3, color="#8B0000")
     ax_mem.plot(t_res, res["mem_pct"], color="#8B0000", linewidth=1.3, label="Memory Used")
-    proc = parse_process_csv(os.path.join(run_dir, "process.csv"), csv_path)
-    if proc:
-        ax_mem.plot([e - t0_res for e in proc["epoch"]], proc["rss_pct"], color="#1b9e77",
-                    linewidth=1.3, label="pretty-doomed\n(VmRSS)")
     ax_mem.set_ylabel("Memory (%)", fontsize=10)
     ax_mem.set_xlabel("Time (seconds)", fontsize=10)
-    ax_mem.set_ylim(0, max(max(res["mem_pct"] + (proc["rss_pct"] if proc else [])) * 1.5, 30))
+    ax_mem.set_ylim(0, max(max(res["mem_pct"]) * 1.5, 30))
     ax_mem.legend(loc="upper left", bbox_to_anchor=(1.01, 0.85),
                   fontsize=8, framealpha=0.9)
     ax_mem.grid(True, alpha=0.3)
@@ -498,9 +494,13 @@ def plot_combined(run_dir, output_path, title, x_max=None):
     # --- Memory ---
     ax_mem.fill_between(t_res, res["mem_pct"], alpha=0.3, color="#8B0000")
     ax_mem.plot(t_res, res["mem_pct"], color="#8B0000", linewidth=1.3, label="Memory Used")
+    proc = parse_process_csv(os.path.join(run_dir, "process.csv"), csv_path)
+    if proc:
+        ax_mem.plot([e - t0_res for e in proc["epoch"]], proc["rss_pct"], color="#1b9e77",
+                    linewidth=1.3, label="pretty-doomed\n(VmRSS)")
     ax_mem.set_ylabel("Memory (%)", fontsize=10)
     ax_mem.set_xlabel("Time (seconds)", fontsize=10)
-    ax_mem.set_ylim(0, max(max(res["mem_pct"]) * 1.5, 30))
+    ax_mem.set_ylim(0, max(max(res["mem_pct"] + (proc["rss_pct"] if proc else [])) * 1.5, 30))
     ax_mem.legend(loc="upper left", bbox_to_anchor=(1.01, 0.85),
                   fontsize=8, framealpha=0.9)
     ax_mem.grid(True, alpha=0.3)
