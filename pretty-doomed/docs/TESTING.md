@@ -194,6 +194,7 @@ mkdir -p toGround/emu-distress
 cat > toGround/emu-distress/emu-run.sh <<'EOF'
 #!/bin/sh
 # Usage (in the SEPP emu container): [DISTRESS_CLIP_NAMES=] sh emu-run.sh <label>
+# The output goes to toGround/emu-distress/NNN-<label>/, with NNN the next index.
 set -e
 I=/tmp/install
 mkdir -p "$I"
@@ -202,7 +203,15 @@ cd "$I"
 echo "manifest failures: $(sha256sum -c MANIFEST.sha256 | grep -vc ': OK$')"
 set +e
 ./run
-cp -r toGround/distress-00001 "/app/toGround/emu-distress/$1"
+DEST=/app/toGround/emu-distress
+n=0
+for d in "$DEST"/[0-9][0-9][0-9]-*; do
+    [ -e "$d" ] || continue
+    i=$(basename "$d" | cut -c1-3 | sed 's/^0*//')
+    [ "${i:-0}" -ge "$n" ] && n=$((${i:-0} + 1))
+done
+cp -r toGround/distress-00001 "$DEST/$(printf '%03d' "$n")-$1"
+echo "Saved: $DEST/$(printf '%03d' "$n")-$1"
 EOF
 
 # First test: all five configs on the two clips of run.cfg (4.0 s and 4.3 s), with the
@@ -229,12 +238,12 @@ SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run -d 
 
 # Ground analysis of a run
 cd ../tools/distress
-python3 import_em.py ../../pretty-doomed/toGround/emu-distress/full --label emu --machine "SEPP emulator (QEMU armv7l)"
+python3 import_em.py ../../pretty-doomed/toGround/emu-distress/NNN-full --label emu --machine "SEPP emulator (QEMU armv7l)"
 python3 score.py
-.venv/bin/python report.py ../../pretty-doomed/toGround/emu-distress/full --label emu --free-from EM
+.venv/bin/python report.py ../../pretty-doomed/toGround/emu-distress/NNN-full --label emu --free-from EM
 ```
 
-The two runs use one CPU each. `SEPP_EMU_MEM_LIMIT` sets `mem_limit` of the container. The default (64g) has no effect, so the DOOM emulation tests above do not change.
+Each run is saved in `toGround/emu-distress/NNN-<label>/`, with NNN the next index (000, 001, and so on), so the highest index is the latest run. The two runs use one CPU each. `SEPP_EMU_MEM_LIMIT` sets `mem_limit` of the container. The default (64g) has no effect, so the DOOM emulation tests above do not change.
 
 Results of `v8-distress-1` on the SEPP emulator (13 clips, 830 s of audio):
 
