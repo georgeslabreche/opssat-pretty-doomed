@@ -6,13 +6,13 @@ An add-on for the EM that transcribes 13 real distress calls with three speech-t
 
 | Path | Description |
 |---|---|
+| `run-distress.cfg` | The configs and the clips that `run-distress` runs. |
 | `run-distress` | Entry script. Runs each model in its own process and writes the results to `toGround/distress-NNNNN/`. |
 | `config.distress.<model>.cfg` | One pipeline config per model. All use `operation=detect`, so DOOM does not launch. |
 | `variants.distress.cfg` | Empty variants file. |
 | `VERSION` | Version of the add-on and of its binary. |
 | `pretty-doomed` | The ARM32 binary, built from the same source as v8 plus the keys of #142, with sherpa-onnx 1.13.8 (v8 uses 1.12.21). Added by the package build. |
 | `clips/` | The 13 clips as 16 kHz mono WAV. Added by the package build. |
-| `clips-mvp/` | The clip of the MVP test (`run-distress mvp`). Added by the package build. |
 | `libs/` | The shared libraries of the binary (GNU Radio, Boost, and others), the same as the v8 `libs/`. Added by the package build. |
 | `models/` | The Zipformer small model (a copy of the v8 model), and the Parakeet 110M and Parakeet 0.6B v2 models. Added by the package build. |
 | `README.md` | This file. |
@@ -46,33 +46,29 @@ sha256sum -c distress/MANIFEST.sha256
 
 ## Run
 
-Run the MVP test first, then the full run.
-
-### MVP test
-
-```sh
-./distress/run-distress mvp
-```
-
-All five configs on one clip: `distress/clips-mvp/37977-bainbridge-skiff.wav`, 4 s of "Mayday, Mayday, Mayday", the shortest and simplest clip. Every model detects "mayday" in it on the ground. The MVP test shows in minutes that each config loads its model, transcribes, detects, writes its report card, and fits in memory, before the full run of several hours. Most of its time is the five model loads. The output is in `toGround/distress-mvp-NNNNN/`, with the same files as a full run.
-
-Expected result: exit code 0 for each config in `exit.txt`, `detected` = `yes` in each `timing.tsv`, and one `report_card.png` per config.
-
-### Full run
-
 ```sh
 ./distress/run-distress
 ```
 
-Optional environment variables:
+`distress/run-distress.cfg` sets what runs:
+
+| Key | Value | Empty |
+|---|---|---|
+| `models` | Configs to run, in order, comma-separated: `config.distress.<name>.cfg`. | All five, in the order of the table above. |
+| `clips` | Clips to run, by name, comma-separated: `distress/clips/<name>.wav`. | All 13 clips. |
+
+The package comes with all five configs and one clip, `clips=37977-bainbridge-skiff`: 4 s of "Mayday, Mayday, Mayday", the shortest and simplest clip, which every model detects on the ground. Run this first test before the full run. It shows in minutes that each config loads its model, transcribes, detects, writes its report card, and fits in memory. Most of its time is the five model loads. Expected result: exit code 0 for each config in `exit.txt`, `detected` = `yes` in each `timing.tsv`, and one `report_card.png` per config.
+
+For the full run, leave `clips=` empty. The estimated run time on the EM is 4 to 8 hours for all five configs on the 13 clips. Most of it is the three Parakeet 0.6B v2 configs.
+
+Optional environment variables, which override `run-distress.cfg`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `DISTRESS_MODELS` | all five, in the order of the table above | Configs to run, in order. |
-| `DISTRESS_CLIPS` | `distress/clips` (full), `distress/clips-mvp` (mvp) | Directory of 16 kHz mono WAV clips. |
+| `DISTRESS_MODELS` | `models` of `run-distress.cfg` | Configs to run, in order, comma-separated. |
+| `DISTRESS_CLIP_NAMES` | `clips` of `run-distress.cfg` | Clips to run, by name, comma-separated. |
+| `DISTRESS_CLIPS` | `distress/clips` | Directory of 16 kHz mono WAV clips. |
 | `DISTRESS_TIMEOUT_S` | 0 (no limit) | Time limit per model in seconds. |
-
-The estimated run time on the EM is 4 to 8 hours for all five configs. Most of it is the three Parakeet 0.6B v2 configs.
 
 ## Report cards
 
@@ -89,7 +85,7 @@ A separate thread draws the cards while the main thread transcribes the next cli
 ## Output
 
 ```
-toGround/distress-NNNNN/   (distress-mvp-NNNNN/ for the MVP test)
+toGround/distress-NNNNN/
 ├── manifest.txt     binary version, models, SHA-256 of the files, system memory and disk
 ├── resource.csv     CPU and memory every second for the full run (the format of the DOOM runs)
 ├── process.csv      memory (VmRSS, VmHWM) and threads of the pretty-doomed process every second

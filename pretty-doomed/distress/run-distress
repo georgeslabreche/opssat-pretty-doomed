@@ -11,44 +11,44 @@
 # file. operation=detect does not launch DOOM, so the DOOM binary and the demos
 # are not necessary (-d and -e must not be empty, but are not used).
 #
-# Usage:
-#   run-distress          full run: every config on the 13 clips in distress/clips/
-#   run-distress mvp      MVP test: every config on the one short clip in
-#                         distress/clips-mvp/ (4 s), to check in minutes that
-#                         each config loads, runs, detects, and writes its output
+# What runs is set in distress/run-distress.cfg:
+#   models=   configs to run, in order, comma-separated (empty: all five)
+#   clips=    clips to run, by name, without .wav, comma-separated (empty: all the clips)
+# For a short first test, list one clip. For the full run, leave clips= empty.
 #
-# Output: toGround/distress-NNNNN/ (full) or toGround/distress-mvp-NNNNN/ (mvp)
-#   manifest.txt        binary version, models, file SHA-256, and system data
+# Output: toGround/distress-NNNNN/
+#   manifest.txt        binary version, models, clips, file SHA-256, and system data
 #   resource.csv        CPU and memory every second for the full run (the
 #                       format of the DOOM runs)
 #   process.csv         memory of the pretty-doomed process every second
 #   exit.txt            exit code and run time of each model
 #   <model>/            pretty-doomed.log, stt.tsv, timing.tsv, <clip>/
 #
-# Environment (all optional):
-#   DISTRESS_MODELS     configs to run, in order (default: all five)
-#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: distress/clips,
-#                       or distress/clips-mvp for mvp)
+# Environment (all optional, they override run-distress.cfg):
+#   DISTRESS_MODELS     configs to run, in order, comma-separated
+#   DISTRESS_CLIP_NAMES clips to run, by name, comma-separated
+#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: distress/clips)
 #   DISTRESS_TIMEOUT_S  time limit per model in seconds (default: 0, no limit)
-
-PROFILE="${1:-full}"
-case "$PROFILE" in
-    full) PREFIX="distress" ;;
-    mvp)  PREFIX="distress-mvp" ;;
-    *)    echo "Usage: $0 [full|mvp]" >&2; exit 1 ;;
-esac
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$DIR")"
 export LD_LIBRARY_PATH="${DIR}/libs:${LD_LIBRARY_PATH}"
 
+ALL_MODELS="zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2"
+RUN_CFG="${DIR}/run-distress.cfg"
+cfg_value() {
+    [ -f "$RUN_CFG" ] && sed -n "s/^$1=//p" "$RUN_CFG" | tail -1
+}
+# "a, b,c" -> "a b c"
+as_words() {
+    echo "$1" | tr ',' ' '
+}
+
 BIN="${DIR}/pretty-doomed"
-MODELS="${DISTRESS_MODELS:-zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2}"
-if [ "$PROFILE" = "mvp" ]; then
-    CLIPS="${DISTRESS_CLIPS:-${DIR}/clips-mvp}"
-else
-    CLIPS="${DISTRESS_CLIPS:-${DIR}/clips}"
-fi
+MODELS=$(as_words "${DISTRESS_MODELS-$(cfg_value models)}")
+[ -n "$(echo $MODELS)" ] || MODELS="$ALL_MODELS"
+CLIP_NAMES=$(as_words "${DISTRESS_CLIP_NAMES-$(cfg_value clips)}")
+CLIPS="${DISTRESS_CLIPS:-${DIR}/clips}"
 TIMEOUT_S="${DISTRESS_TIMEOUT_S:-0}"
 TOGROUND="${ROOT}/toGround"
 
@@ -57,15 +57,31 @@ if [ ! -x "$BIN" ]; then
     exit 1
 fi
 
+# The clips of this run: all the clips, or a directory of links to the listed clips.
+RUN_CLIPS="$CLIPS"
+if [ -n "$(echo $CLIP_NAMES)" ]; then
+    RUN_CLIPS="${TMPDIR:-/tmp}/distress-clips.$$"
+    mkdir -p "$RUN_CLIPS"
+    for c in $CLIP_NAMES; do
+        c="${c%.wav}"
+        if [ ! -f "${CLIPS}/${c}.wav" ]; then
+            echo "Error: clip ${c} not found in ${CLIPS}" >&2
+            rm -rf "$RUN_CLIPS"
+            exit 1
+        fi
+        ln -s "${CLIPS}/${c}.wav" "${RUN_CLIPS}/${c}.wav"
+    done
+fi
+
 # Next run ID, the same scheme as the run script.
 mkdir -p "$TOGROUND"
 RUNID=1
-for d in "$TOGROUND"/"$PREFIX"-[0-9][0-9][0-9][0-9][0-9]; do
+for d in "$TOGROUND"/distress-[0-9][0-9][0-9][0-9][0-9]; do
     [ -d "$d" ] || continue
     n=$(echo "${d##*-}" | sed 's/^0*//')
     [ -n "$n" ] && [ "$n" -ge "$RUNID" ] && RUNID=$((n + 1))
 done
-OUT=$(printf "%s/%s-%05d" "$TOGROUND" "$PREFIX" "$RUNID")
+OUT=$(printf "%s/distress-%05d" "$TOGROUND" "$RUNID")
 mkdir -p "$OUT"
 
 # Manifest: what ran, on what.
@@ -73,9 +89,9 @@ mkdir -p "$OUT"
     echo "run: $(basename "$OUT")"
     echo "start_utc: $(date -u '+%Y-%m-%d %H:%M:%S')"
     echo "version: $(cat "${DIR}/VERSION" 2>/dev/null)"
-    echo "profile: ${PROFILE}"
     echo "models: ${MODELS}"
     echo "clips: ${CLIPS}"
+    echo "clip_names: ${CLIP_NAMES:-all}"
     echo "timeout_s: ${TIMEOUT_S}"
     echo "uname: $(uname -a)"
     grep -E '^(MemTotal|MemAvailable|SwapTotal):' /proc/meminfo 2>/dev/null
@@ -90,7 +106,7 @@ mkdir -p "$OUT"
         done
     done
     echo "clip_files:"
-    (cd "$CLIPS" && sha256sum ./*.wav 2>/dev/null)
+    (cd "$RUN_CLIPS" && sha256sum ./*.wav 2>/dev/null)
 } > "${OUT}/manifest.txt"
 
 # Resource monitor: per-core CPU and memory every second.
@@ -140,10 +156,10 @@ for m in $MODELS; do
     echo "$m" > "${OUT}/current.txt"
     t0=$(date '+%s')
     if [ "$TIMEOUT_S" -gt 0 ] 2>/dev/null; then
-        timeout "$TIMEOUT_S" "$BIN" -i "$CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+        timeout "$TIMEOUT_S" "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
             -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
     else
-        "$BIN" -i "$CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+        "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
             -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
     fi
     rc=$?
@@ -153,5 +169,6 @@ done
 kill "$MON_PID" "$PMON_PID" 2>/dev/null
 wait "$MON_PID" "$PMON_PID" 2>/dev/null
 rm -f "${OUT}/current.txt"
+[ "$RUN_CLIPS" = "$CLIPS" ] || rm -rf "$RUN_CLIPS"
 echo "end_utc: $(date -u '+%Y-%m-%d %H:%M:%S')" >> "${OUT}/manifest.txt"
 echo "Done: ${OUT}"

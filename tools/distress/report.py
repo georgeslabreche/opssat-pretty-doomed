@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Report of one distress run on the EM or on the SEPP emulator (issue #142).
 
-Reads a run directory (toGround/distress-NNNNN/ or distress-mvp-NNNNN/ of
-run-distress) and the per-clip scores
-of score.py, and writes reports/<label>/:
+Reads a run directory (toGround/distress-NNNNN/ of run-distress) and the
+per-clip scores of score.py, and writes reports/<label>/:
 
   REPORT.md               run data, resource use, speed, and accuracy tables
   timeline-and-resource.png  thread timeline, per-core CPU, and memory (plot_resource.py, as for the DOOM runs)
@@ -326,7 +325,7 @@ def main():
     plot_peak_memory(configs, free_ref, os.path.join(out, "peak_memory.png"))
     plot_rtf(configs, os.path.join(out, "rtf.png"))
     # Accuracy on the clips of this run only, for this run and the ground
-    # baseline alike, so that an MVP run (one clip) is not scored on 13 clips.
+    # baseline alike, so that a run of a few clips is not scored on 13 clips.
     per_clip = read_tsv(os.path.join(HERE, "results", "per_clip.tsv"))
     run_clips = {x["clip"] for c in configs.values() for x in c["clips"]}
     acc_rows = []

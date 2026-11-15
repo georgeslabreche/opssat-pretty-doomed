@@ -193,7 +193,7 @@ The distress package (#142, see [`distress/README.md`](../distress/README.md)) r
 mkdir -p toGround/emu-distress
 cat > toGround/emu-distress/emu-run.sh <<'EOF'
 #!/bin/sh
-# Usage (in the SEPP emu container): sh emu-run.sh <label> [full|mvp]
+# Usage (in the SEPP emu container): [DISTRESS_CLIP_NAMES=] sh emu-run.sh <label>
 set -e
 I=/tmp/install
 mkdir -p "$I"
@@ -201,22 +201,22 @@ tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-v1.tar.gz -C "$I"
 cd "$I"
 echo "manifest failures: $(sha256sum -c distress/MANIFEST.sha256 | grep -vc ': OK$')"
 set +e
-./distress/run-distress ${2:-full}
-cp -r toGround/distress-*0001 "/app/toGround/emu-distress/$1"
+./distress/run-distress
+cp -r toGround/distress-00001 "/app/toGround/emu-distress/$1"
 EOF
 
-# MVP test: all five configs on the 4 s MVP clip, with the 1 GB memory of the EM
-# (minutes, not hours). Run it first.
+# First test: all five configs on the clip of run-distress.cfg (4 s), with the
+# 1 GB memory of the EM. Minutes, not hours.
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run --rm --no-deps \
-    pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh mvp mvp'
+    pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh first'
 
-# All five configs, no memory limit
+# All five configs on all the clips, no memory limit
 docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-full \
-    pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh full > toGround/emu-distress/full.out 2>&1'
+    pretty-doomed-sepp sh -c 'DISTRESS_CLIP_NAMES= sh toGround/emu-distress/emu-run.sh full > toGround/emu-distress/full.out 2>&1'
 
 # The Parakeet 0.6B v2 configs only, with the 1 GB memory of the EM
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-1g \
-    pretty-doomed-sepp sh -c 'DISTRESS_MODELS="parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2" \
+    pretty-doomed-sepp sh -c 'DISTRESS_CLIP_NAMES= DISTRESS_MODELS="parakeet-0.6b-v2-int8-w5,parakeet-0.6b-v2-int8,parakeet-0.6b-v2-int8-t2" \
     sh toGround/emu-distress/emu-run.sh mem1g > toGround/emu-distress/mem1g.out 2>&1'
 
 # Ground analysis of a run
