@@ -6,19 +6,19 @@
 VESSEL: U.S. Coast Guard, U.S. Coast Guard. Boat in distress. U.S. Coast Guard, U.S. Coast Guard.
 USCG: Vessel in distress this is Coast Guard Sector Miami, over. What is your position?
 VESSEL: Mayday, mayday.
-USCG: Vessel in distress, vessel in distress, this is Coast Guard Sector Miami, what is your position and nature of distress, over.
+USCG: Vessel in distress, vessel in distress, this is Coast Guard Sector Miami, what is your position and nature of distress, over?
 VESSEL: Twenty five degrees fifty two, seven seven nine, zero seven nine degrees fifty six.
-USCG: This is Coast Guard Sector Miami, what is the nature of your distress, over.
+USCG: This is Coast Guard Sector Miami, what is the nature of your distress, over?
 VESSEL: We're taking in water. The engine [unintelligible].
 VESSEL: [unintelligible].
 USCG: Vessel in distress, this is Coast Guard Sector Miami. Say again your nature of distress, over.
 VESSEL: [unintelligible].
-USCG: Vessel and distress, Sector Miami [unintelligible], Captain, what is the name of your vessel and how many people on board, over.
+USCG: Vessel and distress, Sector Miami [unintelligible], Captain, what is the name of your vessel and how many people on board, over?
 USCG: Vessel in distress, this is Coast Guard Sector Miami. What is the nature of your distress, over?
 VESSEL: [unintelligible] we're taking water.
-USCG: Roger, Captain, how many people on board, over.
+USCG: Roger, Captain, how many people on board, over?
 VESSEL: Three adults and two children.
-USCG: Vessel in distress, Sector Miami, Roger, Captain. Has everybody put on their life jackets, over.
+USCG: Vessel in distress, Sector Miami, Roger, Captain. Has everybody put on their life jackets, over?
 VESSEL: Yes miss.
-USCG: [unintelligible] Coast Guard vessel arrive to your position. How fast is the water coming in, over.
+USCG: [unintelligible] Coast Guard vessel arrive to your position. How fast is the water coming in, over?
 VESSEL: OK, thank you.

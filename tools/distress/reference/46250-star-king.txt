@@ -4,7 +4,7 @@
 # source: Checked by ear against the audio, all turns.
 
 VESSEL: Mayday, may...
-USCG: Vessel in distress, this is the Coast Guard, channel sixteen. What is your position and nature of distress, over.
+USCG: Vessel in distress, this is the Coast Guard, channel sixteen. What is your position and nature of distress, over?
 VESSEL: We are forty six sixteen point seven five, one twenty four zero seven point nine zero. We're in immediate distress. Need help right away. Any boats in the area. Saw [unintelligible] went by us. Please come back.
 USCG: Roger, Captain, how many persons are on board your vessel and what is the distress? What's going on?
 USCG: Vessel calling in distress. This is a Coast Guard. How many persons are on board your vessel, over?
