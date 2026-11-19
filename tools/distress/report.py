@@ -2,14 +2,14 @@
 """Report of one distress run on the EM or on the SEPP emulator (issue #142).
 
 Reads a run directory (toGround/distress-NNNNN/ of the distress ./run) and the
-per-clip scores of score.py, and writes reports/<label>/:
+per-clip scores of score.py, and writes pretty-doomed/docs/distress/reports/<label>/:
 
   REPORT.md               run data, resource use, speed, and accuracy tables
   timeline-and-resource.png  thread timeline, per-core CPU, and memory (plot_resource.py, as for the DOOM runs)
-  peak_memory.png         peak memory (VmHWM) of each config, and the free memory at the start
-  rtf.png                 real-time factor of each clip, per config
-  run_time.png            run time of each config: model load, transcription, and the rest
-  report_cards/<clip>/<config>.png  every report card of the run, made on board
+  peak_memory.png         peak memory (VmHWM) of each model, and the free memory at the start
+  rtf.png                 real-time factor of each clip, per model
+  run_time.png            run time of each model: model load, transcription, and the rest
+  report_cards/<clip>/<model>.png   every report card of the run, made on board
   accuracy.png            ship-side WER and recall, this run and the ground binary
 
 The resource data is the same as for the DOOM runs: resource.csv has per-core
@@ -39,6 +39,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 
 import mem_headroom  # noqa: E402
+import paths  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -160,7 +161,7 @@ def plot_peak_memory(configs, free_ref, path):
     ax.set_xlim(0, max(peaks + [idle_avail]) * 1.15)
     ax.set_xlabel("Peak memory of the process, VmHWM (MiB)", color=INK_2, fontsize=8)
     ax.grid(axis="y", visible=False)
-    ax.set_title("Peak memory per config", loc="left", fontsize=10, color=INK, pad=22)
+    ax.set_title("Peak memory per model", loc="left", fontsize=10, color=INK, pad=22)
     save(fig, path)
 
 
@@ -191,7 +192,7 @@ def plot_rtf(configs, path):
 
 
 def plot_run_time(configs, path):
-    """Run time of each config, split into model load, transcription, and the rest (cards, detection, exit)."""
+    """Run time of each model, split into model load, transcription, and the rest (cards, detection, exit)."""
     names = list(configs)
     fig, (ax,) = new_figure(1, 0.9 + 0.5 * len(names))
     y = list(range(len(names)))[::-1]
@@ -210,15 +211,15 @@ def plot_run_time(configs, path):
     ax.set_yticks(y)
     ax.set_yticklabels(names, fontsize=8, color=INK)
     ax.set_xlim(0, max((configs[n]["seconds"] or 0) for n in names) * 1.12 + 1)
-    ax.set_xlabel("Run time of the config process (s)", color=INK_2, fontsize=8)
+    ax.set_xlabel("Run time of the model process (s)", color=INK_2, fontsize=8)
     ax.grid(axis="y", visible=False)
     ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.0), ncol=3, fontsize=7, frameon=False)
-    ax.set_title("Run time per config", loc="left", fontsize=10, color=INK, pad=14)
+    ax.set_title("Run time per model", loc="left", fontsize=10, color=INK, pad=14)
     save(fig, path)
 
 
 def plot_accuracy(rows, label, ground_label, n_clips, path):
-    """Ship-side WER and recall per config: this run against the ground binary."""
+    """Ship-side WER and recall per model: this run against the ground binary."""
     names = [r["config"] for r in rows]
     fig, (ax_wer, ax_rec) = new_figure(2, 1.2 + 0.9 * len(names))
     y = list(range(len(names)))[::-1]
@@ -290,7 +291,7 @@ def main():
     parser.add_argument("--ground-label", default="binary", help="label of the ground baseline (default: binary)")
     parser.add_argument("--title", help="report title")
     parser.add_argument("--out", help="output directory (default: reports/<label>)")
-    parser.add_argument("--results", default=os.path.join(HERE, "results"),
+    parser.add_argument("--results", default=paths.RESULTS,
                         help="results directory with per_clip.tsv of score.py (default: results)")
     parser.add_argument("--card-clip",
                         help="show the report cards of this clip only (default: all the cards of the run)")
@@ -300,7 +301,7 @@ def main():
                              "where resource.csv shows the Docker VM and not the EM")
     args = parser.parse_args()
 
-    out = args.out or os.path.join(HERE, "reports", args.label)
+    out = args.out or os.path.join(paths.REPORTS, args.label)
     os.makedirs(out, exist_ok=True)
     manifest = read_manifest(os.path.join(args.run_dir, "manifest.txt"))
     exits = {r["model"]: r for r in read_tsv(os.path.join(args.run_dir, "exit.txt"))}
@@ -418,17 +419,17 @@ def main():
             "",
         ]
     lines += [
-        "Thread timeline, per-core CPU, and memory (`plot_resource.py`, the figure of the DOOM runs). Each config "
-        "runs in its own process. Each thread row has the name of its config: the main thread transcribes the "
+        "Thread timeline, per-core CPU, and memory (`plot_resource.py`, the figure of the DOOM runs). Each model "
+        "runs in its own process. Each thread row has the name of its model: the main thread transcribes the "
         "clips, and the report card thread draws the cards while the next clip is transcribed. The memory panel "
         "has the system memory (`resource.csv`) and the memory of the pretty-doomed process (`process.csv`).",
         "",
     ]
     lines += [f"![Thread timeline, CPU, and memory]({timeline})", ""] if timeline else ["No timeline: plot_resource.py failed.", ""]
     lines += [
-        "![Peak memory per config](peak_memory.png)",
+        "![Peak memory per model](peak_memory.png)",
         "",
-        f"| Config | Exit | Run time | Model load | Peak memory (VmHWM) | Margin to {free_ref[1]} ({free_ref[0]:.0f} MiB) | Lowest free memory |",
+        f"| Model | Exit | Run time | Model load | Peak memory (VmHWM) | Margin to {free_ref[1]} ({free_ref[0]:.0f} MiB) | Lowest free memory |",
         "|---|---|---|---|---|---|---|",
     ]
     for name, c in configs.items():
@@ -437,35 +438,36 @@ def main():
         low = f"{c['min_avail']:.0f} MiB" if c["min_avail"] is not None else ""
         run_t = duration(c["seconds"]) if c["seconds"] is not None else ""
         lines.append(f"| `{name}` | {c['exit']} | {run_t} | {c['load_s']:.1f} s | {peak} | {margin} | {low} |")
-    lines += [
-        "",
-        "## Report cards made on board",
-        "",
-        f"One PNG per clip and config, drawn by the pretty-doomed binary on board (`report_card=true`). "
-        f"{sum(len(v) for v in cards.values())} cards below, by clip, in `report_cards/<clip>/<config>.png`.",
-        "",
-        "| Config | Cards | Card time, median |",
-        "|---|---|---|",
-    ]
-    for name, c in configs.items():
-        lines.append(f"| `{name}` | {c['cards']} | {c['card_ms']} |")
-    lines.append("")
-    for clip, items in cards.items():
-        lines += [f"### {clip}", ""]
-        for name, rel in items:
-            lines += [f"![{clip}, {name}]({rel})", ""]
+    if cards:
+        lines += [
+            "",
+            "## Report cards made on board",
+            "",
+            f"One PNG per clip and model, drawn by the pretty-doomed binary on board (`report_card=true`). "
+            f"{sum(len(v) for v in cards.values())} cards below, by clip, in `report_cards/<clip>/<model>.png`.",
+            "",
+            "| Model | Cards | Card time, median |",
+            "|---|---|---|",
+        ]
+        for name, c in configs.items():
+            lines.append(f"| `{name}` | {c['cards']} | {c['card_ms']} |")
+        lines.append("")
+        for clip, items in cards.items():
+            lines += [f"### {clip}", ""]
+            for name, rel in items:
+                lines += [f"![{clip}, {name}]({rel})", ""]
     lines += [
         "",
         "## Speed",
         "",
-        "Run time of each config process: model load, transcription of all the clips, and the rest (report cards "
+        "Run time of each model process: model load, transcription of all the clips, and the rest (report cards "
         "after the last clip, detection, model release, and exit).",
         "",
-        "![Run time per config](run_time.png)",
+        "![Run time per model](run_time.png)",
         "",
         "![Speed per clip](rtf.png)",
         "",
-        "| Config | Window | Decoding | Clips | Audio | STT time | Median RTF | Highest RTF |",
+        "| Model | Window | Decoding | Clips | Audio | STT time | Median RTF | Highest RTF |",
         "|---|---|---|---|---|---|---|---|",
     ]
     for name, c in configs.items():
@@ -485,7 +487,7 @@ def main():
         "",
         f"Scored on the {len(run_clips)} clip(s) of this run, for this run and for `{args.ground_label}` alike.",
         "",
-        f"| Config | WER, ship-side ({args.label}) | WER, ship-side ({args.ground_label}) | Recall ({args.label}) | "
+        f"| Model | WER, ship-side ({args.label}) | WER, ship-side ({args.ground_label}) | Recall ({args.label}) | "
         f"Recall ({args.ground_label}) | Phrases, ship-side ({args.label}) |",
         "|---|---|---|---|---|---|",
     ]

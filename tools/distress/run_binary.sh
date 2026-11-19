@@ -8,7 +8,7 @@
 #
 # Usage (from tools/distress, after fetch_models.sh and prepare_clips.sh):
 #   ./run_binary.sh
-# Output: binary-run/ (raw, gitignored), then results/binary-<model>/ via import_em.py.
+# Output: binary-run/ (raw, gitignored), then pretty-doomed/docs/distress/results/binary-<model>/ via import_em.py.
 # Environment: DISTRESS_MODELS (default: the five configs of the EM package).
 set -euo pipefail
 

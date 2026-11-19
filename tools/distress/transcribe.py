@@ -4,8 +4,8 @@
 Each model runs in its own process, so that the peak memory of the process is
 the memory of that model only. For each model, the script writes:
 
-    results/<model>/<clip>.txt   the model output for each clip
-    results/<model>/run.json     settings, load time, real-time factor per clip, and peak memory
+    pretty-doomed/docs/distress/results/<model>/<clip>.txt   the model output for each clip
+    pretty-doomed/docs/distress/results/<model>/run.json     settings, load time, real-time factor per clip, and peak memory
 
 Usage (from tools/distress, after fetch_models.sh and prepare_clips.sh):
 
@@ -23,6 +23,8 @@ import resource
 import subprocess
 import sys
 import time
+
+import paths
 
 import sherpa_onnx
 import soundfile
@@ -110,7 +112,7 @@ def main():
     parser.add_argument("--models", help="comma-separated model names (default: all in models.tsv)")
     parser.add_argument("--audio", default=os.path.join(HERE, "audio"), help="WAV directory from prepare_clips.sh")
     parser.add_argument("--model-dir", default=os.path.join(HERE, "models"), help="directory from fetch_models.sh")
-    parser.add_argument("--out", default=os.path.join(HERE, "results"), help="output directory")
+    parser.add_argument("--out", default=paths.RESULTS, help="output directory")
     parser.add_argument("--threads", type=int, default=1, help="threads per model (default 1, as on the flight)")
     parser.add_argument("--window", type=float, default=DEFAULT_WINDOW_S, help=f"window length in seconds (default {DEFAULT_WINDOW_S})")
     parser.add_argument("--worker", help=argparse.SUPPRESS)

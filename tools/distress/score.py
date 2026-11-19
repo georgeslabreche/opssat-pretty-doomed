@@ -3,9 +3,9 @@
 
 The rules are in README.md, section "Scoring". The script writes:
 
-    results/per_clip.tsv   one row per model and clip
-    results/summary.tsv    one row per model
-    results/RESULTS.md     the summary as a Markdown table
+    pretty-doomed/docs/distress/results/per_clip.tsv   one row per model and clip
+    pretty-doomed/docs/distress/results/summary.tsv    one row per model
+    pretty-doomed/docs/distress/results/RESULTS.md     the summary as a Markdown table
 
 Usage (from tools/distress, after transcribe.py):
 
@@ -20,6 +20,7 @@ import os
 import statistics
 import sys
 
+import paths
 import scoring
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -67,7 +68,7 @@ def write_tsv(path, rows, fields):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--results", default=os.path.join(HERE, "results"), help="output directory of transcribe.py")
+    parser.add_argument("--results", default=paths.RESULTS, help="output directory of transcribe.py")
     args = parser.parse_args()
 
     refs = {r.clip: r for r in map(scoring.parse_reference, sorted(glob.glob(os.path.join(HERE, "reference", "*.txt"))))}

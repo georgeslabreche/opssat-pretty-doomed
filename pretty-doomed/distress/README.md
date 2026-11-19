@@ -113,14 +113,7 @@ Exit codes in `exit.txt`:
 
 ## Ground analysis
 
-```sh
-cd tools/distress
-python3 import_em.py <path to distress-NNNNN>
-python3 score.py
-.venv/bin/python report.py <path to distress-NNNNN> --label em
-```
-
-`import_em.py` writes the EM results to `results/em-<model>/`, and `score.py` scores them next to the ground results. `report.py` writes `reports/em/REPORT.md` with the figures: CPU, free memory, and process memory during the run (from `resource.csv`, the same data as for the DOOM runs, and `process.csv`), peak memory per config, the phases of each config by thread, the report cards of one clip, speed per clip, and accuracy against the ground binary.
+The EM runs are recorded as all the EM runs of the experiment: a section in [`docs/changelog/RESULT.md`](../docs/changelog/RESULT.md), with the downlinked data, the scores, and the figures in `docs/changelog/data/em-v8-distress-v1/<SMILE pack>/`. The commands that make the scores and the figures are in [`tools/distress/README.md`](../../tools/distress/README.md), section "EM runs". The figures are the thread timeline with per-core CPU and memory (the figure of the DOOM runs), the run time per model, the peak memory per model, the speed per clip, and the accuracy against the ground binary. The report cards are in `distress-NNNNN/<model>/<clip>/report_card.png`.
 
 ## Build
 

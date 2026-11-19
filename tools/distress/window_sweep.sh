@@ -7,16 +7,17 @@
 #
 # Usage (from tools/distress, after fetch_models.sh and prepare_clips.sh):
 #   ./window_sweep.sh
-# Output: results/window-sweep/w<seconds>/ (transcribe.py and score.py output)
+# Output: pretty-doomed/docs/distress/results/window-sweep/w<seconds>/ (transcribe.py and score.py output)
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
+results="$here/../../pretty-doomed/docs/distress/results"
 py="${PYTHON:-$here/.venv/bin/python}"
 for w in 5 10 15 30; do
-    out="$here/results/window-sweep/w$w"
+    out="$results/window-sweep/w$w"
     "$py" "$here/transcribe.py" --models parakeet-0.6b-v2-int8 --window "$w" --out "$out"
     python3 "$here/score.py" --results "$out" > /dev/null
 done
-python3 - "$here/results/window-sweep" <<'PY'
+python3 - "$results/window-sweep" <<'PY'
 import csv, os, sys
 root = sys.argv[1]
 rows = []

@@ -3,7 +3,7 @@
 
 The distress package (./run) on the EM writes toGround/distress-NNNNN/<model>/ with
 stt.tsv, timing.tsv, and <clip>/transcription.txt. This script writes
-results/em-<model>/<clip>.txt and results/em-<model>/run.json, so that
+pretty-doomed/docs/distress/results/em-<model>/<clip>.txt and run.json, so that
 score.py scores the EM run next to the ground run.
 
 Usage (from tools/distress):
@@ -18,6 +18,8 @@ import json
 import os
 import re
 import sys
+
+import paths
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,7 +43,7 @@ def read_manifest(path):
 
 def model_mb(name):
     """Return the model size in MB from a ground results run.json, or None."""
-    run = os.path.join(HERE, "results", name, "run.json")
+    run = os.path.join(paths.RESULTS, name, "run.json")
     if os.path.exists(run):
         with open(run, encoding="utf-8") as f:
             return json.load(f).get("model_mb")
@@ -97,7 +99,7 @@ def main():
     parser.add_argument("run_dir", help="the toGround/distress-NNNNN directory of an EM run")
     parser.add_argument("--label", default="em", help="prefix of the results directories (default: em)")
     parser.add_argument("--machine", help="machine name in run.json (default: EM (<arch>) from the manifest)")
-    parser.add_argument("--results", default=os.path.join(HERE, "results"), help="results directory")
+    parser.add_argument("--results", default=paths.RESULTS, help="results directory")
     args = parser.parse_args()
 
     manifest = read_manifest(os.path.join(args.run_dir, "manifest.txt"))

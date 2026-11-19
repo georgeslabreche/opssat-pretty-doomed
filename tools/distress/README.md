@@ -19,7 +19,7 @@ Ground truth and model comparison for the distress call evaluation (issue #142).
 | `fetch_models.sh` | Downloads each model in `models.tsv`, checks its SHA-256, and extracts it. |
 | `models/` | Output of `fetch_models.sh`. Gitignored. |
 | `requirements.txt` | Pinned Python packages for `transcribe.py`. |
-| `transcribe.py` | Transcribes each clip with each model. Writes the output, the real-time factor, and the peak memory to `results/`. |
+| `transcribe.py` | Transcribes each clip with each model. Writes the output, the real-time factor, and the peak memory to `results/`, in the output directory. |
 | `scoring.py` | The scoring rules: normalization, alignment, WER per speaker, and phrase matching. Python standard library only. |
 | `score.py` | Scores the outputs in `results/` against the references. Writes `per_clip.tsv`, `summary.tsv`, and `RESULTS.md`. |
 | `window_sweep.sh` | Scores Parakeet 0.6B v2 with 5, 10, 15, and 30 s windows. Writes `results/window-sweep/`. |
@@ -27,7 +27,7 @@ Ground truth and model comparison for the distress call evaluation (issue #142).
 | `import_em.py` | Imports an EM run (`toGround/distress-NNNNN/`) into `results/em-<model>/`. `--label` and `--machine` name an emulator run. |
 | `report.py` | Report of one EM or emulator run, with figures: the thread timeline with per-core CPU and memory (`plot_resource.py`, the figure of the DOOM runs), peak memory, the report cards made on board, speed, and accuracy. Writes `reports/<label>/`. |
 | `mem_headroom.py` | Free memory of the SEPP in past EM and flight runs, and the margin of each distress config. Writes the tables of `results/MEMORY.md`. |
-| `results/` | Model outputs and scores. |
+| Output directory | [`pretty-doomed/docs/distress/`](../../pretty-doomed/docs/distress/): `results/` (model outputs and scores) and `reports/` (emulator run reports). The scripts write there by default. Only source code and input data are in `tools/distress/`. |
 | `tests/` | Unit tests for `scoring.py`. |
 
 ## Clips
@@ -133,7 +133,7 @@ The binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherp
 
 The free memory of the SEPP (MemAvailable at the start of a run) is 939 MiB to 970 MiB in 18 EM runs and 964 MiB to 968 MiB in 7 flight runs (`results/MEMORY.md`, from `mem_headroom.py`). MemTotal is 1003 MiB on both. The margin of Parakeet 0.6B v2 with 10 s windows is 70 MiB to 100 MiB, and with 5 s windows 118 MiB to 149 MiB. A trivial process under QEMU uses 7 MiB, so the emulator peaks are close to the peaks on the SEPP.
 
-`reports/emu/` and `reports/emu1g/` are the reports of the two emulator runs:
+`reports/emu/` and `reports/emu1g/` in the output directory are the reports of the two emulator runs:
 
 ```sh
 .venv/bin/python report.py <toGround/distress-NNNNN> --label emu --free-from EM
@@ -149,7 +149,7 @@ To make the scores and the figures of an EM run (here the first run, `pack-flats
 
 ```sh
 P=../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341
-mkdir -p $P/results && cp -r results/binary-* $P/results/
+mkdir -p $P/results && cp -r ../../pretty-doomed/docs/distress/results/binary-* $P/results/
 python3 import_em.py $P/distress-00001 --label em --machine "EM (OPS-SAT PRETTY SEPP flatsat)" --results $P/results
 python3 score.py --results $P/results
 python3 report.py $P/distress-00001 --label em --results $P/results --out <scratch dir>

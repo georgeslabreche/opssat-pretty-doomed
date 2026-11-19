@@ -13,7 +13,7 @@ and then the margin of each distress config: idle - peak (VmHWM). Units: MiB.
 
 Usage (from tools/distress):
   python3 mem_headroom.py [--peak NAME=MiB ...]
-The default peaks are the SEPP emulator peaks of results/emu1g-*.
+The default peaks are the SEPP emulator peaks of pretty-doomed/docs/distress/results/emu1g-*.
 """
 
 import argparse
@@ -24,6 +24,8 @@ import json
 import os
 import statistics
 
+import paths
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.join(HERE, "..", "..", "pretty-doomed")
 PATTERNS = {
@@ -31,8 +33,8 @@ PATTERNS = {
     "flight": "docs/flight/data/run-*/resource.csv",
 }
 DEFAULT_PEAKS = {
-    "parakeet-0.6b-v2-int8 (10 s)": os.path.join(HERE, "results", "emu1g-parakeet-0.6b-v2-int8", "run.json"),
-    "parakeet-0.6b-v2-int8-w5": os.path.join(HERE, "results", "emu1g-parakeet-0.6b-v2-int8-w5", "run.json"),
+    "parakeet-0.6b-v2-int8 (10 s)": os.path.join(paths.RESULTS, "emu1g-parakeet-0.6b-v2-int8", "run.json"),
+    "parakeet-0.6b-v2-int8-w5": os.path.join(paths.RESULTS, "emu1g-parakeet-0.6b-v2-int8-w5", "run.json"),
 }
 
 
