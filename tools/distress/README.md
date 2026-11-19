@@ -141,24 +141,17 @@ The free memory of the SEPP (MemAvailable at the start of a run) is 939 MiB to 9
 
 `--free-from EM` uses the median free memory at the start of the past EM runs, measured by `mem_headroom.py` from their `resource.csv` files, because on the emulator `resource.csv` shows the Docker VM. For an EM run, omit `--free-from`: the report then uses MemAvailable at the start of the run, from its own `resource.csv`.
 
-### First EM run
+### EM runs
 
-`pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341/` is the first EM run of the package `exp4023-pretty-DOOMed-v8-distress-v1` (2026-11-18, the two shortest clips, all five configs). It has the downlinked `distress-00001/` directory, the systemd journal of the run (`journal.log`), and the scored results (`results/`, with copies of the ground `binary-*` runs). `reports/em/REPORT.md` is its report:
+The EM runs are recorded as all the EM runs of the experiment: the report is a section of [`pretty-doomed/docs/changelog/RESULT.md`](../../pretty-doomed/docs/changelog/RESULT.md), and the data and the figures are in `pretty-doomed/docs/changelog/data/em-v8-distress-v1/<SMILE pack>/`. The data directory has the downlinked `distress-NNNNN/` directory, the systemd journal of the run (`journal.log`), the scored results (`results/`, with copies of the ground `binary-*` runs), and the figures `distress-NNNNN-*.png`. The report cards are in `distress-NNNNN/<model>/<clip>/report_card.png`.
+
+To make the scores and the figures of an EM run (here the first run, `pack-flatsat-4023_1795030341`):
 
 ```sh
-python3 import_em.py ../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341/distress-00001 --label em --machine "EM (OPS-SAT PRETTY SEPP flatsat)" --results ../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341/results
-python3 score.py --results ../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341/results
-python3 report.py ../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341/distress-00001 --label em --results ../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341/results --out reports/em --title "Distress detection on the EM: first test, two clips"
+P=../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341
+mkdir -p $P/results && cp -r results/binary-* $P/results/
+python3 import_em.py $P/distress-00001 --label em --machine "EM (OPS-SAT PRETTY SEPP flatsat)" --results $P/results
+python3 score.py --results $P/results
+python3 report.py $P/distress-00001 --label em --results $P/results --out <scratch dir>
+for f in timeline-and-resource run_time peak_memory rtf accuracy; do cp "<scratch dir>/$f.png" "$P/distress-00001-${f//_/-}.png"; done
 ```
-
-| Config | Run time | Model load | STT time | RTF | Peak memory | Detected |
-|---|---|---|---|---|---|---|
-| `zipformer-small-int8` | 35 s | 18.4 s | 14.7 s | 1.68 | 119 MiB | 2/2 |
-| `parakeet-110m-int8` | 35 s | 17.1 s | 16.4 s | 1.87 | 207 MiB | 2/2 |
-| `parakeet-0.6b-v2-int8-w5` | 111 s | 44.5 s | 64.3 s | 7.35 | 729 MiB | 2/2 |
-| `parakeet-0.6b-v2-int8` | 112 s | 45.6 s | 64.1 s | 7.32 | 729 MiB | 2/2 |
-| `parakeet-0.6b-v2-int8-t2` | 89 s | 47.4 s | 40.0 s | 4.58 | 729 MiB | 2/2 |
-
-All configs exit 0. The transcripts are the same as the transcripts of the emulator run, byte for byte, and the WER and the recall are the same as on the ground binary. MemAvailable at the start is 967 MiB. Thus the margin of Parakeet 0.6B v2 is 238 MiB, more than the emulator peaks gave. The model load is 2.4 to 3.7 times slower than on the emulator, and it is 40 % of the run time of Parakeet 0.6B v2 on these short clips. Two threads make the transcription of Parakeet 0.6B v2 1.6 times faster. The report cards take approximately 1 s each, on the other CPU. The run starts the first config 48 s after the start, because the run script computes the SHA-256 of the models for the manifest.
-
-With these RTFs, the 830 s of audio of the 13 clips give a full run of approximately 5.3 h: 24 min for Zipformer small, 26 min for Parakeet 110M, 102 min for each one-thread Parakeet 0.6B v2 config, and 64 min for the two-thread config. This is an estimate from two 4 s clips.
