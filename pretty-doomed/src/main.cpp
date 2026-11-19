@@ -5,6 +5,7 @@
  *
  * Modes:
  *   -i <file>  Process a single WAV file
+ *   -i <dir>   Process each WAV file in a directory with one model load (#142)
  *   -s         SDR capture mode: N sequential captures, then process each
  */
 
@@ -16,7 +17,17 @@
 #include <thread>
 #include <vector>
 #include <memory>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <ctime>
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
 #include <getopt.h>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 
 #include <csignal>
 #include <cstdio>
@@ -25,11 +36,16 @@
 #include "pretty_log.h"
 #include "pretty_signal.h"
 
+#include "batch.h"
 #include "config.h"
 #include "transcriber.h"
 #include "capture.h"
 #include "sdr.h"
 #include "pipeline.h"
+#include "report_card.h"
+#include "audio_io.h"
+#include "pretty_resample.h"
+#include "matcher.h"
 #include "pretty_spectrogram.h"
 
 using namespace pretty;
@@ -40,6 +56,126 @@ static std::string format_duration(std::chrono::steady_clock::duration d) {
 }
 
 // Switch stdout+stderr to a new log file. Returns the saved fd to restore later.
+// Report card worker (#142): one thread draws the report card of each clip
+// while the main thread transcribes the next clip. The STT uses one core, and
+// the cards use the other, so the STT time of a clip does not include a card.
+// The log lines of the cards have the thread ID of this worker, so the phase
+// timeline shows the cards on their own row.
+class ReportCardWorker {
+public:
+    struct Job {
+        std::string wav, png, clip, transcript;
+        std::vector<std::string> window_texts;
+        double audio_s = 0.0, stt_s = 0.0;
+        bool detected = false;
+    };
+
+    ReportCardWorker(const PipelineConfig& cfg, const VariantsMap& variants, std::string config_name)
+        : cfg_(cfg), variants_(variants), config_name_(std::move(config_name)),
+          thread_([this] { run(); }) {}
+
+    ~ReportCardWorker() { finish(); }
+
+    void submit(Job job) {
+        {
+            std::lock_guard<std::mutex> lock(mu_);
+            jobs_.push_back(std::move(job));
+        }
+        cv_.notify_one();
+    }
+
+    // Draw the cards that are in the queue, then stop the thread.
+    void finish() {
+        {
+            std::lock_guard<std::mutex> lock(mu_);
+            if (done_) return;
+            done_ = true;
+        }
+        cv_.notify_one();
+        if (thread_.joinable()) thread_.join();
+    }
+
+    int written() const { return written_; }
+
+private:
+    void run() {
+        for (;;) {
+            Job job;
+            {
+                std::unique_lock<std::mutex> lock(mu_);
+                cv_.wait(lock, [this] { return done_ || !jobs_.empty(); });
+                if (jobs_.empty()) return;
+                job = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+            draw(job);
+        }
+    }
+
+    void draw(const Job& job) {
+        auto t0 = std::chrono::steady_clock::now();
+        log_info() << "Report card: " << job.clip << "\n";
+        std::vector<float> samples;
+        int rate = 0;
+        if (!read_wav(job.wav, samples, rate)) {
+            log_warning() << "Report card: cannot read " << job.wav << "\n";
+            log_info() << "Report card worker idle\n";
+            return;
+        }
+        if (rate != 16000) {
+            samples = resample(samples, rate, 16000);
+            rate = 16000;
+        }
+        DetectionResult detection = detect(job.transcript, cfg_, variants_);
+        ReportCardData data;
+        data.clip = job.clip;
+        data.config_name = config_name_;
+        data.model_type = cfg_.stt_model_type.empty() ? "auto" : cfg_.stt_model_type;
+        data.decoding = cfg_.stt_decoding_method;
+        data.window_s = cfg_.stt_window_s;
+        data.audio_s = job.audio_s;
+        data.stt_s = job.stt_s;
+        data.peak_rss_kb = peak_rss_kb();
+        data.detected = job.detected;
+        data.window_hits = window_matches(job.window_texts, cfg_, variants_);
+        data.matches = match_counts(detection, cfg_.detect_wake_word);
+        data.excerpt = match_excerpt(job.transcript, detection, 6, 1100);
+        std::time_t now = std::time(nullptr);
+        char ts[32];
+        std::strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S UTC", std::gmtime(&now));
+        data.generated_utc = ts;
+        if (render_report_card(data, samples, rate, job.png)) {
+            written_++;
+            log_info() << "Report card: " << job.png << " ("
+                       << std::chrono::duration_cast<std::chrono::milliseconds>(
+                              std::chrono::steady_clock::now() - t0).count()
+                       << " ms)\n";
+        } else {
+            log_warning() << "Report card: cannot write " << job.png << "\n";
+        }
+        log_info() << "Report card worker idle\n";
+    }
+
+    const PipelineConfig& cfg_;
+    const VariantsMap& variants_;
+    std::string config_name_;
+    std::mutex mu_;
+    std::condition_variable cv_;
+    std::deque<Job> jobs_;
+    bool done_ = false;
+    std::atomic<int> written_{0};
+    std::thread thread_;
+};
+
+// "config.distress.parakeet-0.6b-v2-int8.cfg" -> "parakeet-0.6b-v2-int8"
+static std::string config_name_of(const std::string& config_file) {
+    std::string name = file_stem(config_file);
+    for (const std::string prefix : {"config.distress.", "config."}) {
+        if (name.rfind(prefix, 0) == 0) return name.substr(prefix.size());
+    }
+    return name;
+}
+
 static int switch_log(const std::string& path) {
     int saved = dup(fileno(stdout));
     std::fflush(stdout);
@@ -76,7 +212,7 @@ struct Args {
 void print_usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options]\n"
               << "\nRequired:\n"
-              << "  -i <file>   Input WAV file (not needed with -s)\n"
+              << "  -i <file>   Input WAV file, or a directory of WAV files (not needed with -s)\n"
               << "  -q <file>   Input sc16 file (optional, for postcard I/Q scatter)\n"
               << "  -c <file>   Pipeline config file\n"
               << "  -f <file>   Fuzzy match variants file\n"
@@ -394,6 +530,70 @@ int main(int argc, char** argv) {
                 }
             }
         }
+    } else if (std::filesystem::is_directory(args.input_file)) {
+        // Directory mode (#142): one model load, then each WAV file in name
+        // order. Each file gets its own output folder. The timing of each file
+        // is appended to timing.tsv as soon as the file is done, so an
+        // interrupted run keeps the files that finished.
+        auto wavs = list_wav_files(args.input_file);
+        log_info() << "Directory input mode: " << wavs.size() << " WAV file(s) in "
+                   << args.input_file << "\n";
+        auto stt_dir = std::make_unique<Transcriber>(cfg);
+        if (!stt_dir->is_ready()) {
+            log_error() << "STT model failed to load\n";
+            return 1;
+        }
+        const long long load_ms = stt_dir->load_ms();
+        std::unique_ptr<ReportCardWorker> cards;
+        if (cfg.report_card) {
+            cards = std::make_unique<ReportCardWorker>(cfg, variants, config_name_of(args.config_file));
+        }
+        const std::string timing_path = args.output_dir + "/timing.tsv";
+        {
+            std::ofstream timing(timing_path);
+            timing << "clip\taudio_s\tstt_s\trtf\tdetected\n";
+        }
+        for (const auto& wav : wavs) {
+            if (!g_running) break;
+            const std::string clip = file_stem(wav);
+            const std::string clip_dir = args.output_dir + "/" + clip;
+            std::filesystem::create_directories(clip_dir);
+            PipelineStageResult stage1 = process_wav_stt(wav, clip_dir, cfg, variants, *stt_dir,
+                                                          args.config_file);
+            process_wav_exec(stage1, clip_dir, cfg, args.doom_binary, args.demos_dir, "");
+            if (stage1.command_detected) any_detected = true;
+            std::ofstream timing(timing_path, std::ios::app);
+            timing << clip << "\t" << std::fixed << std::setprecision(2) << stage1.audio_s
+                   << "\t" << stage1.stt_s << "\t" << std::setprecision(4)
+                   << (stage1.audio_s > 0 ? stage1.stt_s / stage1.audio_s : 0.0)
+                   << "\t" << (stage1.command_detected ? "yes" : "no") << "\n";
+            if (cards && !stage1.transcript.empty()) {
+                cards->submit({wav, clip_dir + "/report_card.png", clip, stage1.transcript,
+                               stage1.window_texts, stage1.audio_s, stage1.stt_s,
+                               stage1.command_detected});
+            }
+        }
+        // All the STT is done: free the model, then tell the run script
+        // (stt.done), so that it can load the next config while this process
+        // draws the last report cards. The peak memory includes the cards.
+        stt_dir.reset();
+#ifdef __GLIBC__
+        malloc_trim(0);  // glibc keeps freed memory; musl (SEPP) returns it by itself
+#endif
+        log_info() << "STT model released, VmRSS " << rss_kb() << " kB\n";
+        std::ofstream(args.output_dir + "/stt.done") << "\n";
+        if (cards) {
+            cards->finish();
+            log_info() << "Report cards: " << cards->written() << " written\n";
+        }
+        const long long peak_kb = peak_rss_kb();
+        std::ofstream stt_info(args.output_dir + "/stt.tsv");
+        stt_info << "model_type\tdecoding\twindow_s\tthreads\tload_ms\tpeak_rss_kb\tclips\n"
+                 << (cfg.stt_model_type.empty() ? "auto" : cfg.stt_model_type) << "\t"
+                 << cfg.stt_decoding_method << "\t" << cfg.stt_window_s << "\t"
+                 << cfg.stt_num_threads << "\t" << load_ms << "\t"
+                 << peak_kb << "\t" << wavs.size() << "\n";
+        log_info() << "Peak memory (VmHWM): " << peak_kb << " kB\n";
     } else {
         // Single file mode: load STT and process
         log_info() << "File input mode, processing=" << cfg.process_mode << "\n";

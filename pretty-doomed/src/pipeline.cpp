@@ -16,6 +16,7 @@
 #include "output.h"
 #include "executor.h"
 #include "postcard.h"
+#include "batch.h"
 
 using namespace pretty;
 
@@ -65,6 +66,8 @@ PipelineStageResult process_wav_stt(const std::string& input_file,
     log_info() << "  " << sample_rate << " Hz, " << samples.size()
                << " samples (" << static_cast<float>(samples.size()) / sample_rate << "s)\n";
 
+    result.audio_s = static_cast<double>(samples.size()) / sample_rate;
+
     AudioStats audio_stats;
     compute_audio_stats(samples, audio_stats.rms_raw, audio_stats.peak_raw);
 
@@ -90,9 +93,11 @@ PipelineStageResult process_wav_stt(const std::string& input_file,
 
     log_info() << "Transcribing (" << cfg.stt_decoding_method << ")...\n";
     auto stt_start = std::chrono::steady_clock::now();
-    result.transcript = stt.transcribe(resampled, 16000);
+    result.window_texts = stt.transcribe_windows(resampled, 16000);
+    result.transcript = join_transcripts(result.window_texts);
     auto stt_end = std::chrono::steady_clock::now();
     log_info() << "  STT time: " << format_duration(stt_end - stt_start) << "\n";
+    result.stt_s = std::chrono::duration<double>(stt_end - stt_start).count();
 
     if (result.transcript.empty()) {
         log_error() << "Transcription produced no output\n";
@@ -208,7 +213,12 @@ void process_wav_exec(const PipelineStageResult& stage1,
         return;
     }
 
-    if (cfg.operation != "doom") {
+    if (cfg.operation == "detect") {
+        log_info() << "Command detected (operation=detect)\n";
+        cleanup_sc16();
+        return;
+    }
+    if (!operation_launches_doom(cfg.operation)) {
         log_warning() << "Unknown operation: " << cfg.operation << "\n";
         return;
     }

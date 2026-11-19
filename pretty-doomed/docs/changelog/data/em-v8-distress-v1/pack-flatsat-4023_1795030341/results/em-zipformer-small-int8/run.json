@@ -1,0 +1,23 @@
+{
+ "model": "em-zipformer-small-int8",
+ "archive": "zipformer-small-int8",
+ "decoding": "modified_beam_search",
+ "threads": 1,
+ "window_s": 10.0,
+ "sherpa_onnx": "1.13.8 (distress binary)",
+ "machine": "EM (OPS-SAT PRETTY SEPP flatsat)",
+ "binary": "8-distress-v1",
+ "model_mb": 27.1,
+ "load_s": 18.45,
+ "peak_rss_mb": 118.7,
+ "clips": {
+  "37977-bainbridge-skiff": {
+   "audio_s": 4.44,
+   "rtf": 1.6739
+  },
+  "56367-netarts-pwc": {
+   "audio_s": 4.31,
+   "rtf": 1.685
+  }
+ }
+}

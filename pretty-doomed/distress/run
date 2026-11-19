@@ -1,0 +1,251 @@
+#!/bin/sh
+# Distress call evaluation on the EM (issue #142): the run script of the
+# distress package, at the root of the experiment folder, as ./run of the DOOM
+# package.
+#
+# Transcribes each clip in clips/ with each candidate model. Each
+# model runs in its own process, with one model load for all the clips. The
+# models run one after the other, the largest last, so that a model that runs
+# out of memory cannot stop the other models.
+#
+# The package is self-contained: it has its own pretty-doomed binary, libs/,
+# and models/. It replaces the v8 install: reinstall the v8 package after the
+# evaluation. operation=detect does not launch DOOM, so the DOOM binary and the demos
+# are not necessary (-d and -e must not be empty, but are not used).
+#
+# What runs is set in run.cfg:
+#   models=   configs to run, in order, comma-separated (empty: all five)
+#   clips=    clips to run, by name, without .wav, comma-separated (empty: all the clips)
+# For a short first test, list one clip. For the full run, leave clips= empty.
+#
+# Output: toGround/distress-NNNNN/
+#   manifest.txt        binary version, models, clips, file SHA-256, and system data
+#   resource.csv        CPU and memory every second for the full run (the
+#                       format of the DOOM runs)
+#   process.csv         memory of the pretty-doomed process every second
+#   exit.txt            exit code and run time of each model
+#   summary.txt         the configs side by side: wall time, model load, STT
+#                       time, RTF, peak memory, detections, and STT time per clip
+#   <model>/            pretty-doomed.log, stt.tsv, timing.tsv, <clip>/
+#
+# Environment (all optional, they override run.cfg):
+#   DISTRESS_MODELS     configs to run, in order, comma-separated
+#   DISTRESS_CLIP_NAMES clips to run, by name, comma-separated
+#   DISTRESS_CLIPS      directory of 16 kHz mono WAV clips (default: clips)
+#   DISTRESS_TIMEOUT_S  time limit per model in seconds (default: 0, no limit)
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$DIR"
+export LD_LIBRARY_PATH="${DIR}/libs:${LD_LIBRARY_PATH}"
+
+ALL_MODELS="zipformer-small-int8 parakeet-110m-int8 parakeet-0.6b-v2-int8-w5 parakeet-0.6b-v2-int8 parakeet-0.6b-v2-int8-t2"
+RUN_CFG="${DIR}/run.cfg"
+cfg_value() {
+    [ -f "$RUN_CFG" ] && sed -n "s/^$1=//p" "$RUN_CFG" | tail -1
+}
+# "a, b,c" -> "a b c"
+as_words() {
+    echo "$1" | tr ',' ' '
+}
+
+BIN="${DIR}/pretty-doomed"
+MODELS=$(as_words "${DISTRESS_MODELS-$(cfg_value models)}")
+[ -n "$(echo $MODELS)" ] || MODELS="$ALL_MODELS"
+CLIP_NAMES=$(as_words "${DISTRESS_CLIP_NAMES-$(cfg_value clips)}")
+CLIPS="${DISTRESS_CLIPS:-${DIR}/clips}"
+TIMEOUT_S="${DISTRESS_TIMEOUT_S:-0}"
+TOGROUND="${ROOT}/toGround"
+
+if [ ! -x "$BIN" ]; then
+    echo "Error: ${BIN} not found" >&2
+    exit 1
+fi
+
+# The clips of this run: all the clips, or a directory of links to the listed clips.
+RUN_CLIPS="$CLIPS"
+if [ -n "$(echo $CLIP_NAMES)" ]; then
+    RUN_CLIPS="${TMPDIR:-/tmp}/distress-clips.$$"
+    mkdir -p "$RUN_CLIPS"
+    for c in $CLIP_NAMES; do
+        c="${c%.wav}"
+        if [ ! -f "${CLIPS}/${c}.wav" ]; then
+            echo "Error: clip ${c} not found in ${CLIPS}" >&2
+            rm -rf "$RUN_CLIPS"
+            exit 1
+        fi
+        ln -s "${CLIPS}/${c}.wav" "${RUN_CLIPS}/${c}.wav"
+    done
+fi
+
+# Next run ID, the same scheme as the run script.
+mkdir -p "$TOGROUND"
+RUNID=1
+for d in "$TOGROUND"/distress-[0-9][0-9][0-9][0-9][0-9]; do
+    [ -d "$d" ] || continue
+    n=$(echo "${d##*-}" | sed 's/^0*//')
+    [ -n "$n" ] && [ "$n" -ge "$RUNID" ] && RUNID=$((n + 1))
+done
+OUT=$(printf "%s/distress-%05d" "$TOGROUND" "$RUNID")
+mkdir -p "$OUT"
+
+# Manifest: what ran, on what.
+{
+    echo "run: $(basename "$OUT")"
+    echo "start_utc: $(date -u '+%Y-%m-%d %H:%M:%S')"
+    echo "version: $(cat "${DIR}/VERSION" 2>/dev/null)"
+    echo "models: ${MODELS}"
+    echo "clips: ${CLIPS}"
+    echo "clip_names: ${CLIP_NAMES:-all}"
+    echo "timeout_s: ${TIMEOUT_S}"
+    echo "uname: $(uname -a)"
+    grep -E '^(MemTotal|MemAvailable|SwapTotal):' /proc/meminfo 2>/dev/null
+    df -k "$ROOT" 2>/dev/null | tail -1 | sed 's/^/disk_kb: /'
+    echo "sha256:"
+    (cd "$ROOT" && sha256sum pretty-doomed run run.cfg config.distress.*.cfg 2>/dev/null)
+    # Model files, once each (configs can share a model).
+    for m in $MODELS; do
+        cfg="${DIR}/config.distress.${m}.cfg"
+        for key in stt_model_encoder stt_model_decoder stt_model_joiner stt_model_tokens; do
+            sed -n "s/^${key}=//p" "$cfg"
+        done
+    done | awk '!seen[$0]++' | while read -r f; do
+        (cd "$ROOT" && sha256sum "$f" 2>/dev/null)
+    done
+    echo "clip_files:"
+    (cd "$RUN_CLIPS" && sha256sum ./*.wav 2>/dev/null)
+} > "${OUT}/manifest.txt"
+
+# Resource monitor: per-core CPU and memory every second.
+echo "epoch,timestamp,cpu0_user,cpu0_nice,cpu0_system,cpu0_idle,cpu0_iowait,cpu1_user,cpu1_nice,cpu1_system,cpu1_idle,cpu1_iowait,mem_total_kb,mem_available_kb,mem_free_kb" > "${OUT}/resource.csv"
+(
+    PARENT=$$
+    while kill -0 "$PARENT" 2>/dev/null; do
+        CPU0=$(awk '/^cpu0/ {print $2","$3","$4","$5","$6}' /proc/stat)
+        CPU1=$(awk '/^cpu1/ {print $2","$3","$4","$5","$6}' /proc/stat)
+        MEM=$(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} /MemFree/{f=$2} END{print t","a","f}' /proc/meminfo)
+        echo "$(date '+%s'),$(date '+%Y-%m-%d %H:%M:%S'),${CPU0},${CPU1},${MEM}"
+        sleep 1
+    done
+) >> "${OUT}/resource.csv" 0<&- &
+MON_PID=$!
+
+# Process monitor: memory of each running pretty-doomed process every second.
+# On the SEPP emulator, resource.csv shows the Docker VM, but this file shows
+# the processes. The config of a process is the -c argument in its command
+# line: two configs can run at the same time (see below).
+echo "epoch,timestamp,config,pid,vm_rss_kb,vm_hwm_kb,threads" > "${OUT}/process.csv"
+(
+    PARENT=$$
+    while kill -0 "$PARENT" 2>/dev/null; do
+        for c in /proc/[0-9]*/comm; do
+            # A process can end during the scan: the braces also hide that error.
+            { read -r name < "$c"; } 2>/dev/null || continue
+            [ "$name" = "pretty-doomed" ] || continue
+            p=${c%/comm}
+            CUR=$(tr '\0' '\n' < "$p/cmdline" 2>/dev/null | sed -n 's|.*config\.distress\.\(.*\)\.cfg$|\1|p' | head -1)
+            awk -v e="$(date '+%s')" -v t="$(date '+%Y-%m-%d %H:%M:%S')" -v m="$CUR" -v pid="${p#/proc/}" \
+                '/^VmRSS:/{r=$2} /^VmHWM:/{h=$2} /^Threads:/{n=$2} END{if (r != "") print e","t","m","pid","r","h","n}' \
+                "$p/status" 2>/dev/null
+        done
+        sleep 1
+    done
+) >> "${OUT}/process.csv" 0<&- &
+PMON_PID=$!
+
+echo "model	exit	seconds" > "${OUT}/exit.txt"
+cd "$ROOT" || exit 1
+# The configs run one after the other. A config frees its model when its last
+# clip is transcribed and then writes stt.done; it then only draws its last
+# report cards. The next config starts at stt.done, so its model load does not
+# wait for those cards. It starts only when the memory of the previous process
+# (VmRSS) is below OVERLAP_MAX_KB, so two models are never in memory at the
+# same time; else it waits for the previous process to end. Each config
+# writes its line in exit.txt when its process ends.
+OVERLAP_MAX_KB=204800
+config_rss_kb() {
+    for c in /proc/[0-9]*/comm; do
+        { read -r name < "$c"; } 2>/dev/null || continue
+        [ "$name" = "pretty-doomed" ] || continue
+        p=${c%/comm}
+        tr '\0' '\n' < "$p/cmdline" 2>/dev/null | grep -q "config\.distress\.$1\.cfg$" || continue
+        awk '/^VmRSS:/{print $2}' "$p/status" 2>/dev/null
+        return
+    done
+}
+JOBS=""
+for m in $MODELS; do
+    cfg="${DIR}/config.distress.${m}.cfg"
+    if [ ! -f "$cfg" ]; then
+        echo "${m}	no-config	0" >> "${OUT}/exit.txt"
+        continue
+    fi
+    echo "=== ${m} ==="
+    (
+        t0=$(date '+%s')
+        if [ "$TIMEOUT_S" -gt 0 ] 2>/dev/null; then
+            timeout "$TIMEOUT_S" "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+                -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
+        else
+            "$BIN" -i "$RUN_CLIPS" -c "$cfg" -f "${DIR}/variants.distress.cfg" \
+                -o "${OUT}/${m}" -d "${ROOT}/demos" -e "${ROOT}/opssat-doom"
+        fi
+        rc=$?
+        echo "${m}	${rc}	$(( $(date '+%s') - t0 ))" >> "${OUT}/exit.txt"
+    ) &
+    JOB=$!
+    JOBS="$JOBS $JOB"
+    while kill -0 "$JOB" 2>/dev/null; do
+        if [ -f "${OUT}/${m}/stt.done" ]; then
+            rss=$(config_rss_kb "$m")
+            [ "${rss:-0}" -lt "$OVERLAP_MAX_KB" ] && break
+        fi
+        sleep 1
+    done
+done
+wait $JOBS
+
+kill "$MON_PID" "$PMON_PID" 2>/dev/null
+wait "$MON_PID" "$PMON_PID" 2>/dev/null
+rm -f "${OUT}"/*/stt.done
+[ "$RUN_CLIPS" = "$CLIPS" ] || rm -rf "$RUN_CLIPS"
+echo "end_utc: $(date -u '+%Y-%m-%d %H:%M:%S')" >> "${OUT}/manifest.txt"
+
+# Summary: the configs side by side. Wall time (model load and all clips),
+# model load, STT time, real-time factor, peak memory, and detections of each
+# config, then the STT time of each clip with each config. From exit.txt,
+# <config>/stt.tsv, and <config>/timing.tsv.
+summarize() {
+    echo "Distress run $(basename "$OUT"): $(sed -n 's/^version: //p' "${OUT}/manifest.txt")"
+    echo "clips: ${CLIP_NAMES:-all}"
+    echo
+    printf "%-26s %4s %7s %8s %5s %8s %9s %7s %9s %8s\n" \
+        config exit wall_s load_s clips audio_s stt_s rtf peak_mib detected
+    for m in $MODELS; do
+        rc=$(awk -F'\t' -v m="$m" '$1 == m {print $2}' "${OUT}/exit.txt")
+        wall=$(awk -F'\t' -v m="$m" '$1 == m {print $3}' "${OUT}/exit.txt")
+        load=$(awk -F'\t' 'NR == 2 {printf "%.1f", $5 / 1000}' "${OUT}/${m}/stt.tsv" 2>/dev/null)
+        peak=$(awk -F'\t' 'NR == 2 && $6 > 0 {printf "%.0f", $6 / 1024}' "${OUT}/${m}/stt.tsv" 2>/dev/null)
+        awk -F'\t' -v m="$m" -v rc="${rc:--}" -v wall="${wall:--}" -v load="${load:--}" -v peak="${peak:--}" '
+            NR > 1 {n++; a += $2; s += $3; if ($5 == "yes") d++}
+            END {printf "%-26s %4s %7s %8s %5d %8.1f %9.1f %7s %9s %5d/%d\n", m, rc, wall, load, n, a, s,
+                 (a > 0 ? sprintf("%.3f", s / a) : "-"), peak, d, n}' "${OUT}/${m}/timing.tsv" 2>/dev/null \
+            || printf "%-26s %4s %7s %8s\n" "$m" "${rc:--}" "${wall:--}" "no output"
+    done
+    echo
+    echo "STT time per clip (s):"
+    printf "%-28s %8s" clip audio_s
+    for m in $MODELS; do printf " %26s" "$m"; done
+    echo
+    for c in $(for m in $MODELS; do awk -F'\t' 'NR > 1 {print $1}' "${OUT}/${m}/timing.tsv" 2>/dev/null; done | awk '!seen[$0]++'); do
+        audio=$(for m in $MODELS; do awk -F'\t' -v c="$c" '$1 == c {print $2}' "${OUT}/${m}/timing.tsv" 2>/dev/null; done | head -1)
+        printf "%-28s %8s" "$c" "$audio"
+        for m in $MODELS; do
+            t=$(awk -F'\t' -v c="$c" '$1 == c {print $3}' "${OUT}/${m}/timing.tsv" 2>/dev/null)
+            printf " %26s" "${t:--}"
+        done
+        echo
+    done
+}
+summarize > "${OUT}/summary.txt" 2>/dev/null
+cat "${OUT}/summary.txt"
+echo "Done: ${OUT}"

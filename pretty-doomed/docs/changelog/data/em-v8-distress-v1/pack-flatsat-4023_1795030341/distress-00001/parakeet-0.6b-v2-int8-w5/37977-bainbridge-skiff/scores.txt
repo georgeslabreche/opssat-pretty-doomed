@@ -1,0 +1,13 @@
+wake_word_exact=3
+wake_word_exact_matches=MAYDAY,MAYDAY,MAYDAY
+wake_word_approx=0
+wake_word_approx_matches=
+command_MAYDAY_exact=3
+command_MAYDAY_exact_matches=MAYDAY,MAYDAY,MAYDAY
+command_MAYDAY_approx=0
+command_MAYDAY_approx_matches=
+total_points=12
+total_points_exact=12
+total_points_approx=0
+audio_rms_raw=0.0798
+audio_peak_raw=0.3621

@@ -226,3 +226,25 @@ TEST_CASE("detect full transcript") {
         CHECK(r.command_approx_counts.count("PLAY DOOM") == 0);
     }
 }
+
+TEST_CASE("strip_punctuation keeps letters, digits, apostrophes, and spaces (#142)") {
+    CHECK(strip_punctuation("MAYDAY, MAYDAY. WE'RE SINKING!") == "MAYDAY  MAYDAY  WE'RE SINKING ");
+    CHECK(strip_punctuation("CHANNEL 16") == "CHANNEL 16");
+}
+
+TEST_CASE("detect matches a punctuated transcript only with detect_strip_punctuation (#142)") {
+    PipelineConfig cfg;
+    cfg.detect_wake_word = "MAYDAY";
+    cfg.detect_commands = {"TAKING ON WATER"};
+    cfg.detect_fuzzy_max_distance = 0;
+    VariantsMap variants;
+    const std::string transcript = "Mayday, mayday. We are taking on water.";
+
+    DetectionResult plain = detect(transcript, cfg, variants);
+    CHECK(plain.wake_word_exact == 0);
+
+    cfg.detect_strip_punctuation = true;
+    DetectionResult stripped = detect(transcript, cfg, variants);
+    CHECK(stripped.wake_word_exact == 2);
+    CHECK(stripped.command_exact_counts["TAKING ON WATER"] == 1);
+}

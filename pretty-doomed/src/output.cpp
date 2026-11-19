@@ -142,7 +142,9 @@ std::string format_summary(const DetectionResult& detection,
          " (exact=" + std::to_string(totals.points_exact) +
          ", approx=" + std::to_string(totals.points_approx) + ")\n\n";
 
-    if (totals.command_detected) {
+    if (totals.command_detected && !operation_launches_doom(cfg.operation)) {
+        s += "Result: COMMAND DETECTED (operation=" + cfg.operation + ")\n";
+    } else if (totals.command_detected) {
         s += "Result: COMMAND DETECTED - launching DOOM\n";
         if (!ascii_art.empty()) {
             s += "\n" + ascii_art;

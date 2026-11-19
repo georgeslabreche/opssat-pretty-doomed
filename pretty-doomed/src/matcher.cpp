@@ -21,6 +21,15 @@ std::vector<std::string> split_words(const std::string& text) {
     return words;
 }
 
+std::string strip_punctuation(const std::string& text) {
+    std::string result = text;
+    for (char& c : result) {
+        unsigned char u = static_cast<unsigned char>(c);
+        if (!std::isalnum(u) && c != '\'' && c != ' ') c = ' ';
+    }
+    return result;
+}
+
 int levenshtein(const std::string& a, const std::string& b) {
     int m = a.size();
     int n = b.size();
@@ -82,7 +91,9 @@ DetectionResult detect(const std::string& transcript,
                        const VariantsMap& variants) {
     DetectionResult result;
 
-    std::string upper_transcript = to_upper(transcript);
+    std::string upper_transcript = to_upper(cfg.detect_strip_punctuation
+                                                ? strip_punctuation(transcript)
+                                                : transcript);
     std::vector<std::string> words = split_words(upper_transcript);
 
     std::string wake_upper = to_upper(cfg.detect_wake_word);
