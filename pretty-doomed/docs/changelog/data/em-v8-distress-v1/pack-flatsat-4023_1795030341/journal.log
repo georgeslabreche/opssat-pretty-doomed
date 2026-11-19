@@ -1,0 +1,23 @@
+-- Logs begin at Mon 2026-11-16 12:45:10 UTC, end at Wed 2026-11-18 19:32:21 UTC. --
+Nov 18 19:25:10 sepp systemd[1]: Starting Experiment 4023...
+Nov 18 19:25:10 sepp spawn[8143]: starting experiment 4023
+Nov 18 19:25:10 sepp systemd[1]: Started Experiment 4023.
+Nov 18 19:25:59 sepp spawn[8143]: === zipformer-small-int8 ===
+Nov 18 19:26:34 sepp spawn[8143]: === parakeet-110m-int8 ===
+Nov 18 19:27:09 sepp spawn[8143]: === parakeet-0.6b-v2-int8-w5 ===
+Nov 18 19:28:59 sepp spawn[8143]: === parakeet-0.6b-v2-int8 ===
+Nov 18 19:30:51 sepp spawn[8143]: === parakeet-0.6b-v2-int8-t2 ===
+Nov 18 19:32:21 sepp spawn[8143]: Distress run distress-00001: 8-distress-v1
+Nov 18 19:32:21 sepp spawn[8143]: clips: 37977-bainbridge-skiff 56367-netarts-pwc
+Nov 18 19:32:21 sepp spawn[8143]: config                     exit  wall_s   load_s clips  audio_s     stt_s     rtf  peak_mib detected
+Nov 18 19:32:21 sepp spawn[8143]: zipformer-small-int8          0      35     18.4     2      8.8      14.7   1.679       119     2/2
+Nov 18 19:32:21 sepp spawn[8143]: parakeet-110m-int8            0      35     17.1     2      8.8      16.4   1.872       207     2/2
+Nov 18 19:32:21 sepp spawn[8143]: parakeet-0.6b-v2-int8-w5      0     111     44.5     2      8.8      64.3   7.345       729     2/2
+Nov 18 19:32:21 sepp spawn[8143]: parakeet-0.6b-v2-int8         0     112     45.6     2      8.8      64.1   7.323       729     2/2
+Nov 18 19:32:21 sepp spawn[8143]: parakeet-0.6b-v2-int8-t2      0      89     47.4     2      8.8      40.0   4.577       729     2/2
+Nov 18 19:32:21 sepp spawn[8143]: STT time per clip (s):
+Nov 18 19:32:21 sepp spawn[8143]: clip                          audio_s       zipformer-small-int8         parakeet-110m-int8   parakeet-0.6b-v2-int8-w5      parakeet-0.6b-v2-int8   parakeet-0.6b-v2-int8-t2
+Nov 18 19:32:21 sepp spawn[8143]: 37977-bainbridge-skiff           4.44                       7.43                       8.27                      32.42                      32.34                      19.64
+Nov 18 19:32:21 sepp spawn[8143]: 56367-netarts-pwc                4.31                       7.26                       8.11                      31.85                      31.74                      20.41
+Nov 18 19:32:21 sepp spawn[8143]: Done: /home/exp/toGround/distress-00001
+Nov 18 19:32:21 sepp systemd-machined[2173]: Machine exp-4023 terminated.

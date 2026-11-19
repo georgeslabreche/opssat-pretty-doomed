@@ -1,0 +1,19 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /tmp/distress-clips.2/37977-bainbridge-skiff.wav
+Transcription: Mayday, mayday May day.
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 2 [MAYDAY, MAYDAY]
+    Approximate: 0 []
+  Command [MAY DAY]:
+    Exact: 1 [MAY DAY]
+    Approximate: 0 []
+  Command [MAYDAY]:
+    Exact: 2 [MAYDAY, MAYDAY]
+    Approximate: 0 []
+
+Total points: 10 (exact=10, approx=0)
+
+Result: COMMAND DETECTED (operation=detect)

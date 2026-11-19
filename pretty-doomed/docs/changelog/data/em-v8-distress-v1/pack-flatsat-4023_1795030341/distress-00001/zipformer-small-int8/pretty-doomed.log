@@ -1,0 +1,46 @@
+[2026-11-18 19:26:00.137][c1/t127] === PRETTY DOOMed v8-distress-v1 ===
+[2026-11-18 19:26:00.137][c1/t127] Loading config: /home/exp/config.distress.zipformer-small-int8.cfg
+[2026-11-18 19:26:00.141][c1/t127] Directory input mode: 2 WAV file(s) in /tmp/distress-clips.2
+[2026-11-18 19:26:00.141][c1/t127] Loading STT model...
+[2026-11-18 19:26:00.141][c1/t127]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-11-18 19:26:00.141][c1/t127]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-11-18 19:26:00.141][c1/t127]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-11-18 19:26:00.141][c1/t127]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-11-18 19:26:18.589][c0/t127] STT model loaded (18448 ms)
+[2026-11-18 19:26:18.590][c0/t127] --- Processing: /tmp/distress-clips.2/37977-bainbridge-skiff.wav ---
+[2026-11-18 19:26:18.590][c0/t127] Reading audio: /tmp/distress-clips.2/37977-bainbridge-skiff.wav
+[2026-11-18 19:26:18.594][c0/t127]   16000 Hz, 71053 samples (4.44081s)
+[2026-11-18 19:26:18.595][c0/t127] Resampling to 16 kHz...
+[2026-11-18 19:26:18.596][c0/t127]   71053 samples, DSP time: 0.0s
+[2026-11-18 19:26:18.596][c0/t127] Transcribing (modified_beam_search)...
+[2026-11-18 19:26:26.030][c0/t127]   STT time: 7.4s
+[2026-11-18 19:26:26.030][c0/t127]   Transcription: MAY DAY MAY DAY MAY DAY
+[2026-11-18 19:26:26.030][c0/t127] Detecting command...
+[2026-11-18 19:26:26.031][c0/t127]   Wake word: 0 (exact=0, approx=0)
+[2026-11-18 19:26:26.031][c0/t127]   Command [MAY DAY]: 3 (exact=3, approx=0)
+[2026-11-18 19:26:26.032][c0/t127] Command detected (operation=detect)
+[2026-11-18 19:26:26.032][c1/t404] Report card: 37977-bainbridge-skiff
+[2026-11-18 19:26:26.032][c0/t127] --- Processing: /tmp/distress-clips.2/56367-netarts-pwc.wav ---
+[2026-11-18 19:26:26.032][c0/t127] Reading audio: /tmp/distress-clips.2/56367-netarts-pwc.wav
+[2026-11-18 19:26:26.036][c0/t127]   16000 Hz, 68963 samples (4.31019s)
+[2026-11-18 19:26:26.037][c0/t127] Resampling to 16 kHz...
+[2026-11-18 19:26:26.039][c0/t127]   68963 samples, DSP time: 0.0s
+[2026-11-18 19:26:26.039][c0/t127] Transcribing (modified_beam_search)...
+[2026-11-18 19:26:27.041][c1/t404] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/37977-bainbridge-skiff/report_card.png (1008 ms)
+[2026-11-18 19:26:27.041][c1/t404] Report card worker idle
+[2026-11-18 19:26:33.302][c0/t127]   STT time: 7.2s
+[2026-11-18 19:26:33.302][c0/t127]   Transcription: MAY DAY MAY DAY MAY DAY JETS HERE DOWN
+[2026-11-18 19:26:33.303][c0/t127] Detecting command...
+[2026-11-18 19:26:33.303][c0/t127]   Wake word: 0 (exact=0, approx=0)
+[2026-11-18 19:26:33.303][c0/t127]   Command [MAY DAY]: 3 (exact=3, approx=0)
+[2026-11-18 19:26:33.304][c0/t127] Command detected (operation=detect)
+[2026-11-18 19:26:33.304][c1/t404] Report card: 56367-netarts-pwc
+[2026-11-18 19:26:33.304][c0/t127] Unloading STT model...
+[2026-11-18 19:26:33.464][c0/t127] STT model unloaded
+[2026-11-18 19:26:33.464][c0/t127] STT model released, VmRSS 40324 kB
+[2026-11-18 19:26:34.282][c1/t404] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/56367-netarts-pwc/report_card.png (977 ms)
+[2026-11-18 19:26:34.282][c1/t404] Report card worker idle
+[2026-11-18 19:26:34.282][c0/t127] Report cards: 2 written
+[2026-11-18 19:26:34.283][c0/t127] Peak memory (VmHWM): 121568 kB
+[2026-11-18 19:26:34.283][c0/t127] Total time: 34.1s
+[2026-11-18 19:26:34.283][c0/t127] === Done ===

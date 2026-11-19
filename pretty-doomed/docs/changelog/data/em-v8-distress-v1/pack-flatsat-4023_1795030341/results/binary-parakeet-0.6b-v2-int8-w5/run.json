@@ -1,0 +1,67 @@
+{
+ "model": "binary-parakeet-0.6b-v2-int8-w5",
+ "archive": "parakeet-0.6b-v2-int8-w5",
+ "decoding": "greedy_search",
+ "threads": 1,
+ "window_s": 5.0,
+ "sherpa_onnx": "1.13.8 (distress binary)",
+ "machine": "ground, Docker",
+ "binary": "ground binary, sherpa-onnx 1.13.8",
+ "model_mb": 630.6,
+ "load_s": 7.45,
+ "peak_rss_mb": 1307.3,
+ "clips": {
+  "34749-imagination": {
+   "audio_s": 131.37,
+   "rtf": 0.1468
+  },
+  "35098-midnite-sun-relay": {
+   "audio_s": 54.73,
+   "rtf": 0.1401
+  },
+  "35135-double-time": {
+   "audio_s": 50.99,
+   "rtf": 0.1404
+  },
+  "35628-miss-yalanda": {
+   "audio_s": 5.43,
+   "rtf": 0.1205
+  },
+  "37977-bainbridge-skiff": {
+   "audio_s": 4.44,
+   "rtf": 0.1329
+  },
+  "41096-kupreanof": {
+   "audio_s": 10.58,
+   "rtf": 0.142
+  },
+  "44865-galveston-capsize": {
+   "audio_s": 31.35,
+   "rtf": 0.1452
+  },
+  "46250-star-king": {
+   "audio_s": 227.23,
+   "rtf": 0.1368
+  },
+  "46887-surfside-fire": {
+   "audio_s": 14.68,
+   "rtf": 0.1384
+  },
+  "48097-oahu-sailboat": {
+   "audio_s": 35.79,
+   "rtf": 0.1394
+  },
+  "53901-captain-billy-haver": {
+   "audio_s": 240.08,
+   "rtf": 0.1375
+  },
+  "56367-netarts-pwc": {
+   "audio_s": 4.31,
+   "rtf": 0.135
+  },
+  "87205-molokai": {
+   "audio_s": 18.94,
+   "rtf": 0.1384
+  }
+ }
+}

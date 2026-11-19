@@ -4,6 +4,38 @@ Verification results from experiment runs on the OPS-SAT Engineering Model (EM),
 
 For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V2_TO_V3.md) (v3). For the v5 changes, see [V4_TO_V5.md](V4_TO_V5.md). For the v6 changes (postcard scatter fix, flight run script), see [V5_TO_V6.md](V5_TO_V6.md). For the v7 changes (narrowing stage, second-stage filtering removal, sc16 replay input), see [V6_TO_V7.md](V6_TO_V7.md). For the v8 changes (detection-conditional sc16 retention), see [V7_TO_V8.md](V7_TO_V8.md).
 
+## Distress v1 Verification (issue #142)
+
+One EM session via SMILE on the self-contained package `exp4023-pretty-DOOMed-v8-distress-v1.tar.gz`, untarred at the root of the experiment home, on the shipped `run.cfg`: all five configs (`zipformer-small-int8`, `parakeet-110m-int8`, `parakeet-0.6b-v2-int8-w5`, `parakeet-0.6b-v2-int8`, `parakeet-0.6b-v2-int8-t2`) on the two shortest clips (`37977-bainbridge-skiff` and `56367-netarts-pwc`, 8.8 s of audio). The purpose of the session is the execution times on the EM hardware. The SDR was not used.
+
+### Session 1 (clean pass)
+
+Data from SMILE artifact [`pack-flatsat-4023_1795030341`](data/em-v8-distress-v1/pack-flatsat-4023_1795030341/): the downlinked `distress-00001/` directory, the systemd journal of the run (`journal.log`), and the scored results (`results/`). The full report, with every report card made on board, is [`tools/distress/reports/em/REPORT.md`](../../../tools/distress/reports/em/REPORT.md).
+
+| Config | Exit | Run time | Model load | STT time | RTF | Peak memory (VmHWM) | Detected |
+|---|---|---|---|---|---|---|---|
+| `zipformer-small-int8` | 0 | 35 s | 18.4 s | 14.7 s | 1.68 | 119 MiB | 2/2 |
+| `parakeet-110m-int8` | 0 | 35 s | 17.1 s | 16.4 s | 1.87 | 207 MiB | 2/2 |
+| `parakeet-0.6b-v2-int8-w5` | 0 | 111 s | 44.5 s | 64.3 s | 7.35 | 729 MiB | 2/2 |
+| `parakeet-0.6b-v2-int8` | 0 | 112 s | 45.6 s | 64.1 s | 7.32 | 729 MiB | 2/2 |
+| `parakeet-0.6b-v2-int8-t2` | 0 | 89 s | 47.4 s | 40.0 s | 4.58 | 729 MiB | 2/2 |
+
+The session took 7 min 10 s (19:25:11 to 19:32:21 UTC). All five configs exited 0 and detected a distress phrase in both clips. The ten transcripts are byte-identical to the transcripts of the last emulator run, and the ship-side WER and recall are the same as on the ground binary. Ten report cards were drawn on board, approximately 1 s each, on the second CPU while the main thread transcribed the next clip. No warnings or errors in the logs.
+
+MemAvailable at the start was 967 MiB (MemTotal 1003 MiB). Parakeet 0.6B v2 peaked at 729 MiB, so the margin was 238 MiB and the lowest free memory during the run was 256 MiB. The emulator peaks (768 MiB to 869 MiB, QEMU included) were conservative. Each config released its model before the next config started, so no two models were in memory at the same time.
+
+The model load is the slowest part on the EM: 17 s to 47 s, 2.4 to 3.7 times slower than on the emulator, and 40 % of the run time of Parakeet 0.6B v2 on these short clips. With one thread, the transcription speed of Parakeet 0.6B v2 is the same as on the emulator (RTF 7.3), and the 5 s windows are not slower than the 10 s windows. Two threads make it 1.6 times faster (RTF 4.6). The first config started 48 s after the start of the run, because the run script computes the SHA-256 of the models for the manifest. No config is real time on the EM: the fastest, Zipformer small, has an RTF of 1.68.
+
+With these RTFs, the 830 s of audio of all 13 clips give a full run of approximately 5.3 h: 24 min for Zipformer small, 26 min for Parakeet 110M, 102 min for each one-thread Parakeet 0.6B v2 config, and 64 min for the two-thread config. This is an estimate from two 4 s clips.
+
+![Distress v1 EM session 1](data/em-v8-distress-v1/pack-flatsat-4023_1795030341/distress-00001-timeline-and-resource.png)
+
+![Run time per config](../../../tools/distress/reports/em/run_time.png)
+
+### Verdict
+
+**The distress package runs on the EM.** All five configs, Parakeet 0.6B v2 included, fit in the EM memory with a margin of 238 MiB, and they give the same transcripts as the emulator and the ground binary. The next step is the same package with all 13 clips (`clips=` empty in `run.cfg`), approximately 5.3 h.
+
 ## v8 Verification
 
 Two live-SDR sessions on the EM via SMILE, both on the `exp4023-pretty-DOOMed-v7-to-v8.tar.gz` patch (`pretty-doomed`, `VERSION`, `config.cfg`) extracted over the v7 installation, with the SDR on and nothing transmitted, on the as-shipped flight configuration (`sdr_keep_sc16=detected`, `doom_force_trigger=false`, narrowing armed, hardware FIR, 6 captures).

@@ -1,0 +1,23 @@
+{
+ "model": "em-parakeet-110m-int8",
+ "archive": "parakeet-110m-int8",
+ "decoding": "greedy_search",
+ "threads": 1,
+ "window_s": 10.0,
+ "sherpa_onnx": "1.13.8 (distress binary)",
+ "machine": "EM (OPS-SAT PRETTY SEPP flatsat)",
+ "binary": "8-distress-v1",
+ "model_mb": 130.2,
+ "load_s": 17.12,
+ "peak_rss_mb": 207.2,
+ "clips": {
+  "37977-bainbridge-skiff": {
+   "audio_s": 4.44,
+   "rtf": 1.8624
+  },
+  "56367-netarts-pwc": {
+   "audio_s": 4.31,
+   "rtf": 1.8823
+  }
+ }
+}

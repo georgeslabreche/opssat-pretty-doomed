@@ -8,6 +8,7 @@ per-clip scores of score.py, and writes reports/<label>/:
   timeline-and-resource.png  thread timeline, per-core CPU, and memory (plot_resource.py, as for the DOOM runs)
   peak_memory.png         peak memory (VmHWM) of each config, and the free memory at the start
   rtf.png                 real-time factor of each clip, per config
+  run_time.png            run time of each config: model load, transcription, and the rest
   report_cards/<clip>/<config>.png  every report card of the run, made on board
   accuracy.png            ship-side WER and recall, this run and the ground binary
 
@@ -169,7 +170,7 @@ def plot_rtf(configs, path):
     for i, name in enumerate(names):
         yi = len(names) - 1 - i
         rtfs = [c["rtf"] for c in configs[name]["clips"]]
-        ax.scatter(rtfs, [yi] * len(rtfs), s=36, color=SERIES[i % len(SERIES)], edgecolor=SURFACE,
+        ax.scatter(rtfs, [yi] * len(rtfs), s=36, color=SERIES[0], edgecolor=SURFACE,
                    linewidth=1.5, zorder=3)
         med = statistics.median(rtfs)
         ax.plot([med, med], [yi - 0.3, yi + 0.3], color=INK, linewidth=2, zorder=4)
@@ -180,10 +181,39 @@ def plot_rtf(configs, path):
     ax.set_ylim(-0.6, len(names) - 0.2)
     ax.set_xscale("log")
     ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.tick_params(axis="x", which="minor", labelsize=8, colors=INK_2)
+    ax.xaxis.set_minor_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}" if v in (2, 3, 5, 20, 30, 50) else ""))
     ax.set_xlabel("Real-time factor per clip (STT time / audio time, log scale; 1 = real time)",
                   color=INK_2, fontsize=8)
     ax.grid(axis="y", visible=False)
     ax.set_title("Speed per clip", loc="left", fontsize=10, color=INK)
+    save(fig, path)
+
+
+def plot_run_time(configs, path):
+    """Run time of each config, split into model load, transcription, and the rest (cards, detection, exit)."""
+    names = list(configs)
+    fig, (ax,) = new_figure(1, 0.9 + 0.5 * len(names))
+    y = list(range(len(names)))[::-1]
+    parts = (("Model load", SERIES[0]), ("Transcription", SERIES[1]), ("Other", GRID))
+    for yi, name in zip(y, names):
+        c = configs[name]
+        load = c["load_s"]
+        stt = sum(x["stt_s"] for x in c["clips"])
+        total = c["seconds"] or load + stt
+        left = 0
+        for (part, color), width in zip(parts, (load, stt, max(total - load - stt, 0))):
+            ax.barh(yi, width, left=left, color=color, height=0.55, edgecolor=SURFACE, linewidth=2,
+                    label=part if yi == y[0] else None)
+            left += width
+        ax.text(left + 1, yi, f"{total:.0f} s", va="center", fontsize=8, color=INK)
+    ax.set_yticks(y)
+    ax.set_yticklabels(names, fontsize=8, color=INK)
+    ax.set_xlim(0, max((configs[n]["seconds"] or 0) for n in names) * 1.12 + 1)
+    ax.set_xlabel("Run time of the config process (s)", color=INK_2, fontsize=8)
+    ax.grid(axis="y", visible=False)
+    ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.0), ncol=3, fontsize=7, frameon=False)
+    ax.set_title("Run time per config", loc="left", fontsize=10, color=INK, pad=14)
     save(fig, path)
 
 
@@ -206,6 +236,8 @@ def plot_accuracy(rows, label, ground_label, n_clips, path):
         ax.set_yticks(y)
         ax.set_yticklabels(names, fontsize=8, color=INK)
         ax.set_xlim(0, xmax)
+        if key == "recall":
+            ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
         ax.set_xlabel(xlabel, color=INK_2, fontsize=8)
         ax.grid(axis="y", visible=False)
     handles, labels = ax_wer.get_legend_handles_labels()
@@ -331,6 +363,7 @@ def main():
         configs[name]["cards"] = len(glob.glob(os.path.join(args.run_dir, name, "*", "report_card.png")))
     plot_peak_memory(configs, free_ref, os.path.join(out, "peak_memory.png"))
     plot_rtf(configs, os.path.join(out, "rtf.png"))
+    plot_run_time(configs, os.path.join(out, "run_time.png"))
     # Accuracy on the clips of this run only, for this run and the ground
     # baseline alike, so that a run of a few clips is not scored on 13 clips.
     per_clip = read_tsv(os.path.join(args.results, "per_clip.tsv"))
@@ -424,6 +457,11 @@ def main():
     lines += [
         "",
         "## Speed",
+        "",
+        "Run time of each config process: model load, transcription of all the clips, and the rest (report cards "
+        "after the last clip, detection, model release, and exit).",
+        "",
+        "![Run time per config](run_time.png)",
         "",
         "![Speed per clip](rtf.png)",
         "",

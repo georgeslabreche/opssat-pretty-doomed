@@ -1,0 +1,48 @@
+[2026-11-18 19:26:35.193][c1/t651] === PRETTY DOOMed v8-distress-v1 ===
+[2026-11-18 19:26:35.193][c1/t651] Loading config: /home/exp/config.distress.parakeet-110m-int8.cfg
+[2026-11-18 19:26:35.194][c1/t651] Directory input mode: 2 WAV file(s) in /tmp/distress-clips.2
+[2026-11-18 19:26:35.194][c1/t651] Loading STT model...
+[2026-11-18 19:26:35.194][c1/t651]   Encoder: models/parakeet-110m-int8/encoder.int8.onnx (128040 KB)
+[2026-11-18 19:26:35.194][c1/t651]   Decoder: models/parakeet-110m-int8/decoder.int8.onnx (3863 KB)
+[2026-11-18 19:26:35.194][c1/t651]   Joiner:  models/parakeet-110m-int8/joiner.int8.onnx (1378 KB)
+[2026-11-18 19:26:35.194][c1/t651]   Tokens:  models/parakeet-110m-int8/tokens.txt
+[2026-11-18 19:26:35.194][c1/t651]   Model type: nemo_transducer
+[2026-11-18 19:26:52.317][c1/t651] STT model loaded (17122 ms)
+[2026-11-18 19:26:52.318][c1/t651] --- Processing: /tmp/distress-clips.2/37977-bainbridge-skiff.wav ---
+[2026-11-18 19:26:52.318][c1/t651] Reading audio: /tmp/distress-clips.2/37977-bainbridge-skiff.wav
+[2026-11-18 19:26:52.321][c1/t651]   16000 Hz, 71053 samples (4.44081s)
+[2026-11-18 19:26:52.322][c1/t651] Resampling to 16 kHz...
+[2026-11-18 19:26:52.323][c1/t651]   71053 samples, DSP time: 0.0s
+[2026-11-18 19:26:52.323][c1/t651] Transcribing (greedy_search)...
+[2026-11-18 19:27:00.594][c1/t651]   STT time: 8.2s
+[2026-11-18 19:27:00.594][c1/t651]   Transcription: Mayday, mayday May day.
+[2026-11-18 19:27:00.595][c1/t651] Detecting command...
+[2026-11-18 19:27:00.595][c1/t651]   Wake word: 2 (exact=2, approx=0)
+[2026-11-18 19:27:00.595][c1/t651]   Command [MAY DAY]: 1 (exact=1, approx=0)
+[2026-11-18 19:27:00.595][c1/t651]   Command [MAYDAY]: 2 (exact=2, approx=0)
+[2026-11-18 19:27:00.596][c1/t651] Command detected (operation=detect)
+[2026-11-18 19:27:00.597][c0/t909] Report card: 37977-bainbridge-skiff
+[2026-11-18 19:27:00.597][c1/t651] --- Processing: /tmp/distress-clips.2/56367-netarts-pwc.wav ---
+[2026-11-18 19:27:00.597][c1/t651] Reading audio: /tmp/distress-clips.2/56367-netarts-pwc.wav
+[2026-11-18 19:27:00.600][c1/t651]   16000 Hz, 68963 samples (4.31019s)
+[2026-11-18 19:27:00.602][c1/t651] Resampling to 16 kHz...
+[2026-11-18 19:27:00.604][c1/t651]   68963 samples, DSP time: 0.0s
+[2026-11-18 19:27:00.604][c1/t651] Transcribing (greedy_search)...
+[2026-11-18 19:27:01.625][c0/t909] Report card: /home/exp/toGround/distress-00001/parakeet-110m-int8/37977-bainbridge-skiff/report_card.png (1028 ms)
+[2026-11-18 19:27:01.626][c0/t909] Report card worker idle
+[2026-11-18 19:27:08.717][c1/t651]   STT time: 8.1s
+[2026-11-18 19:27:08.717][c1/t651]   Transcription: Mayday Mayday May get down.
+[2026-11-18 19:27:08.718][c1/t651] Detecting command...
+[2026-11-18 19:27:08.718][c1/t651]   Wake word: 2 (exact=2, approx=0)
+[2026-11-18 19:27:08.718][c1/t651]   Command [MAYDAY]: 2 (exact=2, approx=0)
+[2026-11-18 19:27:08.719][c1/t651] Command detected (operation=detect)
+[2026-11-18 19:27:08.719][c0/t909] Report card: 56367-netarts-pwc
+[2026-11-18 19:27:08.719][c1/t651] Unloading STT model...
+[2026-11-18 19:27:08.892][c1/t651] STT model unloaded
+[2026-11-18 19:27:08.892][c1/t651] STT model released, VmRSS 40400 kB
+[2026-11-18 19:27:09.725][c1/t909] Report card: /home/exp/toGround/distress-00001/parakeet-110m-int8/56367-netarts-pwc/report_card.png (1006 ms)
+[2026-11-18 19:27:09.726][c1/t909] Report card worker idle
+[2026-11-18 19:27:09.726][c1/t651] Report cards: 2 written
+[2026-11-18 19:27:09.727][c1/t651] Peak memory (VmHWM): 212148 kB
+[2026-11-18 19:27:09.727][c1/t651] Total time: 34.5s
+[2026-11-18 19:27:09.727][c1/t651] === Done ===

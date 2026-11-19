@@ -1,0 +1,2 @@
+model_type	decoding	window_s	threads	load_ms	peak_rss_kb	clips
+nemo_transducer	greedy_search	10	1	45554	746876	2
