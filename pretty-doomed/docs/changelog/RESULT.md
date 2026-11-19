@@ -20,7 +20,7 @@ Data from SMILE artifact [`pack-flatsat-4023_1795030341`](data/em-v8-distress-v1
 | `parakeet-0.6b-v2-int8` | 0 | 112 s | 45.6 s | 64.1 s | 7.32 | 729 MiB | 2/2 |
 | `parakeet-0.6b-v2-int8-t2` | 0 | 89 s | 47.4 s | 40.0 s | 4.58 | 729 MiB | 2/2 |
 
-`-w5` uses 5 s STT windows instead of 10 s. `-t2` uses two threads instead of one. Each model loads once, before its first clip.
+The three Parakeet 0.6B v2 runs use the same model file. `parakeet-0.6b-v2-int8` cuts the audio into 10 s windows and uses one CPU core. `-w5` cuts the audio into 5 s windows, which needs less memory. `-t2` uses 10 s windows and both CPU cores. Both clips of this test are shorter than 5 s, so each clip is one window with either window length, and `-w5` does the same work as the 10 s config. Each model loads once, before its first clip.
 
 | Model | Clip | Length | STT time | RTF | Mayday detected | Transcript on board |
 |---|---|---|---|---|---|---|
