@@ -35,7 +35,7 @@ The three Parakeet 0.6B v2 runs use the same model file. `parakeet-0.6b-v2-int8`
 | `parakeet-0.6b-v2-int8-t2` | `37977-bainbridge-skiff` | 4.4 s | 19.6 s | 4.42 | Yes | Mayday, Mayday, Mayday. |
 | `parakeet-0.6b-v2-int8-t2` | `56367-netarts-pwc` | 4.3 s | 20.4 s | 4.73 | Yes | Mayday, meday, melee. Shut skier down. |
 
-The session ran on 2026-11-19 and took 7 min 10 s. The EM clock read 2026-11-18 19:25:11 to 19:32:21 UTC, and the timestamps in the logs, in `manifest.txt`, and on the report cards come from this clock. All five models exited 0 and detected a distress phrase in both clips. Zipformer writes "MAY DAY" as two words, which the detector also matches. The ten transcripts are byte-identical to the transcripts of the last emulator run, and the ship-side WER and recall are the same as on the ground binary. No warnings or errors in the logs.
+The session took 7 min 10 s (2026-11-18, 19:25:11 to 19:32:21 UTC). All five models exited 0 and detected a distress phrase in both clips. Zipformer writes "MAY DAY" as two words, which the detector also matches. The ten transcripts are byte-identical to the transcripts of the last emulator run, and the ship-side WER and recall are the same as on the ground binary. No warnings or errors in the logs.
 
 MemAvailable at the start was 967 MiB (MemTotal 1003 MiB). Parakeet 0.6B v2 peaked at 729 MiB, so the margin was 238 MiB and the lowest free memory during the run was 256 MiB. The emulator peaks (768 MiB to 869 MiB, QEMU included) were conservative. Each model was released before the next one started, so no two models were in memory at the same time.
 
