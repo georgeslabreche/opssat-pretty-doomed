@@ -200,9 +200,9 @@ set -e
 I=/tmp/install
 mkdir -p "$I"
 tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-v1.tar.gz -C "$I"
-[ -z "${PATCH:-}" ] || tar -xzf "/app/package/$PATCH" -C "$I"
 cd "$I"
 echo "manifest failures: $(sha256sum -c MANIFEST.sha256 | grep -vc ': OK$')"
+[ -z "${PATCH:-}" ] || tar -xzf "/app/package/$PATCH" -C "$I"
 set +e
 ./run
 DEST=/app/toGround/emu-distress
