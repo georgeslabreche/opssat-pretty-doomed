@@ -83,7 +83,7 @@ MODEL_FILES = models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx \
               models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx \
               models/sherpa-onnx/small/tokens.txt
 
-.PHONY: all clean test test-chain doom clone-sherpa patch-sherpa build-sherpa \
+.PHONY: package-distress-chunk all clean test test-chain doom clone-sherpa patch-sherpa build-sherpa \
        check-model package-prepare package-model package-demos package-tar
 
 all: check-model $(TARGET) doom
@@ -401,6 +401,37 @@ package-distress:
 	COPYFILE_DISABLE=1 tar --owner=exp --group=exp \
 		-czf package/$(DISTRESS_NAME).tar.gz -C $(DISTRESS_DIR) .
 	@ls -lh package/$(DISTRESS_NAME).tar.gz
+
+# Distress run chunk: a patch with run.cfg only, extracted over the installed
+# distress package. CHUNK_MODELS is a comma-separated list of configs. The
+# chunk runs all 13 clips (clips= empty).
+# Usage: make package-distress-chunk CHUNK=1 CHUNK_MODELS=zipformer-small-int8
+CHUNK ?=
+CHUNK_MODELS ?=
+CHUNK_NAME = $(DISTRESS_NAME)-chunk$(CHUNK)
+CHUNK_DIR = package/$(CHUNK_NAME)
+package-distress-chunk:
+	@if [ -z "$(CHUNK)" ] || [ -z "$(CHUNK_MODELS)" ]; then \
+		echo "Usage: make package-distress-chunk CHUNK=1 CHUNK_MODELS=zipformer-small-int8"; \
+		exit 1; \
+	fi
+	@for m in $$(echo "$(CHUNK_MODELS)" | tr ',' ' '); do \
+		[ -f distress/config.distress.$$m.cfg ] || { echo "Error: no distress/config.distress.$$m.cfg"; exit 1; }; \
+	done
+	rm -rf $(CHUNK_DIR) && mkdir -p $(CHUNK_DIR)
+	printf '%s\n' \
+		"# What ./run runs (#142). Chunk $(CHUNK) of the full distress run:" \
+		"# the configs below on all 13 clips." \
+		"# Environment variables override these values: DISTRESS_MODELS and DISTRESS_CLIP_NAMES." \
+		"" \
+		"# Configs to run, in order, comma-separated: config.distress.<name>.cfg." \
+		"models=$(CHUNK_MODELS)" \
+		"" \
+		"# Clips to run, by name, comma-separated (clips/<name>.wav). Empty: all 13 clips." \
+		"clips=" > $(CHUNK_DIR)/run.cfg
+	cd $(CHUNK_DIR) && COPYFILE_DISABLE=1 tar --owner=exp --group=exp \
+		-czvf ../$(CHUNK_NAME).tar.gz run.cfg
+	@ls -lh package/$(CHUNK_NAME).tar.gz
 
 # Incremental patch package: only changed files.
 # Requires package-prepare to have been run first.

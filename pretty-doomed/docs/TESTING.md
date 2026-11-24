@@ -193,12 +193,14 @@ The distress package (#142, see [`distress/README.md`](../distress/README.md)) r
 mkdir -p toGround/emu-distress
 cat > toGround/emu-distress/emu-run.sh <<'EOF'
 #!/bin/sh
-# Usage (in the SEPP emu container): [DISTRESS_CLIP_NAMES=] sh emu-run.sh <label>
+# Usage (in the SEPP emu container): [DISTRESS_CLIP_NAMES=] [PATCH=<patch.tar.gz>] sh emu-run.sh <label>
+# PATCH is a patch in /app/package/ (for example a run chunk), extracted over the package.
 # The output goes to toGround/emu-distress/NNN-<label>/, with NNN the next index.
 set -e
 I=/tmp/install
 mkdir -p "$I"
 tar -xzf /app/package/exp4023-pretty-DOOMed-v8-distress-v1.tar.gz -C "$I"
+[ -z "${PATCH:-}" ] || tar -xzf "/app/package/$PATCH" -C "$I"
 cd "$I"
 echo "manifest failures: $(sha256sum -c MANIFEST.sha256 | grep -vc ': OK$')"
 set +e
@@ -214,7 +216,7 @@ cp -r toGround/distress-00001 "$DEST/$(printf '%03d' "$n")-$1"
 echo "Saved: $DEST/$(printf '%03d' "$n")-$1"
 EOF
 
-# First test: all five configs on the two clips of run.cfg (4.0 s and 4.3 s), with the
+# First test: all five configs on the two clips of run.cfg (4.4 s and 4.3 s), with the
 # 1 GB memory of the EM. Minutes, not hours.
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run --rm --no-deps \
     pretty-doomed-sepp sh -c 'sh toGround/emu-distress/emu-run.sh first'
@@ -235,6 +237,11 @@ docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name 
 SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-1g \
     pretty-doomed-sepp sh -c 'DISTRESS_CLIP_NAMES= DISTRESS_MODELS="parakeet-0.6b-v2-int8-w5,parakeet-0.6b-v2-int8,parakeet-0.6b-v2-int8-t2" \
     sh toGround/emu-distress/emu-run.sh mem1g > toGround/emu-distress/mem1g.out 2>&1'
+
+# A run chunk: the patch of `make package-distress-chunk` (run.cfg only) over the
+# package, as on the EM. Chunk 1 is Zipformer small on all 13 clips.
+SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run -d --rm --no-deps --name distress-emu-chunk1 \
+    pretty-doomed-sepp sh -c 'PATCH=exp4023-pretty-DOOMed-v8-distress-v1-chunk1.tar.gz sh toGround/emu-distress/emu-run.sh chunk1 > toGround/emu-distress/chunk1.out 2>&1'
 
 # Ground analysis of a run
 cd ../tools/distress
