@@ -1,0 +1,16 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/clips/48097-oahu-sailboat.wav
+Transcription: WHAT I KNOW NOW WHAT'S GOIN TO GO DOWN IN SOMETHING ABOUT EIGHT MILES UP DON'T BE NEEDLE THUS I'LL CALL AN END AS IS THE COASTGUARD ROGER COPY YOUR SWAMP THE RIGHT NOW AND YOU'VE GOT TO BE GOIN DOWN SHORTLY OVER WE GOT SOME AH WE DON'T SHIVE ALLEY NOW BY IT YOUR BOUT WELL GO NOW SHUNNY WHY DO WE GOT I'VE GOT ALONG ALL I COULD GIVE YOU MY DEAR BOY
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 0 []
+    Approximate: 0 []
+  Command [GOING DOWN]:
+    Exact: 0 []
+    Approximate: 1 [GOIN DOWN]
+
+Total points: 1 (exact=0, approx=1)
+
+Result: COMMAND DETECTED (operation=detect)

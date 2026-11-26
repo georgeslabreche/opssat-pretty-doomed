@@ -1,0 +1,26 @@
+-- Logs begin at Mon 2026-11-16 12:51:26 UTC, end at Wed 2026-11-25 07:53:27 UTC. --
+Nov 25 07:29:39 sepp systemd[1]: Starting Experiment 4023...
+Nov 25 07:29:39 sepp spawn[4012]: starting experiment 4023
+Nov 25 07:29:40 sepp systemd[1]: Started Experiment 4023.
+Nov 25 07:29:46 sepp spawn[4012]: === zipformer-small-int8 ===
+Nov 25 07:53:26 sepp spawn[4012]: Distress run distress-00001: 8-distress-v1
+Nov 25 07:53:26 sepp spawn[4012]: clips: all
+Nov 25 07:53:26 sepp spawn[4012]: config                     exit  wall_s   load_s clips  audio_s     stt_s     rtf  peak_mib detected
+Nov 25 07:53:26 sepp spawn[4012]: zipformer-small-int8          0    1420     18.5    13    829.9    1398.6   1.685       170     9/13
+Nov 25 07:53:26 sepp spawn[4012]: STT time per clip (s):
+Nov 25 07:53:26 sepp spawn[4012]: clip                          audio_s       zipformer-small-int8
+Nov 25 07:53:26 sepp spawn[4012]: 34749-imagination              131.37                     222.49
+Nov 25 07:53:26 sepp spawn[4012]: 35098-midnite-sun-relay         54.73                      92.29
+Nov 25 07:53:26 sepp spawn[4012]: 35135-double-time               50.99                      85.86
+Nov 25 07:53:26 sepp spawn[4012]: 35628-miss-yalanda               5.43                       9.37
+Nov 25 07:53:26 sepp spawn[4012]: 37977-bainbridge-skiff           4.44                       7.63
+Nov 25 07:53:26 sepp spawn[4012]: 41096-kupreanof                 10.58                      17.79
+Nov 25 07:53:26 sepp spawn[4012]: 44865-galveston-capsize         31.35                      52.58
+Nov 25 07:53:26 sepp spawn[4012]: 46250-star-king                227.23                     381.74
+Nov 25 07:53:26 sepp spawn[4012]: 46887-surfside-fire             14.68                      24.80
+Nov 25 07:53:26 sepp spawn[4012]: 48097-oahu-sailboat             35.79                      60.43
+Nov 25 07:53:26 sepp spawn[4012]: 53901-captain-billy-haver      240.08                     403.38
+Nov 25 07:53:26 sepp spawn[4012]: 56367-netarts-pwc                4.31                       7.43
+Nov 25 07:53:26 sepp spawn[4012]: 87205-molokai                   18.94                      32.80
+Nov 25 07:53:26 sepp spawn[4012]: Done: /home/exp/toGround/distress-00001
+Nov 25 07:53:27 sepp systemd-machined[1758]: Machine exp-4023 terminated.

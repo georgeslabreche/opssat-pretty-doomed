@@ -1,0 +1,13 @@
+wake_word_exact=0
+wake_word_exact_matches=
+wake_word_approx=0
+wake_word_approx_matches=
+command_AGROUND_exact=0
+command_AGROUND_exact_matches=
+command_AGROUND_approx=1
+command_AGROUND_approx_matches=AROUND
+total_points=1
+total_points_exact=0
+total_points_approx=1
+audio_rms_raw=0.4649
+audio_peak_raw=1.0000

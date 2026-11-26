@@ -1,0 +1,13 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/clips/35628-miss-yalanda.wav
+Transcription: MAYBE YOU MADE A MANY THAT THE FISHING VESSEL MISSION WE BREATHED ALONG DOWN
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 0 []
+    Approximate: 0 []
+
+Total points: 0 (exact=0, approx=0)
+
+Result: No command detected

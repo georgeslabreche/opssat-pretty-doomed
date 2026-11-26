@@ -1,0 +1,17 @@
+wake_word_exact=0
+wake_word_exact_matches=
+wake_word_approx=0
+wake_word_approx_matches=
+command_FIRE_exact=0
+command_FIRE_exact_matches=
+command_FIRE_approx=1
+command_FIRE_approx_matches=FIVE
+command_SOS_exact=0
+command_SOS_exact_matches=
+command_SOS_approx=1
+command_SOS_approx_matches=SO
+total_points=2
+total_points_exact=0
+total_points_approx=2
+audio_rms_raw=0.0707
+audio_peak_raw=0.6842

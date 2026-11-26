@@ -1,0 +1,2 @@
+model	exit	seconds
+zipformer-small-int8	0	1420

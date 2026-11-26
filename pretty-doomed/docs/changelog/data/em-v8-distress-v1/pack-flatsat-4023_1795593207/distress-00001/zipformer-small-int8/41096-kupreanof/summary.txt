@@ -1,0 +1,16 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/clips/41096-kupreanof.wav
+Transcription: MAY DAY MAY DAY THIS IS A COOPERNOX COOPERNOP WE ARE TAKEN ON WATER OVER THE STERN SHE ADDED
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 0 []
+    Approximate: 0 []
+  Command [MAY DAY]:
+    Exact: 2 [MAY DAY, MAY DAY]
+    Approximate: 0 []
+
+Total points: 4 (exact=4, approx=0)
+
+Result: COMMAND DETECTED (operation=detect)

@@ -6,7 +6,7 @@ For previous EM results, see [V3_TO_V4.md](V3_TO_V4.md) (v4) and [V2_TO_V3.md](V
 
 ## Distress v1 Verification
 
-One EM session via SMILE on the self-contained package `exp4023-pretty-DOOMed-v8-distress-v1.tar.gz` (see [V8_TO_V8_DISTRESS_V1.md](V8_TO_V8_DISTRESS_V1.md)), on the shipped `run.cfg`: all five models on the two shortest clips. The purpose of the session is the execution times on the EM hardware. The SDR was not used.
+EM sessions via SMILE on the self-contained package `exp4023-pretty-DOOMed-v8-distress-v1.tar.gz` (see [V8_TO_V8_DISTRESS_V1.md](V8_TO_V8_DISTRESS_V1.md)). Session 1 runs the shipped `run.cfg`: all five models on the two shortest clips, for the execution times on the EM hardware. The full run on all 13 clips follows in chunks, one model per chunk. Each chunk is a patch with `run.cfg` only (`make package-distress-chunk`), extracted over the installed package. The SDR was not used.
 
 ### Session 1 (clean pass)
 
@@ -65,9 +65,59 @@ Report cards made on board:
 | `parakeet-0.6b-v2-int8` | ![parakeet-0.6b-v2-int8, 37977-bainbridge-skiff](data/em-v8-distress-v1/pack-flatsat-4023_1795030341/distress-00001/parakeet-0.6b-v2-int8/37977-bainbridge-skiff/report_card.png) | ![parakeet-0.6b-v2-int8, 56367-netarts-pwc](data/em-v8-distress-v1/pack-flatsat-4023_1795030341/distress-00001/parakeet-0.6b-v2-int8/56367-netarts-pwc/report_card.png) |
 | `parakeet-0.6b-v2-int8-t2` | ![parakeet-0.6b-v2-int8-t2, 37977-bainbridge-skiff](data/em-v8-distress-v1/pack-flatsat-4023_1795030341/distress-00001/parakeet-0.6b-v2-int8-t2/37977-bainbridge-skiff/report_card.png) | ![parakeet-0.6b-v2-int8-t2, 56367-netarts-pwc](data/em-v8-distress-v1/pack-flatsat-4023_1795030341/distress-00001/parakeet-0.6b-v2-int8-t2/56367-netarts-pwc/report_card.png) |
 
+### Session 2 (chunk 1: Zipformer small, all 13 clips, clean pass)
+
+Data from SMILE artifact [`pack-flatsat-4023_1795593207`](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/): the downlinked `distress-00001/` directory, the systemd journal of the run (`journal.log`), and the scored results (`results/`). The patch `exp4023-pretty-DOOMed-v8-distress-v1-chunk1.tar.gz` sets `models=zipformer-small-int8` and `clips=` (all 13 clips). The session ran on 2026-11-25, 07:29:42 to 07:53:26 UTC.
+
+| Model | Exit | Run time | Model load | STT time | RTF | Peak memory (VmHWM) | Distress detected |
+|---|---|---|---|---|---|---|---|
+| `zipformer-small-int8` | 0 | 1420 s (23.7 min) | 18.5 s | 1398.6 s | 1.685 | 170 MiB | 9/13 |
+
+| Clip | Length | STT time | RTF | Distress detected on board | "MAY DAY" in transcript |
+|---|---|---|---|---|---|
+| `34749-imagination` | 131.4 s | 222.5 s | 1.69 | Yes | No |
+| `35098-midnite-sun-relay` | 54.7 s | 92.3 s | 1.69 | Yes | No |
+| `35135-double-time` | 51.0 s | 85.9 s | 1.68 | No | No |
+| `35628-miss-yalanda` | 5.4 s | 9.4 s | 1.72 | No | No |
+| `37977-bainbridge-skiff` | 4.4 s | 7.6 s | 1.72 | Yes | Yes |
+| `41096-kupreanof` | 10.6 s | 17.8 s | 1.68 | Yes | Yes |
+| `44865-galveston-capsize` | 31.4 s | 52.6 s | 1.68 | No | No |
+| `46250-star-king` | 227.2 s | 381.7 s | 1.68 | Yes | No |
+| `46887-surfside-fire` | 14.7 s | 24.8 s | 1.69 | Yes | Yes |
+| `48097-oahu-sailboat` | 35.8 s | 60.4 s | 1.69 | Yes | No |
+| `53901-captain-billy-haver` | 240.1 s | 403.4 s | 1.68 | Yes | No |
+| `56367-netarts-pwc` | 4.3 s | 7.4 s | 1.72 | Yes | Yes |
+| `87205-molokai` | 18.9 s | 32.8 s | 1.73 | No | No |
+
+The model exited 0, transcribed all 13 clips (830 s of audio), and drew 13 report cards (median 1085 ms each). No warnings or errors in the log. The 13 transcripts are byte-identical to a SEPP emulator run of the same patch. The on-board detection, which also accepts other distress phrases and approximate matches, flagged 9 of 13 clips. Zipformer small wrote "MAY DAY" in 4 of 13 transcripts.
+
+The estimate from session 1 was 24 min for this model (model load plus RTF 1.68 times 830 s of audio). The run took 23.7 min, and the RTF was 1.685 on all clips, from 4 s to 240 s. Thus the RTF does not depend on the clip length, and the estimates for the other models stand. The first clip started 4 s after the start of the run, against 48 s in session 1, because the manifest hashes the model files of the selected models only.
+
+The peak memory was 170 MiB, against 119 MiB in session 1, because the long clips fill the 10 s windows. MemAvailable at the start was 967 MiB and the lowest free memory during the run was 804 MiB.
+
+Against the ground binary (`binary-zipformer-small-int8`), 10 of 13 transcripts differ in a few words. The ship-side WER is 0.739 against 0.734, and the ship-side recall is 4/13 against 5/13: on the ground, the Miss Yalanda clip has the phrase "going down", and on ARM32 it does not. The beam search of Zipformer small is sensitive to small numeric differences between ARM32 and the ground machine. The SEPP emulator reproduces the EM exactly, so it is the reference for the on-board results.
+
+![Distress v1 EM session 2](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-timeline-and-resource.png)
+
+![Speed per clip](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-rtf.png)
+
+![Accuracy against the ground binary](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-accuracy.png)
+
+Report cards made on board:
+
+| | |
+|---|---|
+| ![34749-imagination](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/34749-imagination/report_card.png) | ![35098-midnite-sun-relay](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/35098-midnite-sun-relay/report_card.png) |
+| ![35135-double-time](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/35135-double-time/report_card.png) | ![35628-miss-yalanda](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/35628-miss-yalanda/report_card.png) |
+| ![37977-bainbridge-skiff](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/37977-bainbridge-skiff/report_card.png) | ![41096-kupreanof](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/41096-kupreanof/report_card.png) |
+| ![44865-galveston-capsize](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/44865-galveston-capsize/report_card.png) | ![46250-star-king](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/46250-star-king/report_card.png) |
+| ![46887-surfside-fire](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/46887-surfside-fire/report_card.png) | ![48097-oahu-sailboat](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/48097-oahu-sailboat/report_card.png) |
+| ![53901-captain-billy-haver](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/53901-captain-billy-haver/report_card.png) | ![56367-netarts-pwc](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/56367-netarts-pwc/report_card.png) |
+| ![87205-molokai](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/87205-molokai/report_card.png) | |
+
 ### Verdict
 
-**The distress package runs on the EM.** All five models, Parakeet 0.6B v2 included, fit in the EM memory with a margin of 238 MiB, and they give the same transcripts as the emulator and the ground binary. The next step is the same package with all 13 clips (`clips=` empty in `run.cfg`), approximately 5.3 h.
+**The distress package runs on the EM.** All five models, Parakeet 0.6B v2 included, fit in the EM memory with a margin of 238 MiB, and they give the same transcripts as the emulator and the ground binary. On all 13 clips, Zipformer small ran in 23.7 min with an RTF of 1.685, as estimated, and gave the same transcripts as the emulator. The next chunks are Parakeet 110M (approximately 26 min), Parakeet 0.6B v2 with two threads (approximately 64 min), and the two one-thread Parakeet 0.6B v2 configs (approximately 102 min each).
 
 ## v8 Verification
 
