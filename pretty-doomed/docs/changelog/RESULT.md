@@ -97,6 +97,12 @@ The peak memory was 170 MiB, against 119 MiB in session 1, because the long clip
 
 Against the ground binary (`binary-zipformer-small-int8`), 10 of 13 transcripts differ in a few words. The ship-side WER is 0.739 against 0.734, and the ship-side recall is 4/13 against 5/13: on the ground, the Miss Yalanda clip has the phrase "going down", and on ARM32 it does not. The beam search of Zipformer small is sensitive to small numeric differences between ARM32 and the ground machine. The SEPP emulator reproduces the EM exactly, so it is the reference for the on-board results.
 
+Thread timeline, per-core CPU, and memory, with the memory of the pretty-doomed process:
+
+![Distress v1 EM session 2](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-timeline-and-resource.png)
+
+![Peak memory](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-peak-memory.png)
+
 The 13 report cards drawn on board are in `distress-00001/zipformer-small-int8/<clip>/report_card.png`. The comparative figures follow when all the chunks are done.
 
 ### Verdict
