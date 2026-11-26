@@ -97,23 +97,7 @@ The peak memory was 170 MiB, against 119 MiB in session 1, because the long clip
 
 Against the ground binary (`binary-zipformer-small-int8`), 10 of 13 transcripts differ in a few words. The ship-side WER is 0.739 against 0.734, and the ship-side recall is 4/13 against 5/13: on the ground, the Miss Yalanda clip has the phrase "going down", and on ARM32 it does not. The beam search of Zipformer small is sensitive to small numeric differences between ARM32 and the ground machine. The SEPP emulator reproduces the EM exactly, so it is the reference for the on-board results.
 
-![Distress v1 EM session 2](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-timeline-and-resource.png)
-
-![Speed per clip](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-rtf.png)
-
-![Accuracy against the ground binary](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-accuracy.png)
-
-Report cards made on board:
-
-| | |
-|---|---|
-| ![34749-imagination](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/34749-imagination/report_card.png) | ![35098-midnite-sun-relay](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/35098-midnite-sun-relay/report_card.png) |
-| ![35135-double-time](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/35135-double-time/report_card.png) | ![35628-miss-yalanda](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/35628-miss-yalanda/report_card.png) |
-| ![37977-bainbridge-skiff](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/37977-bainbridge-skiff/report_card.png) | ![41096-kupreanof](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/41096-kupreanof/report_card.png) |
-| ![44865-galveston-capsize](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/44865-galveston-capsize/report_card.png) | ![46250-star-king](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/46250-star-king/report_card.png) |
-| ![46887-surfside-fire](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/46887-surfside-fire/report_card.png) | ![48097-oahu-sailboat](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/48097-oahu-sailboat/report_card.png) |
-| ![53901-captain-billy-haver](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/53901-captain-billy-haver/report_card.png) | ![56367-netarts-pwc](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/56367-netarts-pwc/report_card.png) |
-| ![87205-molokai](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001/zipformer-small-int8/87205-molokai/report_card.png) | |
+The 13 report cards drawn on board are in `distress-00001/zipformer-small-int8/<clip>/report_card.png`. The comparative figures follow when all the chunks are done.
 
 ### Verdict
 
