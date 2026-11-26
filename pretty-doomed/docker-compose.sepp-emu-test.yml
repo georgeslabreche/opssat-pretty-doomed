@@ -7,6 +7,11 @@
 #     ./build/sepp/pretty-doomed -s -c config.emu.cfg -f variants.cfg \
 #     -o toGround/sepp-emu-test -d demos -e doom-build/sepp/opssat-doom
 #   docker-compose -f docker-compose.sepp-emu-test.yml down
+#
+# Memory limit of the ARM32 container (#142). The default is larger than the
+# Docker VM, so it has no effect. To model the 1 GB EM:
+#   SEPP_EMU_MEM_LIMIT=1g docker-compose -f docker-compose.sepp-emu-test.yml run ...
+# QEMU adds its own memory to the container, so the limit is approximate.
 
 services:
   sdr-emu:
@@ -36,6 +41,8 @@ services:
       - ./Makefile:/app/Makefile
       - ./build/local:/app/build/local
       - ./build/sepp:/app/build/sepp
+      - ./package:/app/package
+      - ./distress:/app/distress
       - ./models:/app/models
       - ./input:/app/input
       - ./ascii.txt:/app/ascii.txt
@@ -49,8 +56,11 @@ services:
       - ../doom/demos:/app/demos
       - ./assets:/app/assets
       - sherpa-onnx-src:/opt/sherpa-onnx-src
+      - sherpa-onnx-src-distress:/opt/sherpa-onnx-src-distress
     working_dir: /app
     tty: true
+    mem_limit: ${SEPP_EMU_MEM_LIMIT:-64g}
 
 volumes:
   sherpa-onnx-src:
+  sherpa-onnx-src-distress:

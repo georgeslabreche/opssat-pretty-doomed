@@ -1,0 +1,2 @@
+model_type	decoding	window_s	threads	load_ms	peak_rss_kb	clips
+auto	modified_beam_search	10	1	18473	173688	13

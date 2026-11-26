@@ -1,0 +1,19 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/clips/46887-surfside-fire.wav
+Transcription: MADE A MAY DAY MATE AIM MAY DAY VESSEL IN DISTRESS MISSUS COSEGART'S YOUR USING GALVIS AND WHAT IS YOUR POSITION IN NATURE OF DISTRESS OVER YET THERE WERE ABOUT THE FIVE SIX NAUTICAL MILES A OFF THE THREE PORTENTS AND WE'RE ON FIRE
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 0 []
+    Approximate: 0 []
+  Command [FIRE]:
+    Exact: 1 [FIRE]
+    Approximate: 1 [FIVE]
+  Command [MAY DAY]:
+    Exact: 2 [MAY DAY, MAY DAY]
+    Approximate: 0 []
+
+Total points: 7 (exact=6, approx=1)
+
+Result: COMMAND DETECTED (operation=detect)

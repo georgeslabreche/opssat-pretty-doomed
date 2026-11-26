@@ -1,0 +1,16 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/clips/37977-bainbridge-skiff.wav
+Transcription: MAY DAY MAY DAY MAY DAY
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 0 []
+    Approximate: 0 []
+  Command [MAY DAY]:
+    Exact: 3 [MAY DAY, MAY DAY, MAY DAY]
+    Approximate: 0 []
+
+Total points: 6 (exact=6, approx=0)
+
+Result: COMMAND DETECTED (operation=detect)

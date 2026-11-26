@@ -1,0 +1,13 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/clips/44865-galveston-capsize.wav
+Transcription: AND I DON'T KNOW THERE BY THE IT IS INTEREST AH ABOUT I'VE GOT AWAY WELL AFTER YOU TWO
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 0 []
+    Approximate: 0 []
+
+Total points: 0 (exact=0, approx=0)
+
+Result: No command detected

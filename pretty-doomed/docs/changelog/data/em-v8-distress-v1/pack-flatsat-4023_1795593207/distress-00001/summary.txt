@@ -1,0 +1,21 @@
+Distress run distress-00001: 8-distress-v1
+clips: all
+
+config                     exit  wall_s   load_s clips  audio_s     stt_s     rtf  peak_mib detected
+zipformer-small-int8          0    1420     18.5    13    829.9    1398.6   1.685       170     9/13
+
+STT time per clip (s):
+clip                          audio_s       zipformer-small-int8
+34749-imagination              131.37                     222.49
+35098-midnite-sun-relay         54.73                      92.29
+35135-double-time               50.99                      85.86
+35628-miss-yalanda               5.43                       9.37
+37977-bainbridge-skiff           4.44                       7.63
+41096-kupreanof                 10.58                      17.79
+44865-galveston-capsize         31.35                      52.58
+46250-star-king                227.23                     381.74
+46887-surfside-fire             14.68                      24.80
+48097-oahu-sailboat             35.79                      60.43
+53901-captain-billy-haver      240.08                     403.38
+56367-netarts-pwc                4.31                       7.43
+87205-molokai                   18.94                      32.80

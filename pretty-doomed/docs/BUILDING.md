@@ -106,6 +106,31 @@ tar -xzf exp4023-pretty-DOOMed-v<VERSION>.tar.gz
 ./run
 ```
 
+## Distress call evaluation package
+
+An EM-only package (#142) with the layout of the DOOM package: `./run` at the root of the experiment folder. It is self-contained, with its own binary, libs, and models. It replaces the v8 install on the EM. See [`distress/README.md`](../distress/README.md) for the contents, the run, and the output.
+
+```bash
+# 1. Ground inputs: the 13 clips as WAV, and the Parakeet models
+../tools/distress/prepare_clips.sh
+../tools/distress/fetch_models.sh
+
+# 2. ARM32 binary with the distress version and sherpa-onnx 1.13.8 (inside the
+#    SEPP container). The first build-sherpa of 1.13.8 takes hours under QEMU, and
+#    its result stays in the sherpa-onnx-src-distress volume.
+docker-compose -f docker-compose.sepp.yml run --rm -v $PWD/distress:/app/distress:ro pretty-doomed-sepp \
+    sh -c 'make SHERPA_SRC=/opt/sherpa-onnx-src-distress SHERPA_VERSION=1.13.8 build-sherpa && \
+           make SHERPA_SRC=/opt/sherpa-onnx-src-distress BUILDDIR=/tmp/sepp-distress \
+                APP_VERSION=$(cat distress/VERSION) package-distress-prepare'
+
+# 3. Configs, clips, models, manifest, and tarball (outside the container)
+make package-distress
+```
+
+This creates `package/exp4023-pretty-DOOMed-v<VERSION>.tar.gz` (for example `v8-distress-v1`), about 605 MB. The package follows the rules of [`docs/OPSSAT_PRETTY_DEV_GUIDE.md`](../../docs/OPSSAT_PRETTY_DEV_GUIDE.md) and [`docs/SEPP.md`](../../docs/SEPP.md): relative paths, owner `exp:exp`, an executable `./run` at the root that sets `LD_LIBRARY_PATH` to `libs/`, and no output outside `toGround/` (the home folder is collected for downlink). Almost all of it is the Parakeet 0.6B v2 model.
+
+The distress binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherpa-onnx 1.12.21 (the v8 version) to 1.13.4 gives an empty text for some windows: the first two 30 s windows of the Star King clip, for example. The Zipformer small model is not affected. A new `BUILDDIR` makes sure that no object file is older than `config.h`.
+
 ## Models
 
 Download models before running. See [`models/README.md`](../models/README.md) for download instructions. Model paths are configured in `config.cfg`.

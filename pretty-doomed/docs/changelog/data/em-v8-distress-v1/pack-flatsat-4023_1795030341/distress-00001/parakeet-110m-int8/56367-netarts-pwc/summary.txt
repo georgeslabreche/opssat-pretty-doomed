@@ -1,0 +1,16 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /tmp/distress-clips.2/56367-netarts-pwc.wav
+Transcription: Mayday Mayday May get down.
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 2 [MAYDAY, MAYDAY]
+    Approximate: 0 []
+  Command [MAYDAY]:
+    Exact: 2 [MAYDAY, MAYDAY]
+    Approximate: 0 []
+
+Total points: 8 (exact=8, approx=0)
+
+Result: COMMAND DETECTED (operation=detect)

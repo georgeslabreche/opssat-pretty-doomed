@@ -2,3 +2,6 @@ audio/
 models/
 .venv/
 __pycache__/
+binary-run/
+results/
+reports/

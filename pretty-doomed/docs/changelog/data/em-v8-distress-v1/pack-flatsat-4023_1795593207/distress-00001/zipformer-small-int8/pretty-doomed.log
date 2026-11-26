@@ -1,0 +1,224 @@
+[2026-11-25 07:29:47.367][c0/t110] === PRETTY DOOMed v8-distress-v1 ===
+[2026-11-25 07:29:47.370][c0/t110] Loading config: /home/exp/config.distress.zipformer-small-int8.cfg
+[2026-11-25 07:29:47.377][c0/t110] Directory input mode: 13 WAV file(s) in /home/exp/clips
+[2026-11-25 07:29:47.377][c0/t110] Loading STT model...
+[2026-11-25 07:29:47.377][c0/t110]   Encoder: models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx (25405 KB)
+[2026-11-25 07:29:47.378][c0/t110]   Decoder: models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx (2043 KB)
+[2026-11-25 07:29:47.378][c0/t110]   Joiner:  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx (253 KB)
+[2026-11-25 07:29:47.378][c0/t110]   Tokens:  models/sherpa-onnx/small/tokens.txt
+[2026-11-25 07:30:05.851][c1/t110] STT model loaded (18473 ms)
+[2026-11-25 07:30:05.852][c1/t110] --- Processing: /home/exp/clips/34749-imagination.wav ---
+[2026-11-25 07:30:05.852][c1/t110] Reading audio: /home/exp/clips/34749-imagination.wav
+[2026-11-25 07:30:05.940][c1/t110]   16000 Hz, 2101917 samples (131.37s)
+[2026-11-25 07:30:05.977][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:30:06.015][c1/t110]   2101917 samples, DSP time: 0.0s
+[2026-11-25 07:30:06.015][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:30:06.015][c1/t110]   14 windows of 10 s
+[2026-11-25 07:33:48.510][c0/t110]   STT time: 222.4s
+[2026-11-25 07:33:48.510][c0/t110]   Transcription: WHAT YOU HAVE CAUSE GOD BLESSING THE TRUTH YOU MUST GO GLAD YOU MUST GO GLAD THAT'S WHAT IS JUST THIS OVER WHAT IS YOUR POSITION MAY BE LADY SHOOT I FOUND ITSELF NOT A TRAP WITH A BOOKS BY COMMANDING TO PROVISION ON EACH OTHER SHOP OF IT A SHRIVE TO CURE SEVEN SEVEN NINE SET OF SEVEN LINES THE GREATEST THE COOKER BUT TO LIE AWAY TO LUXURY WE TAKE AWAY FROM THE AIR WHAT MAY IMMIT WHAT THAT'S ALL DISTRESS AS COAST GOD'S SACRAMENTING SAY AGAIN YOUR NATURE OF DISTRESS OVER YES HONEST JUST AFTER MY ARGUE CAPTAIN WHAT IS THE NAME OF YOUR VESSEL AND HOW MANY PEOPLE ON BOARD OVER WHAT FELLOW CHOKED THAT THERE CAN BE CALL IT BUT IF THE LITTER HAD GOT A CHALK AROUND HE GOT THE CLEVERNESS OF A GOOD ENOUGH AH DEAR BUT I THINK SHE'LL SECONOMY RIGHT IN THAT TILL I GOT BACK TO IT ON MY CHARACTER BUT THAT THE WRONG IT IS TAKEN BY THE WHOLE ACTION OF OFFICIAL HOW FACT WITHOUT COME ALONG WITH IT OPEN A
+[2026-11-25 07:33:48.513][c0/t110] Detecting command...
+[2026-11-25 07:33:48.517][c0/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:33:48.517][c0/t110]   Command [AGROUND]: 1 (exact=0, approx=1)
+[2026-11-25 07:33:48.523][c0/t110] Command detected (operation=detect)
+[2026-11-25 07:33:48.523][c0/t401] Report card: 34749-imagination
+[2026-11-25 07:33:48.526][c1/t110] --- Processing: /home/exp/clips/35098-midnite-sun-relay.wav ---
+[2026-11-25 07:33:48.526][c1/t110] Reading audio: /home/exp/clips/35098-midnite-sun-relay.wav
+[2026-11-25 07:33:48.578][c1/t110]   16000 Hz, 875625 samples (54.7266s)
+[2026-11-25 07:33:48.594][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:33:48.613][c1/t110]   875625 samples, DSP time: 0.0s
+[2026-11-25 07:33:48.614][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:33:48.614][c1/t110]   6 windows of 10 s
+[2026-11-25 07:33:49.654][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/34749-imagination/report_card.png (1130 ms)
+[2026-11-25 07:33:49.654][c0/t401] Report card worker idle
+[2026-11-25 07:35:20.905][c1/t110]   STT time: 92.2s
+[2026-11-25 07:35:20.906][c1/t110]   Transcription: MADE EVERY MAN EH MADE I'D MAKE I KNOW THAT ANY ONE THAT I POSSESSION FINALLY ANY ONE SEVEN TWENTY ONE FIVE THIRTY THOUSANDER O TWENTY SEVEN WE HAVE A BOAT ON THE BEACH BY THE MIDNIGHT SUN IS ON THE BEACH HERE SUCH ON HIS STRESS AS THE UNITED HIS COASTGUARD SECTOR ANCHORAGE HOW MANY PURSES ON BOARD THE VESSEL OVER WHY PULL ABOARD THAT VESSEL THEY'RE GROUND IN AND ARE ON SEEING WEATHER RIGHT NOW IS FORTY FIVE YARDS NORTH WEST WHEN COMBINES SANDS WELL APPROXIMATE AND PHOENIC ONE DAY
+[2026-11-25 07:35:20.906][c1/t110] Detecting command...
+[2026-11-25 07:35:20.908][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:35:20.908][c1/t110]   Command [FIRE]: 2 (exact=0, approx=2)
+[2026-11-25 07:35:20.911][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:35:20.911][c0/t401] Report card: 35098-midnite-sun-relay
+[2026-11-25 07:35:20.912][c1/t110] --- Processing: /home/exp/clips/35135-double-time.wav ---
+[2026-11-25 07:35:20.912][c1/t110] Reading audio: /home/exp/clips/35135-double-time.wav
+[2026-11-25 07:35:20.953][c1/t110]   16000 Hz, 815856 samples (50.991s)
+[2026-11-25 07:35:20.968][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:35:20.984][c1/t110]   815856 samples, DSP time: 0.0s
+[2026-11-25 07:35:20.984][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:35:20.984][c1/t110]   6 windows of 10 s
+[2026-11-25 07:35:21.979][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/35098-midnite-sun-relay/report_card.png (1067 ms)
+[2026-11-25 07:35:21.979][c0/t401] Report card worker idle
+[2026-11-25 07:36:46.840][c1/t110]   STT time: 85.8s
+[2026-11-25 07:36:46.840][c1/t110]   Transcription: AND MY DOOR WAS IN THE SAME TIME DRANKERS DRAWS ON THE SAME NEAR THE NARROWS THE VALLEYS ARE TAKING OUT THE WATER I DIDN'T GET HOW MUCH WERE YOU'RE TAKING ON DIE OF A DEVIA'S POSITION OVER THERE'S CHEAP YOU SAID HER NAME IS COMING UP THE BATALE OF THE ADJUNACCORDING SOMETIME THIS IS CLOSERA ANCHORED TO HAVE MANY PERSONS ON BOARD YOUR VESSEL OVER IT AND
+[2026-11-25 07:36:46.841][c1/t110] Detecting command...
+[2026-11-25 07:36:46.842][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:36:46.845][c1/t110] No command detected.
+[2026-11-25 07:36:46.845][c0/t401] Report card: 35135-double-time
+[2026-11-25 07:36:46.845][c1/t110] --- Processing: /home/exp/clips/35628-miss-yalanda.wav ---
+[2026-11-25 07:36:46.845][c1/t110] Reading audio: /home/exp/clips/35628-miss-yalanda.wav
+[2026-11-25 07:36:46.850][c1/t110]   16000 Hz, 86936 samples (5.4335s)
+[2026-11-25 07:36:46.852][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:36:46.854][c1/t110]   86936 samples, DSP time: 0.0s
+[2026-11-25 07:36:46.855][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:36:47.930][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/35135-double-time/report_card.png (1085 ms)
+[2026-11-25 07:36:47.930][c0/t401] Report card worker idle
+[2026-11-25 07:36:56.223][c1/t110]   STT time: 9.3s
+[2026-11-25 07:36:56.223][c1/t110]   Transcription: MAYBE YOU MADE A MANY THAT THE FISHING VESSEL MISSION WE BREATHED ALONG DOWN
+[2026-11-25 07:36:56.223][c1/t110] Detecting command...
+[2026-11-25 07:36:56.224][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:36:56.225][c1/t110] No command detected.
+[2026-11-25 07:36:56.225][c0/t401] Report card: 35628-miss-yalanda
+[2026-11-25 07:36:56.225][c1/t110] --- Processing: /home/exp/clips/37977-bainbridge-skiff.wav ---
+[2026-11-25 07:36:56.225][c1/t110] Reading audio: /home/exp/clips/37977-bainbridge-skiff.wav
+[2026-11-25 07:36:56.229][c1/t110]   16000 Hz, 71053 samples (4.44081s)
+[2026-11-25 07:36:56.231][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:36:56.232][c1/t110]   71053 samples, DSP time: 0.0s
+[2026-11-25 07:36:56.232][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:36:57.264][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/35628-miss-yalanda/report_card.png (1039 ms)
+[2026-11-25 07:36:57.264][c0/t401] Report card worker idle
+[2026-11-25 07:37:03.858][c1/t110]   STT time: 7.6s
+[2026-11-25 07:37:03.858][c1/t110]   Transcription: MAY DAY MAY DAY MAY DAY
+[2026-11-25 07:37:03.858][c1/t110] Detecting command...
+[2026-11-25 07:37:03.859][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:37:03.859][c1/t110]   Command [MAY DAY]: 3 (exact=3, approx=0)
+[2026-11-25 07:37:03.860][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:37:03.860][c0/t401] Report card: 37977-bainbridge-skiff
+[2026-11-25 07:37:03.860][c1/t110] --- Processing: /home/exp/clips/41096-kupreanof.wav ---
+[2026-11-25 07:37:03.860][c1/t110] Reading audio: /home/exp/clips/41096-kupreanof.wav
+[2026-11-25 07:37:03.869][c1/t110]   16000 Hz, 169274 samples (10.5796s)
+[2026-11-25 07:37:03.873][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:37:03.876][c1/t110]   169274 samples, DSP time: 0.0s
+[2026-11-25 07:37:03.876][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:37:03.876][c1/t110]   2 windows of 10 s
+[2026-11-25 07:37:04.877][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/37977-bainbridge-skiff/report_card.png (1017 ms)
+[2026-11-25 07:37:04.877][c0/t401] Report card worker idle
+[2026-11-25 07:37:21.671][c1/t110]   STT time: 17.7s
+[2026-11-25 07:37:21.671][c1/t110]   Transcription: MAY DAY MAY DAY THIS IS A COOPERNOX COOPERNOP WE ARE TAKEN ON WATER OVER THE STERN SHE ADDED
+[2026-11-25 07:37:21.672][c1/t110] Detecting command...
+[2026-11-25 07:37:21.672][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:37:21.672][c1/t110]   Command [MAY DAY]: 2 (exact=2, approx=0)
+[2026-11-25 07:37:21.673][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:37:21.674][c0/t401] Report card: 41096-kupreanof
+[2026-11-25 07:37:21.674][c1/t110] --- Processing: /home/exp/clips/44865-galveston-capsize.wav ---
+[2026-11-25 07:37:21.674][c1/t110] Reading audio: /home/exp/clips/44865-galveston-capsize.wav
+[2026-11-25 07:37:21.698][c1/t110]   16000 Hz, 501551 samples (31.3469s)
+[2026-11-25 07:37:21.707][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:37:21.720][c1/t110]   501551 samples, DSP time: 0.0s
+[2026-11-25 07:37:21.720][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:37:21.720][c1/t110]   4 windows of 10 s
+[2026-11-25 07:37:22.762][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/41096-kupreanof/report_card.png (1087 ms)
+[2026-11-25 07:37:22.762][c0/t401] Report card worker idle
+[2026-11-25 07:38:14.305][c1/t110]   STT time: 52.5s
+[2026-11-25 07:38:14.305][c1/t110]   Transcription: AND I DON'T KNOW THERE BY THE IT IS INTEREST AH ABOUT I'VE GOT AWAY WELL AFTER YOU TWO
+[2026-11-25 07:38:14.305][c1/t110] Detecting command...
+[2026-11-25 07:38:14.306][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:38:14.308][c1/t110] No command detected.
+[2026-11-25 07:38:14.308][c0/t401] Report card: 44865-galveston-capsize
+[2026-11-25 07:38:14.308][c1/t110] --- Processing: /home/exp/clips/46250-star-king.wav ---
+[2026-11-25 07:38:14.308][c1/t110] Reading audio: /home/exp/clips/46250-star-king.wav
+[2026-11-25 07:38:14.469][c1/t110]   16000 Hz, 3635712 samples (227.232s)
+[2026-11-25 07:38:14.531][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:38:14.598][c1/t110]   3635712 samples, DSP time: 0.0s
+[2026-11-25 07:38:14.598][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:38:14.598][c1/t110]   23 windows of 10 s
+[2026-11-25 07:38:15.381][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/44865-galveston-capsize/report_card.png (1072 ms)
+[2026-11-25 07:38:15.381][c0/t401] Report card worker idle
+[2026-11-25 07:44:36.340][c1/t110]   STT time: 381.7s
+[2026-11-25 07:44:36.340][c1/t110]   Transcription: YOU SEE VESSEL DISTRESS IS THE COAST GARDEN CHANNEL SIXTEEN WHAT IS YOUR POSITION AND NATURE OF DISTRESS OVER SIXTEEN POINT SEVEN FIVE ONE TWENTY FOUR ZERO SEVEN POINT NINE ZERO WERE IN A MEANS OF DISTRESS UTO RUN AWAY BOATS IN THE AREAS SO LEAGUER IN AGE IS ONE BLESS PLEASE COME BACK ROGER CAPS ONLY PERSON DRAW ON BOARD YOUR VESSEL AND WHAT IS IT A STRAP WHAT'S GOING ON THAT'S THE CALL IN INDISTRESS THIS IS A COASTGUARD HEAVY PERSONS ARE ON BOARD YOUR VESSEL OVER WE ARE FIVE HE'LL BE FIVE HE'LL BE ROGER CAPTAIN FIVE PERSONS ON BOARD IN WHAT IS THE NATURE OF DISTRESS AND WHAT IS THE DESCRIPTION OF YOUR VESSEL BESTON DISTRESSED AS TO THE COASTGUARD CAPTAIN WHAT IS THE NATURE OF YOUR DISTRESS AND PLEASE DESCRIBE YOUR VESSEL OVER WE'RE A FIFTY BUT IT'S STEAL THE BOAT WHERE I GOT A HARP CAPTAIN ALICK PETER A FIFTY SIX FOOT STEEL VESSEL WHAT IS THE DESCRIPTION OF YOUR DISTRESS OVER NOW WE GOT A HARD STARVE OR GLEN I JUST STARTED LIST AND HARD WENT ALL THE WAY OVER ENGINES NO POWER I SEE SOME LIGHTS HERE I NEED SOME MILL RIGHT AWAY ROGER CAPTAIN ARE YOU TAKEN ON WATER OVER ROGER ROGER TAKE IT ON ONE AND AGAIN A FORTY SIXTEEN IT'S LATER RENEE I'LL EAT AROUND WITH COMING BACK GOT YOU THERE I THINK I SEE YOU RIGHT THEN AWAY THE WAY YOW CAME OVER FORTY SIX SEVEN WHY ONE TWENTY FOUR O EIGHT POINT THREE ONE GUN DOWN HERE VESS LL TAKE IT ON WATER IF YOU PUT ON ALL YOUR LIVE JACKETS OR SURV JACKETS OVER VESSEL TAKEN ON WATER THIS IS THE COASTGUARD CAPTAIN HAVE YOU DONNED YOUR LIVE JACKETS OR SURVIVAL SUITS OVER TO THE VESSEL THAT IS TURNING AROUND TO GO HELP THE VESSEL LESS TAKEN ON WATERS TO THE COASTGUARD ON ONE SIX YAH FIFTY GOT THE LATTERIN EH HOUR FORTY SIX SEVENTEEN SEVENTY THREE INDUST WE'RE HEAD THAT WAY NOT SHORT'S BOAT IS TO FIVE ROSE ROGER FISHING VESSEL LADY RENEE I GOT YOUR POSITION AND ENTER IN ROBBS YOU KNOW HOW LONG WILL TAKE YOU TOGETHER I'M GOT SOME TEN MINUTES FISHING VES AWAY RENEE TO THE COAST GOD ROBBER CAP AND KEEP US UP DATED ON MY KEEPING CALL OUT TO THIS VESSEL A GREAT BREAK VESSEL THAT IS TAKEN ON WATER BEST LESS TAKEN ON WATERS TO THE COASTGUARD ON ONE SIX DO YOU REPEAT THE READINGS WORTHY ABOAT THAT WAS THINKING THE WHATEVER IS TAKEN ON WATER COULD YOU REPEAT THEM READING PON PAWN PONTON PON PAWN ALL STATIONS ALL STATIONS THIS IS COASTGUARD SECTOR COLUMBI RIVER COASTGUARD SPECTOR CLEVER AT TIME ZURE FOUR FIFTY ONE LOCAL TWELVE FIFTY ONE GRENTS MEANTIME THE COAST GOT TO SEE REPORT OF A FIFTY SIX FOOT WHEEL VESSEL LISTING HARDER STARBOARD POSSIBLY TAKEN ON WATER WITH FIVE PERSONS ON BOARD AND LAST POSSIBLE POSITION FOUR SIX ONE SIXTH DECIMAL TWO SEVEN FIVE NORTH FIVE ONE TWO FOUR ZERO SEVEN DECIMAL NINE ERR WEST
+[2026-11-25 07:44:36.340][c1/t110] Detecting command...
+[2026-11-25 07:44:36.347][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:44:36.347][c1/t110]   Command [HELP]: 1 (exact=1, approx=0)
+[2026-11-25 07:44:36.347][c1/t110]   Command [LISTING]: 1 (exact=1, approx=0)
+[2026-11-25 07:44:36.348][c1/t110]   Command [AGROUND]: 2 (exact=0, approx=2)
+[2026-11-25 07:44:36.348][c1/t110]   Command [FIRE]: 8 (exact=0, approx=8)
+[2026-11-25 07:44:36.348][c1/t110]   Command [PAN PAN]: 2 (exact=0, approx=2)
+[2026-11-25 07:44:36.348][c1/t110]   Command [SOS]: 1 (exact=0, approx=1)
+[2026-11-25 07:44:36.358][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:44:36.358][c0/t401] Report card: 46250-star-king
+[2026-11-25 07:44:36.359][c1/t110] --- Processing: /home/exp/clips/46887-surfside-fire.wav ---
+[2026-11-25 07:44:36.359][c1/t110] Reading audio: /home/exp/clips/46887-surfside-fire.wav
+[2026-11-25 07:44:36.372][c1/t110]   16000 Hz, 234893 samples (14.6808s)
+[2026-11-25 07:44:36.377][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:44:36.383][c1/t110]   234893 samples, DSP time: 0.0s
+[2026-11-25 07:44:36.383][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:44:36.383][c1/t110]   2 windows of 10 s
+[2026-11-25 07:44:37.537][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/46250-star-king/report_card.png (1179 ms)
+[2026-11-25 07:44:37.538][c0/t401] Report card worker idle
+[2026-11-25 07:45:01.185][c1/t110]   STT time: 24.8s
+[2026-11-25 07:45:01.185][c1/t110]   Transcription: MADE A MAY DAY MATE AIM MAY DAY VESSEL IN DISTRESS MISSUS COSEGART'S YOUR USING GALVIS AND WHAT IS YOUR POSITION IN NATURE OF DISTRESS OVER YET THERE WERE ABOUT THE FIVE SIX NAUTICAL MILES A OFF THE THREE PORTENTS AND WE'RE ON FIRE
+[2026-11-25 07:45:01.186][c1/t110] Detecting command...
+[2026-11-25 07:45:01.187][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:45:01.187][c1/t110]   Command [FIRE]: 2 (exact=1, approx=1)
+[2026-11-25 07:45:01.187][c1/t110]   Command [MAY DAY]: 2 (exact=2, approx=0)
+[2026-11-25 07:45:01.188][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:45:01.188][c0/t401] Report card: 46887-surfside-fire
+[2026-11-25 07:45:01.189][c1/t110] --- Processing: /home/exp/clips/48097-oahu-sailboat.wav ---
+[2026-11-25 07:45:01.189][c1/t110] Reading audio: /home/exp/clips/48097-oahu-sailboat.wav
+[2026-11-25 07:45:01.216][c1/t110]   16000 Hz, 572604 samples (35.7878s)
+[2026-11-25 07:45:01.226][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:45:01.237][c1/t110]   572604 samples, DSP time: 0.0s
+[2026-11-25 07:45:01.238][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:45:01.238][c1/t110]   4 windows of 10 s
+[2026-11-25 07:45:02.282][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/46887-surfside-fire/report_card.png (1093 ms)
+[2026-11-25 07:45:02.282][c0/t401] Report card worker idle
+[2026-11-25 07:46:01.663][c1/t110]   STT time: 60.4s
+[2026-11-25 07:46:01.663][c1/t110]   Transcription: WHAT I KNOW NOW WHAT'S GOIN TO GO DOWN IN SOMETHING ABOUT EIGHT MILES UP DON'T BE NEEDLE THUS I'LL CALL AN END AS IS THE COASTGUARD ROGER COPY YOUR SWAMP THE RIGHT NOW AND YOU'VE GOT TO BE GOIN DOWN SHORTLY OVER WE GOT SOME AH WE DON'T SHIVE ALLEY NOW BY IT YOUR BOUT WELL GO NOW SHUNNY WHY DO WE GOT I'VE GOT ALONG ALL I COULD GIVE YOU MY DEAR BOY
+[2026-11-25 07:46:01.664][c1/t110] Detecting command...
+[2026-11-25 07:46:01.665][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:46:01.665][c1/t110]   Command [GOING DOWN]: 1 (exact=0, approx=1)
+[2026-11-25 07:46:01.668][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:46:01.668][c0/t401] Report card: 48097-oahu-sailboat
+[2026-11-25 07:46:01.668][c1/t110] --- Processing: /home/exp/clips/53901-captain-billy-haver.wav ---
+[2026-11-25 07:46:01.668][c1/t110] Reading audio: /home/exp/clips/53901-captain-billy-haver.wav
+[2026-11-25 07:46:01.836][c1/t110]   16000 Hz, 3841344 samples (240.084s)
+[2026-11-25 07:46:01.902][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:46:01.975][c1/t110]   3841344 samples, DSP time: 0.0s
+[2026-11-25 07:46:01.975][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:46:01.976][c1/t110]   24 windows of 10 s
+[2026-11-25 07:46:02.761][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/48097-oahu-sailboat/report_card.png (1093 ms)
+[2026-11-25 07:46:02.762][c0/t401] Report card worker idle
+[2026-11-25 07:52:45.358][c1/t110]   STT time: 403.3s
+[2026-11-25 07:52:45.358][c1/t110]   Transcription: AND THAT HE'LL GOT THEM ANYHOW AND I WILL GO ON AND BESSFUL CONQUERS OF COQUERASSET WITHOUT THESE INTENSE IT SEEMED TO HIM AND ECHO AND COQUET BUT THERE DID NOT BE UNDER THEME AND VESSEL CALLING CONQUERORS COOKER LIKE YOURSELFTHY TEN O SIXTEEN GO HIGH CAPTAIN DEVIL CAPTAIN RETURNED THE BODY OF IT AND UPWARD HE'S THAT CAN BE AVER YOU COME IN THERE WHO GAVE THEM TO BEHAVIOR TO THE COACH MARTIN CAPTAIN CAPTAIN GODHEAD THIS IS THE COX CART FISHY WRESTLE CALLING THE COASTGUARD THE COAST GARD I HAVE BEEN CHAPTER SIXTEEN YEA I READ EM ROUND AND CLEAR FROM MAR FORTY DEGREES THIRTY SIX MONTHS SIXTY NINE ONE HUNDRED ONES AND CAPTAIN BILLY HAIGER THIS IS THE MERRISQUE KENSINGTON TURNING ONE SIXTH GOETHE NO AND I AM AND SEE IF I SHOULD AS LITTLE PERSECUTED SOMETHING TO SEE WHAT IS YOUR PERDITIONS RISE HE SAID GOOD BYE WHAT DID IT CRY TO MAKE A GARDEN WE MADE OUT ANY BY HAIR WITH HIM TWO VESSEL IS SHUT FROM THE SUNSHINE OF SIXTEEN VOIDED FOR THE CHINE OF ASSURRETON NO MAN I'M MY BROTHER DIDN'T IT I ER FORTY THAT'S THE MORE DOIN FOR NO I'VE THERE ALL DAYS NINE WET TWENTY THEN THERE'S NINE DEATH AN O TWENTY FIVE AND WET CAN EVEN HEAR ME AND A FORTY THREE FOR A NORTH CYRIL SIX NINETY TWENTY SEVEN AWAY SEVEN SO MANY PERSONS ON FORGED YOUR VASS OFF NOR YOU THE DOOR BY ONE OF HIS GRIM HAMMERS WHEN I GRANZY AND HE THOUGHT HENS HE BIN DAM WITH A HAMMER THERE ARE YOU NOT THREE MEN TO THINGS RIGHT NOW WHEN I CAN WAKE EM UP I BELIEVE BUT I GOT THE MAN HAS ON TOP ENOUGH HE'S ON THAT ONE FRIEND HE'S ON THE RING AHEAD NOW HE'S ALREADY CUT THE INTENDER FOR BUNTING OUT SIX CAPTAIN RODGE A COPY ON ALL CAN'T GET A DESCRIPTION OF YOUR VESSAULT THE LANTH AN MAKES THE COLLAR
+[2026-11-25 07:52:45.358][c1/t110] Detecting command...
+[2026-11-25 07:52:45.363][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:52:45.364][c1/t110]   Command [FIRE]: 1 (exact=0, approx=1)
+[2026-11-25 07:52:45.364][c1/t110]   Command [SOS]: 1 (exact=0, approx=1)
+[2026-11-25 07:52:45.374][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:52:45.375][c0/t401] Report card: 53901-captain-billy-haver
+[2026-11-25 07:52:45.375][c1/t110] --- Processing: /home/exp/clips/56367-netarts-pwc.wav ---
+[2026-11-25 07:52:45.375][c1/t110] Reading audio: /home/exp/clips/56367-netarts-pwc.wav
+[2026-11-25 07:52:45.379][c1/t110]   16000 Hz, 68963 samples (4.31019s)
+[2026-11-25 07:52:45.381][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:52:45.383][c1/t110]   68963 samples, DSP time: 0.0s
+[2026-11-25 07:52:45.383][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:52:46.548][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/53901-captain-billy-haver/report_card.png (1173 ms)
+[2026-11-25 07:52:46.548][c0/t401] Report card worker idle
+[2026-11-25 07:52:52.809][c1/t110]   STT time: 7.4s
+[2026-11-25 07:52:52.809][c1/t110]   Transcription: MAY DAY MAY DAY MAY DAY JETS HERE DOWN
+[2026-11-25 07:52:52.809][c1/t110] Detecting command...
+[2026-11-25 07:52:52.810][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:52:52.810][c1/t110]   Command [MAY DAY]: 3 (exact=3, approx=0)
+[2026-11-25 07:52:52.811][c1/t110] Command detected (operation=detect)
+[2026-11-25 07:52:52.811][c0/t401] Report card: 56367-netarts-pwc
+[2026-11-25 07:52:52.811][c1/t110] --- Processing: /home/exp/clips/87205-molokai.wav ---
+[2026-11-25 07:52:52.811][c1/t110] Reading audio: /home/exp/clips/87205-molokai.wav
+[2026-11-25 07:52:52.826][c1/t110]   16000 Hz, 302976 samples (18.936s)
+[2026-11-25 07:52:52.832][c1/t110] Resampling to 16 kHz...
+[2026-11-25 07:52:52.838][c1/t110]   302976 samples, DSP time: 0.0s
+[2026-11-25 07:52:52.838][c1/t110] Transcribing (modified_beam_search)...
+[2026-11-25 07:52:52.838][c1/t110]   2 windows of 10 s
+[2026-11-25 07:52:53.835][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/56367-netarts-pwc/report_card.png (1023 ms)
+[2026-11-25 07:52:53.835][c0/t401] Report card worker idle
+[2026-11-25 07:53:25.641][c1/t110]   STT time: 32.8s
+[2026-11-25 07:53:25.641][c1/t110]   Transcription: MANY YEARS IS BETTER HUNTER HO MISTAKEN I LEOL POINT MOTHER PIE ME LIZZIS I'M MANY IS I MORE KIND I HO HA
+[2026-11-25 07:53:25.641][c1/t110] Detecting command...
+[2026-11-25 07:53:25.642][c1/t110]   Wake word: 0 (exact=0, approx=0)
+[2026-11-25 07:53:25.643][c1/t110] No command detected.
+[2026-11-25 07:53:25.643][c0/t401] Report card: 87205-molokai
+[2026-11-25 07:53:25.643][c1/t110] Unloading STT model...
+[2026-11-25 07:53:25.810][c1/t110] STT model unloaded
+[2026-11-25 07:53:25.810][c1/t110] STT model released, VmRSS 41188 kB
+[2026-11-25 07:53:26.696][c0/t401] Report card: /home/exp/toGround/distress-00001/zipformer-small-int8/87205-molokai/report_card.png (1052 ms)
+[2026-11-25 07:53:26.696][c0/t401] Report card worker idle
+[2026-11-25 07:53:26.697][c1/t110] Report cards: 13 written
+[2026-11-25 07:53:26.697][c1/t110] Peak memory (VmHWM): 173688 kB
+[2026-11-25 07:53:26.698][c1/t110] Total time: 1419.3s
+[2026-11-25 07:53:26.698][c1/t110] === Done ===

@@ -1,0 +1,13 @@
+=== PRETTY DOOMed Summary ===
+
+Input: /home/exp/clips/87205-molokai.wav
+Transcription: MANY YEARS IS BETTER HUNTER HO MISTAKEN I LEOL POINT MOTHER PIE ME LIZZIS I'M MANY IS I MORE KIND I HO HA
+
+Detection:
+  Wake word (MAYDAY):
+    Exact: 0 []
+    Approximate: 0 []
+
+Total points: 0 (exact=0, approx=0)
+
+Result: No command detected

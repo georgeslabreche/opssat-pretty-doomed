@@ -1,0 +1,40 @@
+run: distress-00001
+start_utc: 2026-11-25 07:29:42
+version: 8-distress-v1
+models: zipformer-small-int8
+clips: /home/exp/clips
+clip_names: all
+timeout_s: 0
+uname: Linux exp-4023 4.9.0 #7 SMP Fri Nov 12 13:21:34 UTC 2021 armv7l Linux
+MemTotal:        1027320 kB
+MemAvailable:     990432 kB
+SwapTotal:             0 kB
+disk_kb: overlay               26278140  12218736  12679872  49% /home/exp
+sha256:
+00e664d1e0d88f3664f140b081496d8229e96845fbc0292503bac85e424e1715  pretty-doomed
+574bc59c777339ae763ba162f3c2dfe57a06d2d129b325b10c8ce744e7e92d4a  run
+ab02b763f7291ca68c013c32c71ec8d7e3723afa73f3a1f5a03f015e0373adf8  run.cfg
+1bbb1e2d2ed85741d780faec54179e6713d27694fc107363421fd512edb2a442  config.distress.parakeet-0.6b-v2-int8-t2.cfg
+12b5ac742a909dacf81bb96e132a1520582ad266b105f518659b7105bc6f3a41  config.distress.parakeet-0.6b-v2-int8-w5.cfg
+19ddc764c71799eec6f28d253290685c32ea7688f095d1b2fad00e5005e09ba2  config.distress.parakeet-0.6b-v2-int8.cfg
+5e39f5ef61a5bdcef8a7211087a2f0aede315fd857e0cbfddb4e865abd765e16  config.distress.parakeet-110m-int8.cfg
+4ffe4e54dcc7ae42a9c78174bcce3b4e035232265730e04dda63aab7b09e5144  config.distress.zipformer-small-int8.cfg
+3a6ac78a31cc2c60ca8c1e2e2f43c878fbbcaf051ada4900e0a42ef8ba53d375  models/sherpa-onnx/small/encoder-epoch-99-avg-1.int8.onnx
+1621a13eaa7f6fc52380f025ee2a6a05b56a87754ab5a0f4f580a3928f3467a2  models/sherpa-onnx/small/decoder-epoch-99-avg-1.onnx
+6b183b6ec656e4d3ca6b86d0aeca992dac14df80aae6b416d7c068d0ff2bd4d7  models/sherpa-onnx/small/joiner-epoch-99-avg-1.int8.onnx
+49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb  models/sherpa-onnx/small/tokens.txt
+clip_files:
+521bc56a803b8ee27bffb9a77a3e4411fe6f0cbf7c1444ccca4bbc1d84b28186  ./34749-imagination.wav
+ab196088bf901e176dc8877e78705d9cdbfaaf25942cdd46a3d40fdbba27c4a1  ./35098-midnite-sun-relay.wav
+16176b766ffdf5e33598818c71758eae41e5fc95bdf2e7850a2db2961e5552ba  ./35135-double-time.wav
+5c596d8085b5e23e00a948c86e302d539086683b30cf0b9cd6fd824f085c4d26  ./35628-miss-yalanda.wav
+02f492859f588556d4ccb6b653a864f611cb52bb3eb6af0aefbfc903d87de7d6  ./37977-bainbridge-skiff.wav
+97978d2ef51d43ec32cd8a82d1e74d6afd1dec2d65e67ec1402ce49c40b7af06  ./41096-kupreanof.wav
+4696a7edfe8207a65911ed4ec9a2e6b4f86414f1574fad1968760545bab8522e  ./44865-galveston-capsize.wav
+918b99dcacd3c94f28e48806cf7d721b0a7bb508a60fbe718093de16063a2ab5  ./46250-star-king.wav
+e89f514cb0c9e954cd8127a40494c12402bffbb82a16db8a601b637f2c52d2df  ./46887-surfside-fire.wav
+e6d55d1ebce4bb1f28e5b1202197e946d5cee57844b22ed05c0c0ad1aefb8b9b  ./48097-oahu-sailboat.wav
+c5fdf29056f3e26c70ed9541c87ca8b63f717589e8b8197ae7126bb6f4bada8d  ./53901-captain-billy-haver.wav
+9fa5b6885855ffac8bb94b013d49a42e196f02807b0d62ec7dc048721200015d  ./56367-netarts-pwc.wav
+28e246642a3cbe7b98371f0fca6ed471172949787237680eab50ceb276e1f401  ./87205-molokai.wav
+end_utc: 2026-11-25 07:53:26

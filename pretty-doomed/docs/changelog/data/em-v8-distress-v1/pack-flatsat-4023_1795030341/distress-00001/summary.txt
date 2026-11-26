@@ -1,0 +1,14 @@
+Distress run distress-00001: 8-distress-v1
+clips: 37977-bainbridge-skiff 56367-netarts-pwc
+
+config                     exit  wall_s   load_s clips  audio_s     stt_s     rtf  peak_mib detected
+zipformer-small-int8          0      35     18.4     2      8.8      14.7   1.679       119     2/2
+parakeet-110m-int8            0      35     17.1     2      8.8      16.4   1.872       207     2/2
+parakeet-0.6b-v2-int8-w5      0     111     44.5     2      8.8      64.3   7.345       729     2/2
+parakeet-0.6b-v2-int8         0     112     45.6     2      8.8      64.1   7.323       729     2/2
+parakeet-0.6b-v2-int8-t2      0      89     47.4     2      8.8      40.0   4.577       729     2/2
+
+STT time per clip (s):
+clip                          audio_s       zipformer-small-int8         parakeet-110m-int8   parakeet-0.6b-v2-int8-w5      parakeet-0.6b-v2-int8   parakeet-0.6b-v2-int8-t2
+37977-bainbridge-skiff           4.44                       7.43                       8.27                      32.42                      32.34                      19.64
+56367-netarts-pwc                4.31                       7.26                       8.11                      31.85                      31.74                      20.41

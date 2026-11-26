@@ -19,10 +19,15 @@ Ground truth and model comparison for the distress call evaluation (issue #142).
 | `fetch_models.sh` | Downloads each model in `models.tsv`, checks its SHA-256, and extracts it. |
 | `models/` | Output of `fetch_models.sh`. Gitignored. |
 | `requirements.txt` | Pinned Python packages for `transcribe.py`. |
-| `transcribe.py` | Transcribes each clip with each model. Writes the output, the real-time factor, and the peak memory to `results/`. |
+| `transcribe.py` | Transcribes each clip with each model. Writes the output, the real-time factor, and the peak memory to `results/`, in the output directory. |
 | `scoring.py` | The scoring rules: normalization, alignment, WER per speaker, and phrase matching. Python standard library only. |
 | `score.py` | Scores the outputs in `results/` against the references. Writes `per_clip.tsv`, `summary.tsv`, and `RESULTS.md`. |
-| `results/` | Model outputs and scores. |
+| `window_sweep.sh` | Scores Parakeet 0.6B v2 with 5, 10, 15, and 30 s windows. Writes `results/window-sweep/`. |
+| `run_binary.sh` | Runs the pretty-doomed binary with the EM configs on the ground, in Docker. Writes `results/binary-<model>/`. |
+| `import_em.py` | Imports an EM run (`toGround/distress-NNNNN/`) into `results/em-<model>/`. `--label` and `--machine` name an emulator run. |
+| `report.py` | Report of one EM or emulator run, with figures: the thread timeline with per-core CPU and memory (`plot_resource.py`, the figure of the DOOM runs), peak memory, the report cards made on board, speed, and accuracy. Writes `reports/<label>/`. |
+| `mem_headroom.py` | Free memory of the SEPP in past EM and flight runs, and the margin of each distress config. Writes the tables of `results/MEMORY.md`. |
+| Output directory | [`pretty-doomed/docs/distress/`](../../pretty-doomed/docs/distress/): `results/` (model outputs and scores) and `reports/` (emulator run reports). The scripts write there by default. Only source code and input data are in `tools/distress/`. |
 | `tests/` | Unit tests for `scoring.py`. |
 
 ## Clips
@@ -47,6 +52,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python transcribe.py  # writes results/<model>/
 python3 score.py                # writes results/per_clip.tsv, summary.tsv, and RESULTS.md
 python3 -m unittest discover -s tests
+./window_sweep.sh               # writes results/window-sweep/
+./run_binary.sh                 # writes results/binary-<model>/ (needs Docker)
+python3 import_em.py <toGround/distress-NNNNN>   # writes results/em-<model>/
 ```
 
 `prepare_clips.sh` requires `shasum` and `ffmpeg`, and `curl` for a clip that is not in `clips/`. To add a clip, add a row to `clips.tsv` and run `build_manifest.py`, then `prepare_clips.sh`, and commit the new MP3. A SHA-256 that changes on a page check means that DVIDS replaced a file. Keep the committed file, and record the change in the manifest.
@@ -111,6 +119,39 @@ A phrase matches a run of whole words in the normalized model output. Only "mayd
 
 A model word gets the speaker of the reference word that it aligns with. An extra model word gets the speaker of the reference word before it. This is the same rule as for the WER.
 
-`transcribe.py` cuts each clip into 30 s windows, because the Parakeet models do not accept long audio. It uses one thread, as on the flight. The Zipformer models use `modified_beam_search`, as on the flight, and the Parakeet models use `greedy_search`. The real-time factor and the memory are from the machine that runs the script, not from the payload computer.
+`transcribe.py` cuts each clip into 10 s windows (`--window`), because the Parakeet models do not accept long audio, and because the memory of Parakeet 0.6B v2 grows with the window length. The EM has about 990 MB free. The window length is set by this memory limit, not by the scores. `window_sweep.sh` records the scores for other window lengths. It uses one thread, as on the flight. The Zipformer models use `modified_beam_search`, as on the flight, and the Parakeet models use `greedy_search`. The real-time factor and the memory are from the machine that runs the script, not from the payload computer.
 
 The flight binary uses sherpa-onnx 1.12.21. There is no Python package of that version for all platforms, so `requirements.txt` pins 1.13.8. The test of the flight binary itself is issue #148.
+
+## Ground binary and EM runs
+
+The EM package (`pretty-doomed/distress/`) runs the pretty-doomed binary, not `transcribe.py`. `run_binary.sh` runs the same binary source with the same configs and the same sherpa-onnx version (1.13.8) on the ground. Thus `results/binary-<model>` against `results/em-<model>` shows the effect of the EM hardware only, and `results/binary-<model>` against `results/<model>` shows the effect of the binary (its WAV reader and resampler) only.
+
+The binary must use sherpa-onnx 1.13.5 or later. With the Parakeet models, sherpa-onnx 1.12.21 (the v8 version) to 1.13.4 gives an empty text for some windows. For example, the first two 30 s windows of the Star King clip give no text, and the WER of Parakeet 0.6B v2 goes from 0.32 to 0.59. The Zipformer models are not affected.
+
+`results/emu-<model>` and `results/emu1g-<model>` are runs of the EM package on the SEPP emulator (ARM32 under QEMU, see `pretty-doomed/docs/TESTING.md`). `emu1g` has a 1 GB memory limit, the memory of the EM. All configs complete all 13 clips. The peak memory of Parakeet 0.6B v2 is 869 MB with 10 s windows and 821 MB with 5 s windows, with the memory of QEMU included, against 1401 MB and 1307 MB on arm64. Thus the 10 s config fits the EM. The WER and the recall on ARM32 are approximately the same as on arm64. The run times of the emulator are not the EM run times.
+
+The free memory of the SEPP (MemAvailable at the start of a run) is 939 MiB to 970 MiB in 18 EM runs and 964 MiB to 968 MiB in 7 flight runs (`results/MEMORY.md`, from `mem_headroom.py`). MemTotal is 1003 MiB on both. The margin of Parakeet 0.6B v2 with 10 s windows is 70 MiB to 100 MiB, and with 5 s windows 118 MiB to 149 MiB. A trivial process under QEMU uses 7 MiB, so the emulator peaks are close to the peaks on the SEPP.
+
+`reports/emu/` and `reports/emu1g/` in the output directory are the reports of the two emulator runs:
+
+```sh
+.venv/bin/python report.py <toGround/distress-NNNNN> --label emu --free-from EM
+```
+
+`--free-from EM` uses the median free memory at the start of the past EM runs, measured by `mem_headroom.py` from their `resource.csv` files, because on the emulator `resource.csv` shows the Docker VM. For an EM run, omit `--free-from`: the report then uses MemAvailable at the start of the run, from its own `resource.csv`.
+
+### EM runs
+
+The EM runs are recorded as all the EM runs of the experiment: the report is a section of [`pretty-doomed/docs/changelog/RESULT.md`](../../pretty-doomed/docs/changelog/RESULT.md), and the data and the figures are in `pretty-doomed/docs/changelog/data/em-v8-distress-v1/<SMILE pack>/`. The data directory has the downlinked `distress-NNNNN/` directory, the systemd journal of the run (`journal.log`), the scored results (`results/`, with copies of the ground `binary-*` runs), and the figures `distress-NNNNN-*.png`. The report cards are in `distress-NNNNN/<model>/<clip>/report_card.png`.
+
+To make the scores and the figures of an EM run (here the first run, `pack-flatsat-4023_1795030341`):
+
+```sh
+P=../../pretty-doomed/docs/changelog/data/em-v8-distress-v1/pack-flatsat-4023_1795030341
+mkdir -p $P/results && cp -r ../../pretty-doomed/docs/distress/results/binary-* $P/results/
+python3 import_em.py $P/distress-00001 --label em --machine "EM (OPS-SAT PRETTY SEPP flatsat)" --results $P/results
+python3 score.py --results $P/results
+python3 report.py $P/distress-00001 --label em --results $P/results --out <scratch dir>
+for f in timeline-and-resource run_time peak_memory rtf accuracy; do cp "<scratch dir>/$f.png" "$P/distress-00001-${f//_/-}.png"; done
+```

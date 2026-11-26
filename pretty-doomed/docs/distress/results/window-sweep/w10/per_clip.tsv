@@ -1,0 +1,14 @@
+model	clip	wer_excluded	ship_words	all_words	wer_ship	wer_all	detected_ship	detected_whole	phrases_ship	phrases_whole	rtf
+parakeet-0.6b-v2-int8	34749-imagination	no	54	194	0.500	0.546	no	no			0.0981
+parakeet-0.6b-v2-int8	35098-midnite-sun-relay	no	72	92	0.250	0.217	yes	yes	grounded,mayday	grounded,mayday	0.0989
+parakeet-0.6b-v2-int8	35135-double-time	no	83	133	0.301	0.376	yes	yes	mayday	mayday,taking on water	0.0995
+parakeet-0.6b-v2-int8	35628-miss-yalanda	no	19	19	0.211	0.211	yes	yes	going down,mayday	going down,mayday	0.097
+parakeet-0.6b-v2-int8	37977-bainbridge-skiff	no	3	3	0.000	0.000	yes	yes	mayday	mayday	0.0955
+parakeet-0.6b-v2-int8	41096-kupreanof	no	19	19	0.368	0.368	yes	yes	mayday,taking on water	mayday,taking on water	0.1044
+parakeet-0.6b-v2-int8	44865-galveston-capsize	yes	3	3	14.333	14.333	yes	yes	mayday	mayday	0.102
+parakeet-0.6b-v2-int8	46250-star-king	no	197	534	0.228	0.167	yes	yes	going down,help,sinking	going down,help,listing,sinking,taking on water	0.0992
+parakeet-0.6b-v2-int8	46887-surfside-fire	no	22	41	0.182	0.146	yes	yes	fire,mayday	fire,mayday	0.1
+parakeet-0.6b-v2-int8	48097-oahu-sailboat	no	62	84	0.145	0.143	yes	yes	going down	going down	0.097
+parakeet-0.6b-v2-int8	53901-captain-billy-haver	no	272	397	0.250	0.315	yes	yes	mayday	mayday	0.0977
+parakeet-0.6b-v2-int8	56367-netarts-pwc	no	6	6	0.500	0.500	yes	yes	mayday	mayday	0.1059
+parakeet-0.6b-v2-int8	87205-molokai	no	27	27	0.556	0.556	yes	yes	mayday,sinking	mayday,sinking	0.0965
