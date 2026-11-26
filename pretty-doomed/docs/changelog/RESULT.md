@@ -101,8 +101,6 @@ Thread timeline, per-core CPU, and memory, with the memory of the pretty-doomed 
 
 ![Distress v1 EM session 2](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-timeline-and-resource.png)
 
-![Peak memory](data/em-v8-distress-v1/pack-flatsat-4023_1795593207/distress-00001-peak-memory.png)
-
 The 13 report cards drawn on board are in `distress-00001/zipformer-small-int8/<clip>/report_card.png`. The comparative figures follow when all the chunks are done.
 
 ### Verdict
